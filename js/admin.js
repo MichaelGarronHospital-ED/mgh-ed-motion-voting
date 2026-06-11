@@ -236,13 +236,23 @@ function renderVoters() {
   paintVoters(d.poll, d.votes);
 }
 function paintVoters(poll, votes) {
-  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots. Flagged rows = same name voted from 2+ devices.`;
+  // Detect one device (session) used to vote under MORE THAN ONE name.
+  const sessionToSlugs = {};
+  votes.forEach((v) => (v.sessionIds || []).forEach((s) => {
+    (sessionToSlugs[s] = sessionToSlugs[s] || new Set()).add(v.slug);
+  }));
+  const sharedDevice = new Set();
+  Object.values(sessionToSlugs).forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
+  const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
+
+  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review. Flags: same name from 2+ devices, or one device used for multiple names.`;
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
     const ew = effectiveWeight(v);
     const g = v.isWriteIn ? "write-in" : groupLabel(effectiveGroup(v.slug));
-    return `<tr class="${v.flagged ? "flagged" : ""}">
-      <td>${escapeHtml(v.name)} ${v.flagged ? '<span class="pill flag">REVIEW</span>' : ""}${v.isWriteIn ? '<span class="pill draft">NEW</span>' : ""}</td>
+    const shared = sharedDevice.has(v.slug);
+    return `<tr class="${v.flagged || shared ? "flagged" : ""}">
+      <td>${escapeHtml(v.name)} ${v.flagged ? '<span class="pill flag">REVIEW</span>' : ""}${shared ? '<span class="pill flag">SHARED DEVICE</span>' : ""}${v.isWriteIn ? '<span class="pill draft">NEW</span>' : ""}</td>
       <td>${g}</td>
       <td>${fmt(ew)}</td>
       <td>${labelOf(v.choice)}</td>

@@ -113,15 +113,23 @@ function wirePicker() {
     }
   });
 }
-function setVoter(v) { me = v; localStorage.setItem("ed_voter", JSON.stringify(v)); render(); }
+function setVoter(v) {
+  if (deviceBound() && deviceBound() !== v.slug) { toast("This device has already voted."); return; }
+  me = v; localStorage.setItem("ed_voter", JSON.stringify(v)); render();
+}
+function deviceBound() { return localStorage.getItem("ed_bound"); }
 
 // ---- vote tab --------------------------------------------------------------
 function voteBody() {
   // Every voter — including courtesy / write-ins — sees the same ballot. The
   // weighting (0 for courtesy) is applied behind the scenes; leadership sees it
   // in the Voters table, but it is never surfaced to the voter.
+  // Once any vote is cast on this device it is locked to that person, so you
+  // can't switch names and vote again. (Correcting a mis-tap is only possible
+  // before your first vote.)
+  const bound = deviceBound();
   const head = `<div class="spread"><span class="muted">Voting as <strong>${escapeHtml(me.name)}</strong></span>
-    <a href="#" id="change-name" class="sub">Not you?</a></div>`;
+    ${bound ? `<span class="sub">🔒 locked to this device</span>` : `<a href="#" id="change-name" class="sub">Not you?</a>`}</div>`;
   if (activePoll) {
     const mine = activeVotes.find((v) => v.slug === me.slug);
     return head + `
@@ -168,7 +176,9 @@ function wireVoter() {
     t.addEventListener("click", () => { voterTab = t.dataset.vtab; render(); }));
   const cn = document.getElementById("change-name");
   if (cn) cn.addEventListener("click", (e) => {
-    e.preventDefault(); localStorage.removeItem("ed_voter"); me = null; voterTab = "vote"; render();
+    e.preventDefault();
+    if (deviceBound()) { toast("This device is locked after voting."); return; }
+    localStorage.removeItem("ed_voter"); me = null; voterTab = "vote"; render();
   });
   document.querySelectorAll("button[data-c]").forEach((b) =>
     b.addEventListener("click", () => submit(b.dataset.c)));
@@ -180,7 +190,9 @@ async function submit(choice) {
     const rp = me.isWriteIn ? { group: me.group, weight: me.weight } : resolvedPerson(me.slug);
     await castVote({ pollId: activePoll.id, name: me.name, slug: me.slug, group: rp.group,
       weight: rp.weight, isWriteIn: me.isWriteIn, choice, sessionId });
+    localStorage.setItem("ed_bound", me.slug);   // lock this device to this person
     toast("Vote recorded: " + labelOf(choice));
+    render();
   } catch (e) { console.error(e); toast("Could not record vote — try again."); }
 }
 
