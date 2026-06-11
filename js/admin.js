@@ -28,7 +28,7 @@ document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
     t.classList.add("active");
-    ["share", "motions", "results", "voters"].forEach((name) =>
+    ["share", "motions", "results", "voters", "roster"].forEach((name) =>
       $("tab-" + name).classList.toggle("hide", name !== t.dataset.tab));
   }));
 
@@ -56,6 +56,16 @@ function boot() {
     toast("Motion added");
   });
   $("export").addEventListener("click", exportCsv);
+
+  // ---- roster summary (static) ----
+  const g1 = ROSTER.filter((p) => p.group === "1").length;
+  const g2 = ROSTER.filter((p) => p.group === "2").length;
+  const cy = ROSTER.filter((p) => p.group === "courtesy").length;
+  $("roster-counts").innerHTML =
+    `Group 1 (1 pt): <strong>${g1}</strong> &nbsp;·&nbsp; Group 2 (½ pt): <strong>${g2}</strong> &nbsp;·&nbsp; Courtesy (0): <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${ELIGIBLE_COUNT}</strong> &nbsp;·&nbsp; Quorum: <strong>${QUORUM_THRESHOLD}</strong>`;
+  renderRoster("");
+  $("roster-filter").addEventListener("input", (e) => renderRoster(e.target.value));
+  $("export-roster").addEventListener("click", exportRoster);
 
   onPolls((p) => {
     polls = p;
@@ -283,7 +293,27 @@ function exportCsv() {
   a.click();
 }
 
+// ----------------------------------------------------------------- roster summary
+function renderRoster(filter) {
+  const f = (filter || "").trim().toLowerCase();
+  const list = ROSTER.filter((p) => p.name.toLowerCase().includes(f));
+  const rows = list.map((p) =>
+    `<tr><td>${escapeHtml(p.name)}</td><td>${catLabel(p.group)}</td><td>${fmt(p.weight)}</td></tr>`).join("");
+  $("roster-table").innerHTML =
+    `<thead><tr><th>Name</th><th>Category</th><th>Points / vote</th></tr></thead><tbody>${rows || `<tr><td colspan="3" class="muted">No match.</td></tr>`}</tbody>`;
+}
+function exportRoster() {
+  const lines = ["Name,Category,Points per vote"];
+  ROSTER.forEach((p) => lines.push([csv(p.name), catLabel(p.group), p.weight].join(",")));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "physician-roster.csv";
+  a.click();
+}
+
 // ----------------------------------------------------------------- utils
+function catLabel(g){return g==="1"?"Group 1":g==="2"?"Group 2":g==="courtesy"?"Courtesy":g;}
 function groupLabel(g){return g==="1"?"Group 1 (1)":g==="2"?"Group 2 (½)":g==="courtesy"?"Courtesy (0)":g;}
 function labelOf(c){return c==="favour"?"In favour":c==="against"?"Against":c==="abstain"?"Abstain":c;}
 function fmt(n){return Number.isInteger(n)?n:Number(n).toFixed(1);}

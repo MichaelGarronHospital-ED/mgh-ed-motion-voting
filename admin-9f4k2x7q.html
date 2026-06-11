@@ -31,6 +31,7 @@
       <div class="tab" data-tab="motions">Motions</div>
       <div class="tab" data-tab="results">Live results</div>
       <div class="tab" data-tab="voters">Voters</div>
+      <div class="tab" data-tab="roster">Summary</div>
     </div>
 
     <!-- SHARE -->
@@ -71,6 +72,19 @@
       <p class="sub" id="voters-note"></p>
       <div style="max-height:60vh; overflow:auto;">
         <table id="voters-table"></table>
+      </div>
+    </section>
+
+    <!-- ROSTER SUMMARY -->
+    <section id="tab-roster" class="card hide">
+      <div class="spread">
+        <h2 style="margin:0;">Physician summary</h2>
+        <button id="export-roster" class="btn accent small">Export CSV</button>
+      </div>
+      <p class="sub" id="roster-counts"></p>
+      <input id="roster-filter" type="text" placeholder="Filter by name…" autocomplete="off" style="margin-bottom:10px;" />
+      <div style="max-height:60vh; overflow:auto;">
+        <table id="roster-table"></table>
       </div>
     </section>
   </div>
