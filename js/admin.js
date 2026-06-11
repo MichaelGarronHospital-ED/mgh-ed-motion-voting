@@ -49,6 +49,8 @@ let activeVotes = [];
 let votesUnsub = null;
 let editingId = null;       // motion currently being edited (only allowed before first vote)
 let selectedPollId = null;  // Results/Voters: which motion to view (null = current/open)
+let archivedExpanded = false;  // Archived + Trash cards are collapsed by default
+let trashExpanded = false;
 
 function boot() {
   // share tab
@@ -99,18 +101,31 @@ function renderMotions() {
   let html = active.length ? active.map(motionRow).join("")
     : `<p class="muted">No motions yet. Add Friday's motions above.</p>`;
   if (archived.length) {
-    html += `<h2 style="margin:22px 0 8px;">Archived <span class="muted">(${archived.length})</span></h2>
-      <p class="sub">Kept for reference, hidden from voters. Unarchive to view full results again.</p>`;
-    html += archived.map(archivedRow).join("");
+    html += collapsibleCard("arch", "📁 Archived", archived.length, archivedExpanded,
+      "Kept for reference, hidden from voters. Unarchive to view full results again.",
+      archived.map(archivedRow).join(""));
   }
   if (trashed.length) {
-    html += `<h2 style="margin:22px 0 8px;">Trash <span class="muted">(${trashed.length})</span></h2>
-      <p class="sub">Deleted motions are kept here and hidden from voters. Restore to bring one back, or delete permanently.</p>`;
-    html += trashed.map(trashedRow).join("");
+    html += collapsibleCard("trash", "🗑️ Trash", trashed.length, trashExpanded,
+      "Deleted motions are kept here and hidden from voters. Restore one, or delete permanently.",
+      trashed.map(trashedRow).join(""));
   }
   el.innerHTML = html;
   el.querySelectorAll("button[data-act]").forEach((b) =>
     b.addEventListener("click", () => motionAction(b.dataset.act, b.dataset.id)));
+  const ah = $("arch-header"); if (ah) ah.addEventListener("click", () => { archivedExpanded = !archivedExpanded; renderMotions(); });
+  const th = $("trash-header"); if (th) th.addEventListener("click", () => { trashExpanded = !trashExpanded; renderMotions(); });
+}
+
+// A collapsed card with a clickable header; expands to reveal blurb + rows.
+function collapsibleCard(id, title, count, expanded, blurb, rowsHtml) {
+  return `<div class="card" style="margin-top:18px; background:var(--card2);">
+    <div class="spread" id="${id}-header" style="cursor:pointer; user-select:none;">
+      <strong>${title} <span class="muted">(${count})</span></strong>
+      <span class="muted">${expanded ? "▾ hide" : "▸ show"}</span>
+    </div>
+    ${expanded ? `<div style="margin-top:10px;"><p class="sub">${blurb}</p>${rowsHtml}</div>` : ""}
+  </div>`;
 }
 
 function motionRow(p) {
