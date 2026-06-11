@@ -25,4 +25,4 @@ export const ADMIN_PASSCODE = "edleadership";
 export const QUORUM_THRESHOLD = 24;
 
 // ---- 4. Branding ----------------------------------------------------------
-export const ORG_NAME = "Emergency Medicine — Motion Voting";
+export const ORG_NAME = "MGH ED - Motion Voting";

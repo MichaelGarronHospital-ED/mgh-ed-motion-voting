@@ -1,6 +1,6 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
 import { ORG_NAME, QUORUM_THRESHOLD } from "./config.js";
-import { onPolls, onVotesFor, castVote, getSessionId, tally } from "./db.js";
+import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson } from "./db.js";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -17,6 +17,7 @@ const resultSubs = new Map();                  // pollId -> unsub (closed motion
 const resultData = new Map();                  // pollId -> votes[]
 
 // ---- data subscriptions ----------------------------------------------------
+onRosterOverrides(() => {});   // keep current categories loaded so votes weight correctly
 onPolls((p) => {
   polls = p;
   const open = polls.find((x) => x.status === "open" && !x.archived) || null;
@@ -174,8 +175,11 @@ function wireVoter() {
 }
 async function submit(choice) {
   try {
-    await castVote({ pollId: activePoll.id, name: me.name, slug: me.slug, group: me.group,
-      weight: me.weight, isWriteIn: me.isWriteIn, choice, sessionId });
+    // resolve the voter's CURRENT category/weight at submit time (reflects any
+    // leadership edits); write-ins keep their 0-weight snapshot.
+    const rp = me.isWriteIn ? { group: me.group, weight: me.weight } : resolvedPerson(me.slug);
+    await castVote({ pollId: activePoll.id, name: me.name, slug: me.slug, group: rp.group,
+      weight: rp.weight, isWriteIn: me.isWriteIn, choice, sessionId });
     toast("Vote recorded: " + labelOf(choice));
   } catch (e) { console.error(e); toast("Could not record vote — try again."); }
 }

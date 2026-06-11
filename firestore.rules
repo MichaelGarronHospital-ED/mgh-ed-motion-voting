@@ -11,5 +11,9 @@ service cloud.firestore {
         allow read, write: if true;
       }
     }
+    // editable roster category overrides (config/roster)
+    match /config/{doc} {
+      allow read, write: if true;
+    }
   }
 }

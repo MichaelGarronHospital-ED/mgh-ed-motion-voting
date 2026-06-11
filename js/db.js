@@ -7,7 +7,7 @@ import {
   onSnapshot, query, orderBy, runTransaction, serverTimestamp, getDocs, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
-import { ROSTER_BY_SLUG } from "./roster.js";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -37,6 +37,36 @@ export function onPolls(cb) {
 export function onVotesFor(pollId, cb) {
   return onSnapshot(collection(db, "polls", pollId, "votes"), (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+// ---- roster category overrides --------------------------------------------
+// Editable from the leadership console and saved in Firestore (config/roster)
+// so changes persist and sync to everyone. roster.js holds the defaults.
+let overrideGroups = {};
+export function onRosterOverrides(cb) {
+  return onSnapshot(doc(db, "config", "roster"), (snap) => {
+    overrideGroups = (snap.exists() && snap.data().groups) || {};
+    if (cb) cb(overrideGroups);
+  });
+}
+export async function setPersonGroup(slug, group) {
+  await setDoc(doc(db, "config", "roster"), { groups: { [slug]: group } }, { merge: true });
+}
+export function effectiveGroup(slug) {
+  if (overrideGroups[slug]) return overrideGroups[slug];
+  const base = ROSTER_BY_SLUG[slug];
+  return base ? base.group : "writein";
+}
+export function resolvedPerson(slug) {
+  const g = effectiveGroup(slug);
+  return { group: g, weight: WEIGHTS[g] !== undefined ? WEIGHTS[g] : 0 };
+}
+// Full roster with overrides applied (for the leadership Summary tab).
+export function resolvedRoster() {
+  return ROSTER.map((p) => {
+    const g = overrideGroups[p.slug] || p.group;
+    return { ...p, group: g, weight: WEIGHTS[g] };
   });
 }
 
@@ -125,10 +155,12 @@ export async function clearVote(pollId, voteId) {
 
 // ---- shared tally logic ----------------------------------------------------
 export function effectiveWeight(v) {
-  if (typeof v.weightOverride === "number") return v.weightOverride;
-  if (typeof v.weight === "number") return v.weight;
-  const r = ROSTER_BY_SLUG[v.slug];
-  return r ? r.weight : 0;
+  if (typeof v.weightOverride === "number") return v.weightOverride;   // per-vote override
+  const og = overrideGroups[v.slug];
+  if (og) return WEIGHTS[og];                                          // current category override
+  const base = ROSTER_BY_SLUG[v.slug];
+  if (base) return base.weight;                                        // roster default
+  return typeof v.weight === "number" ? v.weight : 0;                  // write-in snapshot
 }
 
 export function tally(votes) {

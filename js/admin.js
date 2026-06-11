@@ -3,6 +3,7 @@ import { ROSTER, ELIGIBLE_COUNT } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, deletePoll, openPoll, closePoll,
   setVoteWeight, clearVote, tally, effectiveWeight, setArchived,
+  onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
 } from "./db.js";
 
 const $ = (id) => document.getElementById(id);
@@ -56,15 +57,12 @@ function boot() {
   });
   $("export").addEventListener("click", exportCsv);
 
-  // ---- roster summary (static) ----
-  const g1 = ROSTER.filter((p) => p.group === "1").length;
-  const g2 = ROSTER.filter((p) => p.group === "2").length;
-  const cy = ROSTER.filter((p) => p.group === "courtesy").length;
-  $("roster-counts").innerHTML =
-    `Full vote: <strong>${g1}</strong> &nbsp;·&nbsp; Half vote: <strong>${g2}</strong> &nbsp;·&nbsp; No vote: <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${ELIGIBLE_COUNT}</strong> &nbsp;·&nbsp; Quorum: <strong>${QUORUM_THRESHOLD}</strong>`;
-  renderRoster("");
-  $("roster-filter").addEventListener("input", (e) => renderRoster(e.target.value));
+  // ---- roster summary (editable, persisted in Firestore) ----
+  $("roster-filter").addEventListener("input", (e) => { rosterFilter = e.target.value; renderRosterTab(); });
   $("export-roster").addEventListener("click", exportRoster);
+  // category changes re-weight everything live
+  onRosterOverrides(() => { renderRosterTab(); renderResults(); renderVoters(); });
+  renderRosterTab();
 
   onPolls((p) => {
     polls = p;
@@ -242,7 +240,7 @@ function paintVoters(poll, votes) {
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
     const ew = effectiveWeight(v);
-    const g = v.isWriteIn ? "write-in" : groupLabel(v.group);
+    const g = v.isWriteIn ? "write-in" : groupLabel(effectiveGroup(v.slug));
     return `<tr class="${v.flagged ? "flagged" : ""}">
       <td>${escapeHtml(v.name)} ${v.flagged ? '<span class="pill flag">REVIEW</span>' : ""}${v.isWriteIn ? '<span class="pill draft">NEW</span>' : ""}</td>
       <td>${g}</td>
@@ -274,7 +272,7 @@ function exportCsv() {
   const lines = [header.join(",")];
   [...list].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => {
     lines.push([
-      csv(v.name), v.isWriteIn ? "write-in" : groupLabel(v.group), effectiveWeight(v),
+      csv(v.name), v.isWriteIn ? "write-in" : groupLabel(effectiveGroup(v.slug)), effectiveWeight(v),
       v.choice, v.submissionCount || 1, v.flagged ? "YES" : "", v.isWriteIn ? "YES" : "",
     ].join(","));
   });
@@ -293,17 +291,34 @@ function exportCsv() {
 }
 
 // ----------------------------------------------------------------- roster summary
-function renderRoster(filter) {
-  const f = (filter || "").trim().toLowerCase();
-  const list = ROSTER.filter((p) => p.name.toLowerCase().includes(f));
-  const rows = list.map((p) =>
-    `<tr><td>${escapeHtml(p.name)}</td><td>${catLabel(p.group)}</td><td>${fmt(p.weight)}</td></tr>`).join("");
+let rosterFilter = "";
+function renderRosterTab() {
+  const roster = resolvedRoster();
+  const g1 = roster.filter((p) => p.group === "1").length;
+  const g2 = roster.filter((p) => p.group === "2").length;
+  const cy = roster.filter((p) => p.group === "courtesy").length;
+  $("roster-counts").innerHTML =
+    `Full vote: <strong>${g1}</strong> &nbsp;·&nbsp; Half vote: <strong>${g2}</strong> &nbsp;·&nbsp; No vote: <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${g1 + g2}</strong> &nbsp;·&nbsp; Quorum: <strong>${QUORUM_THRESHOLD}</strong>`;
+
+  const f = rosterFilter.trim().toLowerCase();
+  const list = roster.filter((p) => p.name.toLowerCase().includes(f));
+  const rows = list.map((p) => {
+    const btn = (g, l) => `<button class="btn ghost small ${p.group === g ? "selected" : ""}" data-setgrp="${g}" data-slug="${p.slug}">${l}</button>`;
+    return `<tr>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${catLabel(p.group)}</td>
+      <td>${fmt(p.weight)}</td>
+      <td>${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</td>
+    </tr>`;
+  }).join("");
   $("roster-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th>Points / vote</th></tr></thead><tbody>${rows || `<tr><td colspan="3" class="muted">No match.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category</th><th>Pts</th><th>Set category</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="muted">No match.</td></tr>`}</tbody>`;
+  $("roster-table").querySelectorAll("button[data-setgrp]").forEach((b) =>
+    b.addEventListener("click", () => setPersonGroup(b.dataset.slug, b.dataset.setgrp).then(() => toast("Category updated."))));
 }
 function exportRoster() {
   const lines = ["Name,Category,Points per vote"];
-  ROSTER.forEach((p) => lines.push([csv(p.name), catLabel(p.group), p.weight].join(",")));
+  resolvedRoster().forEach((p) => lines.push([csv(p.name), catLabel(p.group), p.weight].join(",")));
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
