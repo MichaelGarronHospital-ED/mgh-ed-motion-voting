@@ -39,7 +39,9 @@
       <h2>Send voters here</h2>
       <p class="muted">Screen-share this QR code in the meeting, or share the link. Voters scan → pick their name → vote. No chat needed.</p>
       <div class="center" style="margin:18px 0;">
-        <canvas id="qr"></canvas>
+        <img id="qr" src="voter-qr.png" alt="QR code to the voter link"
+             width="260" height="260"
+             style="background:#fff; padding:10px; border-radius:12px;" />
       </div>
       <label>Voting link</label>
       <div class="row">
@@ -98,7 +100,6 @@
   </div>
 
   <div id="toast" class="toast hide"></div>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script type="module" src="js/admin.js"></script>
 </body>
 </html>

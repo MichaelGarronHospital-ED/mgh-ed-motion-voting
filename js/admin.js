@@ -43,7 +43,6 @@ function boot() {
   // share tab
   const url = location.origin + location.pathname.replace(/[^/]*$/, "") + "index.html";
   $("vote-url").value = url;
-  if (window.QRCode) QRCode.toCanvas($("qr"), url, { width: 240, margin: 1 }, () => {});
   $("copy-url").addEventListener("click", () => { navigator.clipboard.writeText(url); toast("Link copied"); });
   $("roster-summary").textContent =
     `${ROSTER.length} physicians on the roster · ${ELIGIBLE_COUNT} eligible to vote · quorum = ${QUORUM_THRESHOLD} (50% of eligible would be ${Math.ceil(ELIGIBLE_COUNT / 2)}).`;
