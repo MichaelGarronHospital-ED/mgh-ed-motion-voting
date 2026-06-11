@@ -21,7 +21,7 @@ function startData() {
   onRosterOverrides(() => {});   // keep current categories loaded so votes weight correctly
   onPolls((p) => {
     polls = p;
-    const open = polls.find((x) => x.status === "open" && !x.archived) || null;
+    const open = polls.find((x) => x.status === "open" && !x.archived && !x.deleted) || null;
     const prev = activePoll;
     const changed = (prev && prev.id) !== (open && open.id);
     // Auto-navigate the voter: to the result when the open motion closes,
@@ -44,7 +44,7 @@ function startData() {
 anonSignIn().catch((e) => console.warn("anon auth unavailable, continuing:", e && e.code)).finally(startData);
 
 function syncResultSubs() {
-  const closedIds = new Set(polls.filter((p) => p.status === "closed" && !p.archived).map((p) => p.id));
+  const closedIds = new Set(polls.filter((p) => p.status === "closed" && !p.archived && !p.deleted).map((p) => p.id));
   // tear down subs we no longer need
   for (const [id, unsub] of resultSubs) {
     if (voterTab !== "results" || !closedIds.has(id)) { unsub(); resultSubs.delete(id); resultData.delete(id); }
@@ -161,7 +161,7 @@ function voteBody() {
 
 // ---- results tab (numbers hidden from voters) ------------------------------
 function resultsBody() {
-  const closed = polls.filter((p) => p.status === "closed" && !p.archived).reverse();   // newest first
+  const closed = polls.filter((p) => p.status === "closed" && !p.archived && !p.deleted).reverse();   // newest first
   if (!closed.length) return `<div class="card"><p class="muted center" style="padding:16px 0;">No results yet. Closed motions will appear here.</p></div>`;
   return closed.map(resultCard).join("");
 }

@@ -138,7 +138,7 @@ export async function addPoll(text) {
   const order = existing.size;
   const ref = doc(pollsCol);
   await setDoc(ref, {
-    text: text.trim(), order, status: "draft", voteCount: 0, archived: false,
+    text: text.trim(), order, status: "draft", voteCount: 0, archived: false, deleted: false,
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -154,8 +154,15 @@ export async function setArchived(pollId, archived) {
   await updateDoc(doc(db, "polls", pollId), { archived });
 }
 
-export async function deletePoll(pollId) {
-  // delete the votes subcollection first
+// Soft delete → moves a motion to the Trash (recoverable). Restore undoes it.
+export async function trashPoll(pollId) {
+  await updateDoc(doc(db, "polls", pollId), { deleted: true });
+}
+export async function restorePoll(pollId) {
+  await updateDoc(doc(db, "polls", pollId), { deleted: false });
+}
+// Permanent delete (from the Trash) — removes the motion and all its votes.
+export async function purgePoll(pollId) {
   const vs = await getDocs(collection(db, "polls", pollId, "votes"));
   await Promise.all(vs.docs.map((d) => deleteDoc(d.ref)));
   await deleteDoc(doc(db, "polls", pollId));

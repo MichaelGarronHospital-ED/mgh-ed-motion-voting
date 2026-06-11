@@ -1,7 +1,7 @@
 import { ADMIN_PASSCODE, ORG_NAME } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 import {
-  onPolls, onVotesFor, addPoll, updatePoll, deletePoll, openPoll, closePoll,
+  onPolls, onVotesFor, addPoll, updatePoll, trashPoll, restorePoll, purgePoll, openPoll, closePoll,
   clearVote, tally, setArchived, weightForVote, groupForVote,
   onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
   eligibleCount, quorumThreshold,
@@ -76,7 +76,7 @@ function boot() {
 
   onPolls((p) => {
     polls = p;
-    const open = polls.find((x) => x.status === "open") || null;
+    const open = polls.find((x) => x.status === "open" && !x.deleted) || null;
     const changed = (activePoll && activePoll.id) !== (open && open.id);
     activePoll = open;
     if (changed) {
@@ -93,14 +93,20 @@ function boot() {
 // ----------------------------------------------------------------- motions
 function renderMotions() {
   const el = $("motion-list");
-  const active = polls.filter((p) => !p.archived);
-  const archived = polls.filter((p) => p.archived);
+  const active = polls.filter((p) => !p.archived && !p.deleted);
+  const archived = polls.filter((p) => p.archived && !p.deleted);
+  const trashed = polls.filter((p) => p.deleted);
   let html = active.length ? active.map(motionRow).join("")
     : `<p class="muted">No motions yet. Add Friday's motions above.</p>`;
   if (archived.length) {
     html += `<h2 style="margin:22px 0 8px;">Archived <span class="muted">(${archived.length})</span></h2>
       <p class="sub">Kept for reference, hidden from voters. Unarchive to view full results again.</p>`;
     html += archived.map(archivedRow).join("");
+  }
+  if (trashed.length) {
+    html += `<h2 style="margin:22px 0 8px;">Trash <span class="muted">(${trashed.length})</span></h2>
+      <p class="sub">Deleted motions are kept here and hidden from voters. Restore to bring one back, or delete permanently.</p>`;
+    html += trashed.map(trashedRow).join("");
   }
   el.innerHTML = html;
   el.querySelectorAll("button[data-act]").forEach((b) =>
@@ -135,7 +141,15 @@ function archivedRow(p) {
     <div class="text"><span class="pill draft">ARCHIVED</span> ${escapeHtml(p.text)}</div>
     <div class="row">
       <button class="btn ghost small" data-act="unarchive" data-id="${p.id}">Unarchive</button>
-      <button class="btn danger small" data-act="del" data-id="${p.id}">Delete</button>
+    </div>
+  </div>`;
+}
+function trashedRow(p) {
+  return `<div class="poll-item">
+    <div class="text"><span class="pill draft">TRASHED</span> ${escapeHtml(p.text)}</div>
+    <div class="row">
+      <button class="btn ghost small" data-act="restore" data-id="${p.id}">Restore</button>
+      <button class="btn danger small" data-act="purge" data-id="${p.id}">Delete permanently</button>
     </div>
   </div>`;
 }
@@ -165,10 +179,16 @@ async function motionAction(act, id) {
     await updatePoll(id, { text });
     editingId = null; toast("Motion updated.");
   } else if (act === "del") {
+    if (confirm("Move this motion to Trash? It's hidden from voters but you can restore it from the Trash section below.")) {
+      await trashPoll(id); toast("Moved to Trash.");
+    }
+  } else if (act === "restore") {
+    await restorePoll(id); toast("Motion restored.");
+  } else if (act === "purge") {
     const poll = polls.find((p) => p.id === id);
     const n = poll && poll.voteCount ? poll.voteCount : 0;
     if (confirm(`Permanently delete this motion${n ? ` and its ${n} recorded vote(s)` : ""}? This cannot be undone.`)) {
-      await deletePoll(id); toast("Motion deleted.");
+      await purgePoll(id); toast("Permanently deleted.");
     }
   }
 }
@@ -181,14 +201,15 @@ async function motionAction(act, id) {
 function displayPoll() {
   if (selectedPollId) {
     const p = polls.find((x) => x.id === selectedPollId);
-    if (p) return p;
+    if (p && !p.deleted) return p;
   }
-  return activePoll || [...polls].reverse().find((p) => p.status === "closed" && !p.archived) || null;
+  return activePoll || [...polls].reverse().find((p) => p.status === "closed" && !p.archived && !p.deleted) || null;
 }
 function motionSelectorHTML() {
-  if (!polls.length) return "";
+  const choosable = polls.filter((p) => !p.deleted);
+  if (!choosable.length) return "";
   const opts = [`<option value="">Current / open motion (auto)</option>`].concat(
-    polls.map((p) => {
+    choosable.map((p) => {
       const tag = p.archived ? "📦 " : p.status === "open" ? "🟢 " : p.status === "closed" ? "✓ " : "✎ ";
       const short = p.text.length > 60 ? p.text.slice(0, 60) + "…" : p.text;
       return `<option value="${p.id}" ${p.id === selectedPollId ? "selected" : ""}>${tag}${escapeHtml(short)}</option>`;
