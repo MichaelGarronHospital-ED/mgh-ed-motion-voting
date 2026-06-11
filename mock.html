@@ -98,13 +98,14 @@ function voterHTML(){
   const tabs = `<div class="tabs">
     <div class="tab ${voterTab==='vote'?'active':''}" onclick="setVoterTab('vote')">Vote</div>
     <div class="tab ${voterTab==='results'?'active':''}" onclick="setVoterTab('results')">Results</div></div>`;
-  const body = voterTab==="vote" ? `<div class="card">${voterVote()}</div>` : voterResults();
+  // Must select a name before either tab is usable.
+  const body = (!me || voterTab==="vote") ? `<div class="card">${voterVote()}</div>` : voterResults();
   const html = `<div class="device"><div class="wrap">
       <h1>Emergency Medicine — Motion Voting</h1>
       <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p>
       ${tabs}${body}
     </div><p class="urlbar">your-name.github.io/ed-motion-voting/</p></div>`;
-  return html + ((voterTab==="vote" && !me) ? afterNames() : "");
+  return html + (!me ? afterNames() : "");
 }
 function setVoterTab(t){ voterTab=t; render(); }
 function afterNames(){ setTimeout(()=>renderNames(""),0); return ""; }
@@ -113,7 +114,7 @@ function voterVote(){
   const open = polls.find(p=>p.status==="open");
   if(!me){
     return `
-      <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and reviewed for duplicates.</div>
+      <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and reviewed for duplicates. You must select your name to vote or view results.</div>
       <label>Find your name</label>
       <input id="search" type="text" placeholder="Start typing your name…" oninput="renderNames(this.value)" autocomplete="off"/>
       <ul id="namelist" class="namelist"></ul>
@@ -150,16 +151,17 @@ function voterResults(){
   return closed.map(voterResultCard).join("");
 }
 function voterResultCard(poll){
+  // Pass/fail and bar widths are computed from points, but the raw point and
+  // vote NUMBERS are intentionally hidden from voters for now.
   const t=tally(votes[poll.id]); const met=t.quorumCount>=QUORUM; const pass=met && t.weight.favour>t.weight.against;
   const outcome = !met ? `<span class="result-noq">NO QUORUM</span>` : pass?`<span class="result-pass">PASSED ✅</span>`:`<span class="result-fail">DID NOT PASS ❌</span>`;
   const max=Math.max(t.weight.favour,t.weight.against,t.weight.abstain,1);
-  const bar=(k,l)=>`<div class="bar-row"><div class="bar-label"><span>${l}</span><span>${fmt(t.weight[k])} pts · ${t.count[k]} ${t.count[k]===1?"vote":"votes"}</span></div><div class="bar-track"><div class="bar-fill ${k}" style="width:${t.weight[k]/max*100}%"></div></div></div>`;
+  const bar=(k,l)=>`<div class="bar-row"><div class="bar-label"><span>${l}</span></div><div class="bar-track"><div class="bar-fill ${k}" style="width:${t.weight[k]/max*100}%"></div></div></div>`;
   return `<div class="card">
     <span class="pill closed">● CLOSED</span>
     <h2 style="margin:8px 0">${esc(poll.text)}</h2>
     <p class="center" style="font-size:1.4rem;font-weight:800;margin:6px 0">${outcome}</p>
     <div class="bars">${bar("favour","In favour")}${bar("against","Against")}${bar("abstain","Abstain")}</div>
-    <p class="center sub ${met?"quorum-ok":"quorum-bad"}">Quorum ${t.quorumCount} / ${QUORUM} ${met?"met":"not met"}</p>
   </div>`;
 }
 
