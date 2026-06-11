@@ -1,15 +1,15 @@
 // ============================================================================
 //  ROSTER — assignments taken from "MGH ED VOTING SHEET.xlsx" (2026-06-11).
 //
-//    GROUP1   = 1 point per vote   (Active staff, 8+ shifts/month) — 33 voters
+//    GROUP1   = 1 point per vote   (Active staff, 8+ shifts/month) — 34 voters
 //    GROUP2   = ½ point per vote   (Active <8 shifts / Provisional / secondary) — 14 voters
-//    COURTESY = no vote            (on the team roster but NOT on the voting sheet) — 28
+//    COURTESY = no vote            (on the team roster but NOT on the voting sheet) — 26
 //
-//  Eligible to vote (Group 1 + Group 2) = 47  →  50% = 23.5  →  quorum = 24.
+//  Eligible to vote (Group 1 + Group 2) = 48  →  50% = 24  →  quorum = 24.
+//  (Courtesy list pending confirmation by leadership; some may move to Group 1/2.)
 //
 //  ⚠️ NAME NOTES (voting sheet vs Teams list) — confirm these are the same people
 //  and that the displayed name is what each person will look for:
-//    • "Jack Hickey" (Teams)  — sheet says "Hickey, Zachary"
 //    • "Meg Reynolds"         — sheet "Reynolds, Megan"
 //    • "Kyle Vojdani"         — sheet "Vojdani, Omid Kyle"
 //    • "Indy Sahota"          — sheet "Sahota, Inderjeet"
@@ -33,7 +33,6 @@ export const GROUP1 = [
   "David Sheps",
   "David Smith",
   "George Porfiris",
-  "Jack Hickey",
   "Jason Lam",
   "Jefferson Hayre",
   "Karen Ho",
@@ -44,6 +43,7 @@ export const GROUP1 = [
   "Lingli Ma",
   "Lisa Ballinger",
   "Manpreet Lamba",
+  "Marlee Klaiman",
   "Meg Reynolds",
   "Michael Charnish",
   "Muneesh Jha",
@@ -54,6 +54,7 @@ export const GROUP1 = [
   "Tania Philip",
   "Tom Klosek",
   "Walter Himmel",
+  "Zachary Hickey",
 ];
 
 export const GROUP2 = [
@@ -77,7 +78,6 @@ export const COURTESY = [
   "Adil Shamji",
   "Alex Chan",
   "Alx Florea",
-  "Amanda Fitzgibbon",
   "Andrea Lo",
   "Andrew Maeng",
   "Brandon Lam",
@@ -91,7 +91,6 @@ export const COURTESY = [
   "Lucas Mastropaolo",
   "Luke Kyne",
   "Maria Leis",
-  "Marlee Klaiman",
   "Matthew Skelly",
   "Nicole Falzone",
   "Nima Farkhani",
