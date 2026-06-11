@@ -19,7 +19,7 @@ const resultData = new Map();                  // pollId -> votes[]
 // ---- data subscriptions ----------------------------------------------------
 onPolls((p) => {
   polls = p;
-  const open = polls.find((x) => x.status === "open") || null;
+  const open = polls.find((x) => x.status === "open" && !x.archived) || null;
   const changed = (activePoll && activePoll.id) !== (open && open.id);
   activePoll = open;
   if (changed) {
@@ -31,7 +31,7 @@ onPolls((p) => {
 });
 
 function syncResultSubs() {
-  const closedIds = new Set(polls.filter((p) => p.status === "closed").map((p) => p.id));
+  const closedIds = new Set(polls.filter((p) => p.status === "closed" && !p.archived).map((p) => p.id));
   // tear down subs we no longer need
   for (const [id, unsub] of resultSubs) {
     if (voterTab !== "results" || !closedIds.has(id)) { unsub(); resultSubs.delete(id); resultData.delete(id); }
@@ -138,7 +138,7 @@ function voteBody() {
 
 // ---- results tab (numbers hidden from voters) ------------------------------
 function resultsBody() {
-  const closed = polls.filter((p) => p.status === "closed");
+  const closed = polls.filter((p) => p.status === "closed" && !p.archived);
   if (!closed.length) return `<div class="card"><p class="muted center" style="padding:16px 0;">No results yet. Closed motions will appear here.</p></div>`;
   return closed.map(resultCard).join("");
 }

@@ -2,7 +2,7 @@ import { ADMIN_PASSCODE, QUORUM_THRESHOLD, ORG_NAME } from "./config.js";
 import { ROSTER, ELIGIBLE_COUNT } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, deletePoll, openPoll, closePoll,
-  setVoteWeight, clearVote, tally, effectiveWeight,
+  setVoteWeight, clearVote, tally, effectiveWeight, setArchived,
 } from "./db.js";
 
 const $ = (id) => document.getElementById(id);
@@ -76,29 +76,50 @@ function boot() {
 // ----------------------------------------------------------------- motions
 function renderMotions() {
   const el = $("motion-list");
-  if (!polls.length) { el.innerHTML = `<p class="muted">No motions yet. Add Friday's motions above.</p>`; return; }
-  el.innerHTML = polls.map((p) => {
-    const locked = (p.voteCount || 0) > 0;   // edit allowed only before the first vote
-    if (editingId === p.id) {
-      return `<div class="poll-item"><div class="text" style="width:100%">
-        <textarea data-edit="${p.id}" style="margin-bottom:8px">${escapeHtml(p.text)}</textarea>
-        <div class="row"><button class="btn accent small" data-act="save" data-id="${p.id}">Save</button>
-          <button class="btn ghost small" data-act="cancel" data-id="${p.id}">Cancel</button></div></div></div>`;
-    }
-    const pill = `<span class="pill ${p.status}">${p.status.toUpperCase()}</span>`;
-    return `<div class="poll-item">
-      <div class="text">${pill} ${escapeHtml(p.text)}${locked ? `<span class="sub"> · 🔒 locked (voting started)</span>` : ""}</div>
-      <div class="row">
-        ${p.status !== "open"
-          ? `<button class="btn favour small" data-act="open" data-id="${p.id}">Open</button>`
-          : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
-        ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
-        ${!locked ? `<button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
-      </div>
-    </div>`;
-  }).join("");
+  const active = polls.filter((p) => !p.archived);
+  const archived = polls.filter((p) => p.archived);
+  let html = active.length ? active.map(motionRow).join("")
+    : `<p class="muted">No motions yet. Add Friday's motions above.</p>`;
+  if (archived.length) {
+    html += `<h2 style="margin:22px 0 8px;">Archived <span class="muted">(${archived.length})</span></h2>
+      <p class="sub">Kept for reference, hidden from voters. Unarchive to view full results again.</p>`;
+    html += archived.map(archivedRow).join("");
+  }
+  el.innerHTML = html;
   el.querySelectorAll("button[data-act]").forEach((b) =>
     b.addEventListener("click", () => motionAction(b.dataset.act, b.dataset.id)));
+}
+
+function motionRow(p) {
+  const locked = (p.voteCount || 0) > 0;   // edit allowed only before the first vote
+  if (editingId === p.id) {
+    return `<div class="poll-item"><div class="text" style="width:100%">
+      <textarea data-edit="${p.id}" style="margin-bottom:8px">${escapeHtml(p.text)}</textarea>
+      <div class="row"><button class="btn accent small" data-act="save" data-id="${p.id}">Save</button>
+        <button class="btn ghost small" data-act="cancel" data-id="${p.id}">Cancel</button></div></div></div>`;
+  }
+  const pill = `<span class="pill ${p.status}">${p.status.toUpperCase()}</span>`;
+  return `<div class="poll-item">
+    <div class="text">${pill} ${escapeHtml(p.text)}${locked ? `<span class="sub"> · 🔒 locked (voting started)</span>` : ""}</div>
+    <div class="row">
+      ${p.status !== "open"
+        ? `<button class="btn favour small" data-act="open" data-id="${p.id}">Open</button>`
+        : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
+      ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
+      ${p.status !== "open" ? `<button class="btn ghost small" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
+      ${!locked ? `<button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
+    </div>
+  </div>`;
+}
+
+function archivedRow(p) {
+  return `<div class="poll-item">
+    <div class="text"><span class="pill draft">ARCHIVED</span> ${escapeHtml(p.text)}</div>
+    <div class="row">
+      <button class="btn ghost small" data-act="unarchive" data-id="${p.id}">Unarchive</button>
+      <button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>
+    </div>
+  </div>`;
 }
 
 async function motionAction(act, id) {
@@ -109,6 +130,10 @@ async function motionAction(act, id) {
     toast("Motion opened — voters can now vote.");
   } else if (act === "close") {
     await closePoll(id); toast("Motion closed.");
+  } else if (act === "archive") {
+    await setArchived(id, true); toast("Motion archived.");
+  } else if (act === "unarchive") {
+    await setArchived(id, false); toast("Motion unarchived.");
   } else if (act === "edit") {
     editingId = id; renderMotions();
   } else if (act === "cancel") {
@@ -131,7 +156,7 @@ async function motionAction(act, id) {
 // Both the Results and Voters tabs read from this single subscription.
 let displayUnsub = null, displayId = null, displayVotes = [];
 function ensureDisplay() {
-  const poll = activePoll || [...polls].reverse().find((p) => p.status === "closed") || null;
+  const poll = activePoll || [...polls].reverse().find((p) => p.status === "closed" && !p.archived) || null;
   if (!poll) {
     if (displayUnsub) { displayUnsub(); displayUnsub = null; }
     displayId = null; displayVotes = [];

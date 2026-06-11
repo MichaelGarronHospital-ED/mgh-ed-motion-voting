@@ -77,7 +77,7 @@ export async function addPoll(text) {
   const order = existing.size;
   const ref = doc(pollsCol);
   await setDoc(ref, {
-    text: text.trim(), order, status: "draft", voteCount: 0,
+    text: text.trim(), order, status: "draft", voteCount: 0, archived: false,
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -85,6 +85,12 @@ export async function addPoll(text) {
 
 export async function updatePoll(pollId, patch) {
   await updateDoc(doc(db, "polls", pollId), patch);
+}
+
+// Archive = keep the motion + its votes for reference, but remove it from the
+// active list and from voters' view. Reversible via unarchive.
+export async function setArchived(pollId, archived) {
+  await updateDoc(doc(db, "polls", pollId), { archived });
 }
 
 export async function deletePoll(pollId) {
