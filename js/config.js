@@ -20,10 +20,12 @@ export const firebaseConfig = {
 export const ADMIN_PASSCODE = "edleadership";
 
 // Leadership identity for the (optional) Firebase-auth backend lockdown.
-// The admin page signs in to Firebase as this email using the passcode above
-// as the password. Create a matching Firebase Auth user (email + password =
-// ADMIN_PASSCODE) and put this same email in firestore.rules. See README.
-export const LEADER_EMAIL = "alvinyang@live.ca";
+// This is a SHARED account label — leadership only ever types the passcode;
+// this email is used silently as the Firebase username (nobody sees/types it).
+// It doesn't need to be a real inbox. Create a matching Firebase Auth user
+// (this email + password = ADMIN_PASSCODE) and keep it identical in
+// firestore.rules. See README.
+export const LEADER_EMAIL = "leadership@ed-motion-voting.app";
 
 // ---- 3. Quorum ------------------------------------------------------------
 // Minimum number of *eligible* voters (Group 1 + Group 2, i.e. weight > 0)
