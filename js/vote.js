@@ -1,6 +1,7 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
 import { ORG_NAME } from "./config.js";
 import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, anonSignIn, quorumThreshold } from "./db.js";
+import { escapeHtml, labelOf, toast } from "./util.js";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -221,11 +222,5 @@ async function submit(choice) {
     render();
   } catch (e) { console.error(e); toast("Could not record vote — try again."); }
 }
-
-// ---- utils -----------------------------------------------------------------
-function labelOf(c){return c==="favour"?"In favour":c==="against"?"Against":"Abstain";}
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
-let toastT;
-function toast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.remove("hide");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.add("hide"),2200);}
 
 render();

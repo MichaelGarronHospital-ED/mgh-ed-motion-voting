@@ -121,6 +121,3 @@ export const ROSTER = [
   .sort((a, b) => a.name.localeCompare(b.name));
 
 export const ROSTER_BY_SLUG = Object.fromEntries(ROSTER.map((p) => [p.slug, p]));
-
-// Number of eligible voters (weight > 0) — used to show "50% of eligible".
-export const ELIGIBLE_COUNT = ROSTER.filter((p) => p.weight > 0).length;

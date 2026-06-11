@@ -7,6 +7,7 @@ import {
   eligibleCount, quorumThreshold,
   watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
 } from "./db.js";
+import { escapeHtml, labelOf, fmt, csv, toast } from "./util.js";
 
 const $ = (id) => document.getElementById(id);
 document.title = ORG_NAME + " — Leadership";
@@ -216,10 +217,8 @@ async function motionAction(act, id) {
 }
 
 // ----------------------------------------------------------------- results
-// The "display poll" is the open motion, or else the most recent closed one.
-// Both the Results and Voters tabs read from this single subscription.
-// Which motion the Results/Voters tabs show: an explicit choice, else the open
-// motion, else the most recent (non-archived) closed one.
+// Which motion the Results/Voters tabs show: an explicit selection, else the
+// open motion, else the most recent (non-archived, non-deleted) closed one.
 function displayPoll() {
   if (selectedPollId) {
     const p = polls.find((x) => x.id === selectedPollId);
@@ -442,12 +441,6 @@ function exportRoster() {
   a.click();
 }
 
-// ----------------------------------------------------------------- utils
+// ----------------------------------------------------------------- category labels
 function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":"— (uncategorized)";}
 function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV
-function labelOf(c){return c==="favour"?"In favour":c==="against"?"Against":c==="abstain"?"Abstain":c;}
-function fmt(n){return Number.isInteger(n)?n:Number(n).toFixed(1);}
-function csv(s){return `"${String(s).replace(/"/g,'""')}"`;}
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
-let toastT;
-function toast(msg){const el=$("toast");el.textContent=msg;el.classList.remove("hide");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.add("hide"),2200);}

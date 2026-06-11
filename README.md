@@ -9,7 +9,7 @@ Static frontend on **GitHub Pages** + **Firebase Firestore** for real-time vote 
 
 Weights: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**. A motion
 passes when weighted *In favour* > weighted *Against*; abstentions count toward
-quorum only. Quorum default = **24** eligible voters.
+quorum only. Quorum is computed automatically as **50% of eligible voters**.
 
 ---
 
@@ -25,7 +25,7 @@ quorum only. Quorum default = **24** eligible voters.
 Edit [`js/config.js`](js/config.js):
 - Paste your `firebaseConfig`.
 - Change `ADMIN_PASSCODE` to something only leadership knows.
-- Confirm `QUORUM_THRESHOLD` (default 24).
+- (Quorum is automatic — 50% of eligible voters — nothing to configure.)
 
 Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COURTESY**.
 (Everyone starts in GROUP1 = 1 point. Provisional / <8 shifts / secondary-site → GROUP2. Courtesy → COURTESY.)
@@ -47,7 +47,7 @@ and quorum meter update live in the admin **Live results** tab.
 ## Running the meeting
 1. **Add all of Friday's motions** in advance (Motions tab).
 2. Share the voting link / **screen-share the QR code** (Share tab). Chat is not needed.
-3. For each motion: **Open** → let people vote → watch the quorum meter hit 24 → **Close**.
+3. For each motion: **Open** → let people vote → watch the quorum meter fill → **Close**.
 4. The result appears to everyone the moment you close the motion; voters can also review all past results under their **Results** tab.
 5. Move to the next motion. You can re-open any motion to re-vote. Motion wording can be edited until the first vote is cast, then it locks.
 6. Afterward, **Export CSV** for the record.

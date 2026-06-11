@@ -27,10 +27,7 @@ export const ADMIN_PASSCODE = "edleadership";
 // firestore.rules. See README.
 export const LEADER_EMAIL = "leadership@ed-motion-voting.app";
 
-// ---- 3. Quorum ------------------------------------------------------------
-// Minimum number of *eligible* voters (Group 1 + Group 2, i.e. weight > 0)
-// who must cast any vote for a motion to be valid.
-export const QUORUM_THRESHOLD = 24;
-
-// ---- 4. Branding ----------------------------------------------------------
+// ---- 3. Branding ----------------------------------------------------------
 export const ORG_NAME = "MGH ED - Motion Voting";
+
+// (Quorum is computed automatically as 50% of eligible voters — nothing to set.)
