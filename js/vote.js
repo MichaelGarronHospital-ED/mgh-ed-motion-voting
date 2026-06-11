@@ -143,7 +143,10 @@ function voteBody() {
   const head = `<div class="spread"><span class="muted">Voting as <strong>${escapeHtml(me.name)}</strong></span>
     ${bound ? `<a href="#" id="switch-voter" class="sub">Switch voter</a>` : `<a href="#" id="change-name" class="sub">Not you?</a>`}</div>`;
   if (activePoll) {
-    const mine = activeVotes.find((v) => v.slug === me.slug);
+    // Only reveal a previously-cast choice if THIS device cast it. Otherwise
+    // (e.g. browsing to someone else's name) the ballot shows blank — you
+    // can't peek at how another person voted.
+    const mine = (deviceBound() === me.slug) ? activeVotes.find((v) => v.slug === me.slug) : null;
     return head + `
       <span class="pill open">● VOTING OPEN</span>
       <h2 style="margin-top:10px;">${escapeHtml(activePoll.text)}</h2>

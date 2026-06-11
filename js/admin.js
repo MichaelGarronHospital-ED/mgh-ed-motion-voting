@@ -34,13 +34,13 @@ watchAuth((user) => { if (user && user.email === LEADER_EMAIL) unlock(); });
 $("lock").addEventListener("click", (e) => { e.preventDefault(); leaderSignOut().finally(() => location.reload()); });
 
 // ----------------------------------------------------------------- tabs
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x.dataset.tab === name));
+  ["share", "motions", "results", "voters", "roster"].forEach((n) =>
+    $("tab-" + n).classList.toggle("hide", n !== name));
+}
 document.querySelectorAll(".tab").forEach((t) =>
-  t.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-    t.classList.add("active");
-    ["share", "motions", "results", "voters", "roster"].forEach((name) =>
-      $("tab-" + name).classList.toggle("hide", name !== t.dataset.tab));
-  }));
+  t.addEventListener("click", () => showTab(t.dataset.tab)));
 
 // ----------------------------------------------------------------- state
 let polls = [];
@@ -147,6 +147,7 @@ function motionRow(p) {
       ${p.status !== "open"
         ? `<button class="btn favour small" data-act="open" data-id="${p.id}">Open</button>`
         : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
+      ${p.status === "open" ? `<button class="btn accent small" data-act="goto-results" data-id="${p.id}">Live results →</button>` : ""}
       ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
       ${p.status !== "open" ? `<button class="btn ghost small" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
       ${canDelete ? `<button class="btn danger small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
@@ -180,6 +181,9 @@ async function motionAction(act, id) {
     toast("Motion opened — voters can now vote.");
   } else if (act === "close") {
     await closePoll(id); toast("Motion closed.");
+  } else if (act === "goto-results") {
+    selectedPollId = null;          // follow the live/open motion
+    showTab("results"); renderResults(); renderVoters();
   } else if (act === "archive") {
     await setArchived(id, true); toast("Motion archived.");
   } else if (act === "unarchive") {
