@@ -6,18 +6,18 @@
 // Paste the config object from your Firebase project here.
 // (Firebase console → Project settings → "Your apps" → SDK setup & config)
 export const firebaseConfig = {
-  apiKey: "PASTE_HERE",
-  authDomain: "PASTE_HERE",
-  projectId: "PASTE_HERE",
-  storageBucket: "PASTE_HERE",
-  messagingSenderId: "PASTE_HERE",
-  appId: "PASTE_HERE",
+  apiKey: "AIzaSyD1IvlP16tceVfwMUHEvrMrxKf5BVZIok0",
+  authDomain: "ed-motion-voting-99b96.firebaseapp.com",
+  projectId: "ed-motion-voting-99b96",
+  storageBucket: "ed-motion-voting-99b96.firebasestorage.app",
+  messagingSenderId: "121642121257",
+  appId: "1:121642121257:web:5ef04d3e13f0b84983c438"
 };
 
 // ---- 2. Admin / leadership passcode ---------------------------------------
 // Anyone with this code can open the admin page (manage motions, see the
 // per-person table, export). Change it before the meeting.
-export const ADMIN_PASSCODE = "ed-motion-2026";
+export const ADMIN_PASSCODE = "edleadership";
 
 // ---- 3. Quorum ------------------------------------------------------------
 // Minimum number of *eligible* voters (Group 1 + Group 2, i.e. weight > 0)
