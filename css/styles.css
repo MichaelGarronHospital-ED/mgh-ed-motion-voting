@@ -102,6 +102,7 @@ textarea { resize: vertical; min-height: 64px; }
 .result-pass { color: var(--favour); }
 .result-fail { color: var(--against); }
 .result-noq { color: var(--abstain); }
+.result-tie { color: var(--accent); }
 
 .bars { margin: 10px 0; }
 .bar-row { margin: 8px 0; }

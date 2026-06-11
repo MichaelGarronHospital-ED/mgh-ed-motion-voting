@@ -22,7 +22,14 @@ function startData() {
   onPolls((p) => {
     polls = p;
     const open = polls.find((x) => x.status === "open" && !x.archived) || null;
-    const changed = (activePoll && activePoll.id) !== (open && open.id);
+    const prev = activePoll;
+    const changed = (prev && prev.id) !== (open && open.id);
+    // Auto-navigate the voter: to the result when the open motion closes,
+    // back to the ballot when the next motion opens.
+    if (changed && me) {
+      if (open) voterTab = "vote";
+      else if (prev) voterTab = "results";
+    }
     activePoll = open;
     if (changed) {
       if (activeUnsub) { activeUnsub(); activeUnsub = null; }
@@ -154,7 +161,7 @@ function voteBody() {
 
 // ---- results tab (numbers hidden from voters) ------------------------------
 function resultsBody() {
-  const closed = polls.filter((p) => p.status === "closed" && !p.archived);
+  const closed = polls.filter((p) => p.status === "closed" && !p.archived).reverse();   // newest first
   if (!closed.length) return `<div class="card"><p class="muted center" style="padding:16px 0;">No results yet. Closed motions will appear here.</p></div>`;
   return closed.map(resultCard).join("");
 }
@@ -162,9 +169,10 @@ function resultCard(poll) {
   const t = tally(resultData.get(poll.id) || [], poll);
   const quorum = quorumThreshold(poll);
   const met = t.quorumCount >= quorum;
-  const pass = met && t.weight.favour > t.weight.against;
   const outcome = !met ? `<span class="result-noq">NO QUORUM</span>`
-    : pass ? `<span class="result-pass">PASSED ✅</span>` : `<span class="result-fail">DID NOT PASS ❌</span>`;
+    : t.weight.favour > t.weight.against ? `<span class="result-pass">PASSED ✅</span>`
+    : t.weight.favour < t.weight.against ? `<span class="result-fail">DID NOT PASS ❌</span>`
+    : `<span class="result-tie">TIE 🤝</span>`;
   const max = Math.max(t.weight.favour, t.weight.against, t.weight.abstain, 1);
   const bar = (k, l) => `<div class="bar-row"><div class="bar-label"><span>${l}</span></div>
     <div class="bar-track"><div class="bar-fill ${k}" style="width:${(t.weight[k] / max) * 100}%"></div></div></div>`;

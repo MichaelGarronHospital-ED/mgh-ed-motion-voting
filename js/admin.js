@@ -228,11 +228,12 @@ function paintResults(el, poll, votes) {
   const t = tally(votes, poll);
   const quorum = quorumThreshold(poll);
   const quorumMet = t.quorumCount >= quorum;
-  const pass = quorumMet && t.weight.favour > t.weight.against;
   const statusPill = `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>`;
   const outcome = !quorumMet
     ? `<span class="result-noq">NO QUORUM — cannot pass</span>`
-    : pass ? `<span class="result-pass">PASSES ✅</span>` : `<span class="result-fail">DOES NOT PASS ❌</span>`;
+    : t.weight.favour > t.weight.against ? `<span class="result-pass">PASSES ✅</span>`
+    : t.weight.favour < t.weight.against ? `<span class="result-fail">DOES NOT PASS ❌</span>`
+    : `<span class="result-tie">TIE 🤝</span>`;
   el.innerHTML = `
     ${statusPill}
     <h2 style="margin-top:8px;">${escapeHtml(poll.text)}</h2>
@@ -333,7 +334,10 @@ function exportCsv() {
   lines.push(`Abstain (pts),${t.weight.abstain}`);
   const quorum = quorumThreshold(poll);
   lines.push(`Quorum,${t.quorumCount} of ${quorum}`);
-  lines.push(`Result,${t.quorumCount < quorum ? "NO QUORUM" : (t.weight.favour > t.weight.against ? "PASSES" : "DOES NOT PASS")}`);
+  const result = t.quorumCount < quorum ? "NO QUORUM"
+    : t.weight.favour > t.weight.against ? "PASSES"
+    : t.weight.favour < t.weight.against ? "DOES NOT PASS" : "TIE";
+  lines.push(`Result,${result}`);
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
