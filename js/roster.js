@@ -77,7 +77,7 @@ export const GROUP2 = [
 export const COURTESY = [
   "Adil Shamji",
   "Alex Chan",
-  "Alx Florea",
+  "Alex Florea",
   "Andrea Lo",
   "Andrew Maeng",
   "Brandon Lam",
