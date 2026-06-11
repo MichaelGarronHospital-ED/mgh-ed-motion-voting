@@ -4,7 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc,
-  onSnapshot, query, orderBy, runTransaction, serverTimestamp, getDocs,
+  onSnapshot, query, orderBy, runTransaction, serverTimestamp, getDocs, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
 import { ROSTER_BY_SLUG } from "./roster.js";
@@ -46,6 +46,7 @@ export function onVotesFor(pollId, cb) {
 // your mind. The same name from a DIFFERENT device = flagged for review.
 export async function castVote({ pollId, name, slug, group, weight, isWriteIn, choice, sessionId }) {
   const ref = doc(db, "polls", pollId, "votes", slug);
+  const pollRef = doc(db, "polls", pollId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) {
@@ -54,6 +55,7 @@ export async function castVote({ pollId, name, slug, group, weight, isWriteIn, c
         sessionIds: [sessionId], submissionCount: 1, flagged: false,
         firstAt: serverTimestamp(), lastAt: serverTimestamp(),
       });
+      tx.update(pollRef, { voteCount: increment(1) });   // distinct-voter count → edit lock
     } else {
       const d = snap.data();
       const sessions = d.sessionIds || [];
@@ -75,7 +77,7 @@ export async function addPoll(text) {
   const order = existing.size;
   const ref = doc(pollsCol);
   await setDoc(ref, {
-    text: text.trim(), order, status: "draft", resultsVisible: true,
+    text: text.trim(), order, status: "draft", voteCount: 0,
     createdAt: serverTimestamp(),
   });
   return ref.id;

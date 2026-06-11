@@ -37,6 +37,7 @@ let polls = [];
 let activePoll = null;
 let activeVotes = [];
 let votesUnsub = null;
+let editingId = null;   // motion currently being edited (only allowed before first vote)
 
 function boot() {
   // share tab
@@ -77,15 +78,22 @@ function renderMotions() {
   const el = $("motion-list");
   if (!polls.length) { el.innerHTML = `<p class="muted">No motions yet. Add Friday's motions above.</p>`; return; }
   el.innerHTML = polls.map((p) => {
+    const locked = (p.voteCount || 0) > 0;   // edit allowed only before the first vote
+    if (editingId === p.id) {
+      return `<div class="poll-item"><div class="text" style="width:100%">
+        <textarea data-edit="${p.id}" style="margin-bottom:8px">${escapeHtml(p.text)}</textarea>
+        <div class="row"><button class="btn accent small" data-act="save" data-id="${p.id}">Save</button>
+          <button class="btn ghost small" data-act="cancel" data-id="${p.id}">Cancel</button></div></div></div>`;
+    }
     const pill = `<span class="pill ${p.status}">${p.status.toUpperCase()}</span>`;
     return `<div class="poll-item">
-      <div class="text">${pill} ${escapeHtml(p.text)}</div>
+      <div class="text">${pill} ${escapeHtml(p.text)}${locked ? `<span class="sub"> · 🔒 locked (voting started)</span>` : ""}</div>
       <div class="row">
         ${p.status !== "open"
           ? `<button class="btn favour small" data-act="open" data-id="${p.id}">Open</button>`
           : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
-        <button class="btn ghost small" data-act="reveal" data-id="${p.id}">${p.resultsVisible ? "Hide result" : "Reveal result"}</button>
-        <button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>
+        ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
+        ${!locked ? `<button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -94,7 +102,6 @@ function renderMotions() {
 }
 
 async function motionAction(act, id) {
-  const poll = polls.find((p) => p.id === id);
   if (act === "open") {
     if (polls.some((p) => p.status === "open" && p.id !== id))
       if (!confirm("This will close the currently open motion. Continue?")) return;
@@ -102,8 +109,18 @@ async function motionAction(act, id) {
     toast("Motion opened — voters can now vote.");
   } else if (act === "close") {
     await closePoll(id); toast("Motion closed.");
-  } else if (act === "reveal") {
-    await updatePoll(id, { resultsVisible: !poll.resultsVisible });
+  } else if (act === "edit") {
+    editingId = id; renderMotions();
+  } else if (act === "cancel") {
+    editingId = null; renderMotions();
+  } else if (act === "save") {
+    const poll = polls.find((p) => p.id === id);
+    if ((poll.voteCount || 0) > 0) { toast("Locked — voting has started."); editingId = null; renderMotions(); return; }
+    const ta = document.querySelector(`textarea[data-edit="${id}"]`);
+    const text = ta.value.trim();
+    if (text.length < 3) { toast("Motion text too short."); return; }
+    await updatePoll(id, { text });
+    editingId = null; toast("Motion updated.");
   } else if (act === "del") {
     if (confirm("Delete this motion and its votes?")) { await deletePoll(id); toast("Deleted."); }
   }
@@ -147,7 +164,7 @@ function paintResults(el, poll, votes) {
     ? `<span class="result-noq">NO QUORUM — cannot pass</span>`
     : pass ? `<span class="result-pass">PASSES ✅</span>` : `<span class="result-fail">DOES NOT PASS ❌</span>`;
   el.innerHTML = `
-    ${statusPill} <span class="muted">${poll.resultsVisible ? "visible to group" : "hidden from group"}</span>
+    ${statusPill}
     <h2 style="margin-top:8px;">${escapeHtml(poll.text)}</h2>
     <p class="center big">${outcome}</p>
     ${bars(t)}
@@ -158,17 +175,15 @@ function paintResults(el, poll, votes) {
       ${!quorumMet ? `<p class="sub" style="color:#fca5a5;margin:8px 0 0;">Need ${QUORUM_THRESHOLD - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
     </div>
     <p class="sub">${t.totalVotes} total ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged for review.
-      Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only.</p>
+      Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only. Results are always visible to voters once closed.</p>
     <div class="row" style="margin-top:6px;">
       ${poll.status === "open"
         ? `<button class="btn against small" id="r-close">Close voting</button>`
         : `<button class="btn favour small" id="r-open">Re-open voting</button>`}
-      <button class="btn ghost small" id="r-reveal">${poll.resultsVisible ? "Hide from group" : "Reveal to group"}</button>
     </div>`;
-  const c = $("r-close"), o = $("r-open"), r = $("r-reveal");
+  const c = $("r-close"), o = $("r-open");
   if (c) c.addEventListener("click", () => motionAction("close", poll.id));
   if (o) o.addEventListener("click", () => motionAction("open", poll.id));
-  if (r) r.addEventListener("click", () => motionAction("reveal", poll.id));
 }
 
 function bars(t) {

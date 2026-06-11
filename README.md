@@ -48,8 +48,8 @@ and quorum meter update live in the admin **Live results** tab.
 1. **Add all of Friday's motions** in advance (Motions tab).
 2. Share the voting link / **screen-share the QR code** (Share tab). Chat is not needed.
 3. For each motion: **Open** → let people vote → watch the quorum meter hit 24 → **Close**.
-4. Result auto-appears to everyone (toggle *Reveal / Hide* per motion).
-5. Move to the next motion. You can re-open any motion to re-vote.
+4. The result appears to everyone the moment you close the motion; voters can also review all past results under their **Results** tab.
+5. Move to the next motion. You can re-open any motion to re-vote. Motion wording can be edited until the first vote is cast, then it locks.
 6. Afterward, **Export CSV** for the record.
 
 ## Notes

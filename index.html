@@ -7,38 +7,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <div class="wrap">
-    <h1 id="org">Motion Voting</h1>
-    <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p>
-
-    <!-- STEP 1: pick your name -->
-    <section id="step-name" class="card">
-      <div class="disclaimer">
-        ⚠️ Please select <strong>your own name only</strong>, and vote once.
-        Votes are linked to your name and reviewed for duplicates.
-      </div>
-      <label for="search">Find your name</label>
-      <input id="search" type="text" placeholder="Start typing your name…" autocomplete="off" />
-      <ul id="namelist" class="namelist"></ul>
-      <button id="writein-btn" class="btn ghost" style="margin-top:12px;">My name isn't listed — add it</button>
-      <div id="writein-box" class="hide" style="margin-top:12px;">
-        <label for="writein">Type your full name</label>
-        <input id="writein" type="text" placeholder="First Last" autocomplete="off" />
-        <button id="writein-confirm" class="btn accent">Continue</button>
-        <p class="sub" style="margin-top:8px;">New / unlisted members are recorded and reviewed by leadership before counting.</p>
-      </div>
-    </section>
-
-    <!-- STEP 2: vote -->
-    <section id="step-vote" class="card hide">
-      <div class="spread">
-        <span class="muted">Voting as <strong id="voter-name"></strong></span>
-        <a href="#" id="change-name" class="sub">Not you?</a>
-      </div>
-      <div id="vote-body"></div>
-    </section>
-  </div>
-
+  <div class="wrap" id="app"></div>
   <div id="toast" class="toast hide"></div>
   <script type="module" src="js/vote.js"></script>
 </body>
