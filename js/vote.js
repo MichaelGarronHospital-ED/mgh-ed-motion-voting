@@ -1,6 +1,6 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
-import { ORG_NAME, QUORUM_THRESHOLD } from "./config.js";
-import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, anonSignIn } from "./db.js";
+import { ORG_NAME } from "./config.js";
+import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, anonSignIn, quorumThreshold } from "./db.js";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -160,7 +160,8 @@ function resultsBody() {
 }
 function resultCard(poll) {
   const t = tally(resultData.get(poll.id) || [], poll);
-  const met = t.quorumCount >= QUORUM_THRESHOLD;
+  const quorum = quorumThreshold(poll);
+  const met = t.quorumCount >= quorum;
   const pass = met && t.weight.favour > t.weight.against;
   const outcome = !met ? `<span class="result-noq">NO QUORUM</span>`
     : pass ? `<span class="result-pass">PASSED ✅</span>` : `<span class="result-fail">DID NOT PASS ❌</span>`;

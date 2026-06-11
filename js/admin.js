@@ -1,9 +1,10 @@
-import { ADMIN_PASSCODE, QUORUM_THRESHOLD, ORG_NAME } from "./config.js";
-import { ROSTER, ELIGIBLE_COUNT } from "./roster.js";
+import { ADMIN_PASSCODE, ORG_NAME } from "./config.js";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, deletePoll, openPoll, closePoll,
   clearVote, tally, setArchived, weightForVote, groupForVote,
-  onRosterOverrides, setPersonGroup, resolvedRoster,
+  onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
+  eligibleCount, quorumThreshold,
   watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
 } from "./db.js";
 
@@ -54,7 +55,7 @@ function boot() {
   $("vote-url").value = url;
   $("copy-url").addEventListener("click", () => { navigator.clipboard.writeText(url); toast("Link copied"); });
   $("roster-summary").textContent =
-    `${ROSTER.length} physicians on the roster · ${ELIGIBLE_COUNT} eligible to vote · quorum = ${QUORUM_THRESHOLD} (50% of eligible would be ${Math.ceil(ELIGIBLE_COUNT / 2)}).`;
+    `${ROSTER.length} listed physicians · ${eligibleCount(null)} currently eligible · quorum = ${quorumThreshold(null)} (50% of eligible).`;
 
   $("add-motion").addEventListener("click", async () => {
     const text = $("new-motion").value.trim();
@@ -80,7 +81,7 @@ function boot() {
     if (changed) {
       if (votesUnsub) { votesUnsub(); votesUnsub = null; }
       activeVotes = [];
-      if (activePoll) votesUnsub = onVotesFor(activePoll.id, (vs) => { activeVotes = vs; renderResults(); renderVoters(); });
+      if (activePoll) votesUnsub = onVotesFor(activePoll.id, (vs) => { activeVotes = vs; collectWriteins(vs); renderResults(); renderVoters(); });
     }
     renderMotions();
     renderResults();
@@ -184,7 +185,7 @@ function ensureDisplay() {
   if (poll.id !== displayId) {                          // a closed poll — subscribe once
     if (displayUnsub) displayUnsub();
     displayId = poll.id; displayVotes = [];
-    displayUnsub = onVotesFor(poll.id, (vs) => { displayVotes = vs; renderResults(); renderVoters(); });
+    displayUnsub = onVotesFor(poll.id, (vs) => { displayVotes = vs; collectWriteins(vs); renderResults(); renderVoters(); });
   }
   return { poll, votes: displayVotes };
 }
@@ -197,7 +198,8 @@ function renderResults() {
 }
 function paintResults(el, poll, votes) {
   const t = tally(votes, poll);
-  const quorumMet = t.quorumCount >= QUORUM_THRESHOLD;
+  const quorum = quorumThreshold(poll);
+  const quorumMet = t.quorumCount >= quorum;
   const pass = quorumMet && t.weight.favour > t.weight.against;
   const statusPill = `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>`;
   const outcome = !quorumMet
@@ -209,10 +211,10 @@ function paintResults(el, poll, votes) {
     <p class="center big">${outcome}</p>
     ${bars(t)}
     <div class="card" style="background:var(--card2); margin-top:8px;">
-      <div class="spread"><span>Quorum</span>
-        <span class="${quorumMet ? "quorum-ok" : "quorum-bad"}">${t.quorumCount} / ${QUORUM_THRESHOLD} ${quorumMet ? "✅ met" : "❌ NOT met"}</span></div>
-      <div class="bar-track" style="margin-top:6px;"><div class="bar-fill favour" style="width:${Math.min(100,(t.quorumCount/QUORUM_THRESHOLD)*100)}%"></div></div>
-      ${!quorumMet ? `<p class="sub" style="color:#fca5a5;margin:8px 0 0;">Need ${QUORUM_THRESHOLD - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
+      <div class="spread"><span>Quorum${poll.status === "closed" ? " 🔒" : ""}</span>
+        <span class="${quorumMet ? "quorum-ok" : "quorum-bad"}">${t.quorumCount} / ${quorum} ${quorumMet ? "✅ met" : "❌ NOT met"}</span></div>
+      <div class="bar-track" style="margin-top:6px;"><div class="bar-fill favour" style="width:${Math.min(100,(t.quorumCount/quorum)*100)}%"></div></div>
+      ${!quorumMet ? `<p class="sub" style="color:#fca5a5;margin:8px 0 0;">Need ${quorum - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
     </div>
     <p class="sub">${t.totalVotes} total ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged for review.
       Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only. Results are always visible to voters once closed.</p>
@@ -295,8 +297,9 @@ function exportCsv() {
   lines.push(`In favour (pts),${t.weight.favour}`);
   lines.push(`Against (pts),${t.weight.against}`);
   lines.push(`Abstain (pts),${t.weight.abstain}`);
-  lines.push(`Quorum,${t.quorumCount} of ${QUORUM_THRESHOLD}`);
-  lines.push(`Result,${t.quorumCount < QUORUM_THRESHOLD ? "NO QUORUM" : (t.weight.favour > t.weight.against ? "PASSES" : "DOES NOT PASS")}`);
+  const quorum = quorumThreshold(poll);
+  lines.push(`Quorum,${t.quorumCount} of ${quorum}`);
+  lines.push(`Result,${t.quorumCount < quorum ? "NO QUORUM" : (t.weight.favour > t.weight.against ? "PASSES" : "DOES NOT PASS")}`);
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -306,20 +309,31 @@ function exportCsv() {
 
 // ----------------------------------------------------------------- roster summary
 let rosterFilter = "";
+const knownWriteins = {};   // slug -> name, gathered from ballots seen this session
+function collectWriteins(votes) {
+  let changed = false;
+  votes.forEach((v) => { if (v.isWriteIn && !(v.slug in knownWriteins)) { knownWriteins[v.slug] = v.name; changed = true; } });
+  if (changed) renderRosterTab();
+}
 function renderRosterTab() {
-  const roster = resolvedRoster();
+  // base roster (with current category overrides) + any write-ins who've voted,
+  // so leadership can grant them a category too.
+  const writeins = Object.keys(knownWriteins)
+    .filter((slug) => !ROSTER_BY_SLUG[slug])
+    .map((slug) => { const g = effectiveGroup(slug); return { name: knownWriteins[slug], slug, group: g, weight: WEIGHTS[g] !== undefined ? WEIGHTS[g] : 0, isWriteIn: true }; });
+  const roster = resolvedRoster().concat(writeins);
   const g1 = roster.filter((p) => p.group === "1").length;
   const g2 = roster.filter((p) => p.group === "2").length;
   const cy = roster.filter((p) => p.group === "courtesy").length;
   $("roster-counts").innerHTML =
-    `Full vote: <strong>${g1}</strong> &nbsp;·&nbsp; Half vote: <strong>${g2}</strong> &nbsp;·&nbsp; No vote: <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${g1 + g2}</strong> &nbsp;·&nbsp; Quorum: <strong>${QUORUM_THRESHOLD}</strong>`;
+    `Full vote: <strong>${g1}</strong> &nbsp;·&nbsp; Half vote: <strong>${g2}</strong> &nbsp;·&nbsp; No vote: <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${eligibleCount(null)}</strong> &nbsp;·&nbsp; Quorum: <strong>${quorumThreshold(null)}</strong>`;
 
   const f = rosterFilter.trim().toLowerCase();
-  const list = roster.filter((p) => p.name.toLowerCase().includes(f));
+  const list = roster.filter((p) => p.name.toLowerCase().includes(f)).sort((a, b) => a.name.localeCompare(b.name));
   const rows = list.map((p) => {
     const btn = (g, l) => `<button class="btn ghost small ${p.group === g ? "selected" : ""}" data-setgrp="${g}" data-slug="${p.slug}">${l}</button>`;
     return `<tr>
-      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(p.name)}${p.isWriteIn ? ' <span class="pill draft">NEW</span>' : ""}</td>
       <td>${catLabel(p.group)}</td>
       <td>${fmt(p.weight)}</td>
       <td>${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</td>
@@ -341,7 +355,7 @@ function exportRoster() {
 }
 
 // ----------------------------------------------------------------- utils
-function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":g;}
+function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":"— (uncategorized)";}
 function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV
 function labelOf(c){return c==="favour"?"In favour":c==="against"?"Against":c==="abstain"?"Abstain":c;}
 function fmt(n){return Number.isInteger(n)?n:Number(n).toFixed(1);}

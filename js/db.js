@@ -84,6 +84,23 @@ export function resolvedRoster() {
   });
 }
 
+// Eligible-to-vote count (weight > 0). Frozen for closed motions, live otherwise.
+// Includes write-ins who have been granted a category (they live in overrides).
+export function eligibleCount(poll) {
+  if (poll && poll.status === "closed" && poll.lockedGroups) {
+    return Object.values(poll.lockedGroups).filter((g) => WEIGHTS[g] > 0).length;
+  }
+  let n = ROSTER.filter((p) => WEIGHTS[effectiveGroup(p.slug)] > 0).length;
+  Object.keys(overrideGroups).forEach((slug) => {
+    if (!ROSTER_BY_SLUG[slug] && WEIGHTS[overrideGroups[slug]] > 0) n += 1;   // granted write-ins
+  });
+  return n;
+}
+// Quorum = 50% of eligible, rounded up.
+export function quorumThreshold(poll) {
+  return Math.ceil(eligibleCount(poll) / 2);
+}
+
 // ---- voter action ----------------------------------------------------------
 // Stores ONE row per name per poll (clean tally), but tracks every submission
 // so leadership can flag duplicates. Re-voting from the SAME device = changing
