@@ -125,7 +125,7 @@ function motionRow(p) {
         : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
       ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
       ${p.status !== "open" ? `<button class="btn ghost small" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
-      ${canDelete ? `<button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
+      ${canDelete ? `<button class="btn danger small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
     </div>
   </div>`;
 }
@@ -135,7 +135,7 @@ function archivedRow(p) {
     <div class="text"><span class="pill draft">ARCHIVED</span> ${escapeHtml(p.text)}</div>
     <div class="row">
       <button class="btn ghost small" data-act="unarchive" data-id="${p.id}">Unarchive</button>
-      <button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>
+      <button class="btn danger small" data-act="del" data-id="${p.id}">Delete</button>
     </div>
   </div>`;
 }
@@ -310,7 +310,7 @@ function paintVoters(poll, votes) {
       <td>${fmt(ew)}</td>
       <td>${labelOf(v.choice)}</td>
       <td>${v.submissionCount || 1}</td>
-      <td><button class="btn ghost small" data-del="${v.id}">Remove</button></td>
+      <td><button class="btn danger small" data-del="${v.id}">Remove</button></td>
     </tr>`;
   }).join("");
   $("voters-table").innerHTML =

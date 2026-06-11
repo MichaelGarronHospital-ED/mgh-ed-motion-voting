@@ -84,6 +84,7 @@ textarea { resize: vertical; min-height: 64px; }
 .btn.abstain { background: var(--abstain); color: #1f2937; }
 .btn.ghost { background: var(--card2); color: var(--text); border: 1px solid var(--line); }
 .btn.accent { background: var(--accent); color: #08233a; }
+.btn.danger { background: transparent; color: var(--against); border: 1px solid var(--against); }
 .btn.small { padding: 10px 14px; font-size: .85rem; width: auto; display: inline-block; margin: 4px 6px 4px 0; }
 .btn:disabled { opacity: .5; }
 .btn.selected { outline: 3px solid #fff; }
