@@ -76,7 +76,7 @@ function pickerHTML() {
       <label for="writein">Type your full name</label>
       <input id="writein" type="text" placeholder="First Last" autocomplete="off" />
       <button id="writein-confirm" class="btn accent">Continue</button>
-      <p class="sub" style="margin-top:8px;">New / unlisted members are recorded and reviewed by leadership before counting.</p>
+      <p class="sub" style="margin-top:8px;">New / unlisted names are added to the record for leadership.</p>
     </div>
   </div>`;
 }
@@ -116,14 +116,16 @@ function setVoter(v) { me = v; localStorage.setItem("ed_voter", JSON.stringify(v
 
 // ---- vote tab --------------------------------------------------------------
 function voteBody() {
-  const head = `<div class="spread"><span class="muted">Voting as <strong>${escapeHtml(me.name)}</strong>${me.isWriteIn ? " (new — pending review)" : ""}</span>
+  // Every voter — including courtesy / write-ins — sees the same ballot. The
+  // weighting (0 for courtesy) is applied behind the scenes; leadership sees it
+  // in the Voters table, but it is never surfaced to the voter.
+  const head = `<div class="spread"><span class="muted">Voting as <strong>${escapeHtml(me.name)}</strong></span>
     <a href="#" id="change-name" class="sub">Not you?</a></div>`;
   if (activePoll) {
     const mine = activeVotes.find((v) => v.slug === me.slug);
     return head + `
       <span class="pill open">● VOTING OPEN</span>
       <h2 style="margin-top:10px;">${escapeHtml(activePoll.text)}</h2>
-      ${me.weight === 0 ? `<p class="disclaimer">Your vote is recorded but currently carries <strong>no weight</strong>${me.isWriteIn ? " (pending leadership review)" : ""}.</p>` : ""}
       <div class="choice-row">
         <button class="btn favour ${mine && mine.choice === "favour" ? "selected" : ""}" data-c="favour">👍 In favour</button>
         <button class="btn against ${mine && mine.choice === "against" ? "selected" : ""}" data-c="against">👎 Against</button>

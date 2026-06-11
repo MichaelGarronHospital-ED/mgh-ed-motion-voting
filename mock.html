@@ -125,14 +125,13 @@ function voterVote(){
         <button class="btn accent" onclick="doWritein()">Continue</button>
       </div>`;
   }
-  const head = `<div class="spread"><span class="muted">Voting as <strong>${esc(me.name)}</strong>${me.isWriteIn?" (new — pending review)":""}</span>
+  const head = `<div class="spread"><span class="muted">Voting as <strong>${esc(me.name)}</strong></span>
         <a href="#" onclick="resetVoter(event)" class="sub">Not you?</a></div>`;
   if(open){
     const mine = votes[open.id][me.slug];
     return head + `
       <span class="pill open">● VOTING OPEN</span>
       <h2 style="margin-top:10px">${esc(open.text)}</h2>
-      ${me.weight===0?`<p class="disclaimer">Your vote is recorded but currently carries <strong>no weight</strong>${me.isWriteIn?" (pending leadership review)":""}.</p>`:""}
       <div class="choice-row">
         <button class="btn favour ${mine&&mine.choice==="favour"?"selected":""}" onclick="vote('favour')">👍 In favour</button>
         <button class="btn against ${mine&&mine.choice==="against"?"selected":""}" onclick="vote('against')">👎 Against</button>
