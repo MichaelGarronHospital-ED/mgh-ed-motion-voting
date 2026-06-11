@@ -4,25 +4,33 @@ import {
   onPolls, onVotesFor, addPoll, updatePoll, deletePoll, openPoll, closePoll,
   setVoteWeight, clearVote, tally, effectiveWeight, setArchived,
   onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
+  watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
 } from "./db.js";
 
 const $ = (id) => document.getElementById(id);
 document.title = ORG_NAME + " — Leadership";
 
 // ----------------------------------------------------------------- gate
+let booted = false;
 function unlock() {
   $("gate").classList.add("hide");
   $("console").classList.remove("hide");
-  boot();
+  if (!booted) { booted = true; boot(); }
 }
 $("enter").addEventListener("click", tryEnter);
 $("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") tryEnter(); });
-function tryEnter() {
-  if ($("pass").value === ADMIN_PASSCODE) { sessionStorage.setItem("ed_admin", "1"); unlock(); }
-  else $("gate-err").classList.remove("hide");
+async function tryEnter() {
+  if ($("pass").value !== ADMIN_PASSCODE) { $("gate-err").classList.remove("hide"); return; }
+  // Sign in as leadership for write access under locked rules. If the Firebase
+  // auth user / provider isn't set up yet, we still open the console (writes
+  // work because the rules are still open).
+  try { await leaderSignIn($("pass").value); }
+  catch (e) { console.warn("leader auth not active (open-rules mode):", e && e.code); }
+  unlock();
 }
-$("lock").addEventListener("click", (e) => { e.preventDefault(); sessionStorage.removeItem("ed_admin"); location.reload(); });
-if (sessionStorage.getItem("ed_admin") === "1") unlock();
+// Auto-unlock on reload if a leadership session is already persisted.
+watchAuth((user) => { if (user && user.email === LEADER_EMAIL) unlock(); });
+$("lock").addEventListener("click", (e) => { e.preventDefault(); leaderSignOut().finally(() => location.reload()); });
 
 // ----------------------------------------------------------------- tabs
 document.querySelectorAll(".tab").forEach((t) =>

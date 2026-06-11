@@ -1,0 +1,13 @@
+rules_version = '2';
+// ROLLBACK RULES — fully open. If the locked rules (firestore.rules) ever cause
+// problems during a meeting, paste THIS into Firebase → Firestore → Rules →
+// Publish, and everything works again immediately (no auth required).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /polls/{poll} {
+      allow read, write: if true;
+      match /votes/{vote} { allow read, write: if true; }
+    }
+    match /config/{doc} { allow read, write: if true; }
+  }
+}

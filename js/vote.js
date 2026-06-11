@@ -1,6 +1,6 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
 import { ORG_NAME, QUORUM_THRESHOLD } from "./config.js";
-import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson } from "./db.js";
+import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, anonSignIn } from "./db.js";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -17,19 +17,24 @@ const resultSubs = new Map();                  // pollId -> unsub (closed motion
 const resultData = new Map();                  // pollId -> votes[]
 
 // ---- data subscriptions ----------------------------------------------------
-onRosterOverrides(() => {});   // keep current categories loaded so votes weight correctly
-onPolls((p) => {
-  polls = p;
-  const open = polls.find((x) => x.status === "open" && !x.archived) || null;
-  const changed = (activePoll && activePoll.id) !== (open && open.id);
-  activePoll = open;
-  if (changed) {
-    if (activeUnsub) { activeUnsub(); activeUnsub = null; }
-    activeVotes = [];
-    if (activePoll) activeUnsub = onVotesFor(activePoll.id, (vs) => { activeVotes = vs; render(); });
-  }
-  render();
-});
+function startData() {
+  onRosterOverrides(() => {});   // keep current categories loaded so votes weight correctly
+  onPolls((p) => {
+    polls = p;
+    const open = polls.find((x) => x.status === "open" && !x.archived) || null;
+    const changed = (activePoll && activePoll.id) !== (open && open.id);
+    activePoll = open;
+    if (changed) {
+      if (activeUnsub) { activeUnsub(); activeUnsub = null; }
+      activeVotes = [];
+      if (activePoll) activeUnsub = onVotesFor(activePoll.id, (vs) => { activeVotes = vs; render(); });
+    }
+    render();
+  });
+}
+// Anonymous sign-in first so reads/writes are authenticated under locked rules.
+// If anonymous auth isn't enabled yet, we proceed anyway (open-rules mode).
+anonSignIn().catch((e) => console.warn("anon auth unavailable, continuing:", e && e.code)).finally(startData);
 
 function syncResultSubs() {
   const closedIds = new Set(polls.filter((p) => p.status === "closed" && !p.archived).map((p) => p.id));

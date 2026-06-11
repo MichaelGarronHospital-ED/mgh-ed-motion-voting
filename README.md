@@ -60,3 +60,22 @@ and quorum meter update live in the admin **Live results** tab.
   **0 weight** and a *NEW* tag until leadership assigns a weight in the Voters tab.
 - Identity is trust-based (anyone with the link can pick a name). Appropriate for
   a known group; the structure supports adding per-person PINs later if wanted.
+- **Device lock:** once someone votes on a device, it's locked to that name (can't
+  switch names and vote again). Voters **can still change their own choice** until
+  the motion closes.
+
+## Optional: backend lockdown (Firebase Auth)
+
+By default the Firestore rules are open. To require sign-in (so random visitors
+can't tamper via the API and only leadership can manage motions/categories):
+
+1. Firebase → **Authentication → Get started** → enable **Anonymous** and **Email/Password**.
+2. Firebase → **Authentication → Users → Add user**: email = `LEADER_EMAIL` from
+   [`js/config.js`](js/config.js), password = your `ADMIN_PASSCODE`.
+3. Make sure the email in [`firestore.rules`](firestore.rules) matches `LEADER_EMAIL`.
+4. Deploy the site; confirm **voting works** and **admin login works** (still on open rules).
+5. Firebase → Firestore → **Rules** → paste [`firestore.rules`](firestore.rules) → **Publish**.
+6. Re-test: cast a vote, change it, open/close a motion, edit a category.
+
+**Rollback:** if anything misbehaves, paste [`firestore.rules.open`](firestore.rules.open)
+into the Rules tab and Publish — everything works again with no auth required.

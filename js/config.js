@@ -19,6 +19,12 @@ export const firebaseConfig = {
 // per-person table, export). Change it before the meeting.
 export const ADMIN_PASSCODE = "edleadership";
 
+// Leadership identity for the (optional) Firebase-auth backend lockdown.
+// The admin page signs in to Firebase as this email using the passcode above
+// as the password. Create a matching Firebase Auth user (email + password =
+// ADMIN_PASSCODE) and put this same email in firestore.rules. See README.
+export const LEADER_EMAIL = "alvinyang@live.ca";
+
 // ---- 3. Quorum ------------------------------------------------------------
 // Minimum number of *eligible* voters (Group 1 + Group 2, i.e. weight > 0)
 // who must cast any vote for a motion to be valid.

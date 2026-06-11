@@ -1,19 +1,43 @@
 rules_version = '2';
-// Open rules for a short-lived, single-meeting voting tool. Anyone with the
-// link can read/write the polls + votes collections. This is acceptable for a
-// trusted physician group meeting on an unlisted project URL. If you want to
-// reuse this long-term, lock it down (e.g. require Firebase Auth).
+// LOCKED RULES — require Firebase Auth. Publish these only AFTER you've:
+//   1. Enabled Anonymous + Email/Password sign-in (Firebase → Authentication)
+//   2. Created the leadership user (email below + password = your passcode)
+//   3. Deployed the latest site and confirmed voting + admin login work
+// If anything misbehaves, paste firestore.rules.open instead to revert.
+//
+//   • Voters sign in anonymously → may read, and create/update their ballots.
+//   • Leadership signs in as the email below → may manage motions, categories,
+//     adjust/remove votes. Update the email here if your leader email differs.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isLeader() { return signedIn() && request.auth.token.email == 'alvinyang@live.ca'; }
+    function onlyVoteCountChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voteCount']);
+    }
+    function notTouchingWeightOverride() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['weightOverride']);
+    }
+
     match /polls/{poll} {
-      allow read, write: if true;
+      allow read: if signedIn();
+      allow create, delete: if isLeader();
+      // leadership edits anything; a voter may only bump the voteCount counter
+      allow update: if isLeader() || (signedIn() && onlyVoteCountChanged());
+
       match /votes/{vote} {
-        allow read, write: if true;
+        allow read: if signedIn();
+        allow create: if signedIn();
+        // voters can change their own choice, but cannot set the leadership-only
+        // weight override; leadership can do anything (incl. delete).
+        allow update: if isLeader() || (signedIn() && notTouchingWeightOverride());
+        allow delete: if isLeader();
       }
     }
-    // editable roster category overrides (config/roster)
+
     match /config/{doc} {
-      allow read, write: if true;
+      allow read: if signedIn();
+      allow write: if isLeader();
     }
   }
 }

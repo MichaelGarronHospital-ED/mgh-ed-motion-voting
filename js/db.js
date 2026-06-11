@@ -6,11 +6,25 @@ import {
   getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, runTransaction, serverTimestamp, getDocs, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./config.js";
+import {
+  getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig, LEADER_EMAIL } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+
+// ---- auth ------------------------------------------------------------------
+// Voters sign in anonymously; leadership signs in with the passcode as the
+// password for LEADER_EMAIL. Both are best-effort: if the providers aren't
+// enabled yet (open-rules mode), the app still works.
+export function watchAuth(cb) { return onAuthStateChanged(auth, cb); }
+export function anonSignIn() { return signInAnonymously(auth); }
+export function leaderSignIn(passcode) { return signInWithEmailAndPassword(auth, LEADER_EMAIL, passcode); }
+export function leaderSignOut() { return signOut(auth); }
+export { LEADER_EMAIL };
 
 const pollsCol = collection(db, "polls");
 
