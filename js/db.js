@@ -154,13 +154,17 @@ export async function openPoll(pollId) {
   }));
 }
 
+// Closing FREEZES each physician's category for this motion, so later
+// privilege changes never alter this (now historical) result.
 export async function closePoll(pollId) {
-  await updateDoc(doc(db, "polls", pollId), { status: "closed" });
-}
-
-// leadership override of a single voter's weight (e.g. assign a write-in).
-export async function setVoteWeight(pollId, voteId, weight) {
-  await updateDoc(doc(db, "polls", pollId, "votes", voteId), { weightOverride: weight });
+  const lockedGroups = {};
+  ROSTER.forEach((p) => { lockedGroups[p.slug] = effectiveGroup(p.slug); });
+  const vs = await getDocs(collection(db, "polls", pollId, "votes"));
+  vs.forEach((d) => {
+    const s = d.data().slug;
+    if (s && !(s in lockedGroups)) lockedGroups[s] = effectiveGroup(s);  // write-ins too
+  });
+  await updateDoc(doc(db, "polls", pollId), { status: "closed", lockedGroups });
 }
 
 export async function clearVote(pollId, voteId) {
@@ -168,22 +172,27 @@ export async function clearVote(pollId, voteId) {
 }
 
 // ---- shared tally logic ----------------------------------------------------
-export function effectiveWeight(v) {
-  if (typeof v.weightOverride === "number") return v.weightOverride;   // per-vote override
-  const og = overrideGroups[v.slug];
-  if (og) return WEIGHTS[og];                                          // current category override
-  const base = ROSTER_BY_SLUG[v.slug];
-  if (base) return base.weight;                                        // roster default
-  return typeof v.weight === "number" ? v.weight : 0;                  // write-in snapshot
+// Category that applies to a vote IN THE CONTEXT OF A POLL:
+//  • closed poll  → the category FROZEN at close time (poll.lockedGroups), so
+//    later privilege changes never rewrite a past result.
+//  • open/draft   → the CURRENT category (live), so mid-meeting fixes apply.
+export function groupForVote(v, poll) {
+  if (poll && poll.status === "closed" && poll.lockedGroups && (v.slug in poll.lockedGroups))
+    return poll.lockedGroups[v.slug];
+  return effectiveGroup(v.slug);
+}
+export function weightForVote(v, poll) {
+  const g = groupForVote(v, poll);
+  return WEIGHTS[g] !== undefined ? WEIGHTS[g] : 0;
 }
 
-export function tally(votes) {
+export function tally(votes, poll) {
   const w = { favour: 0, against: 0, abstain: 0 };
   const c = { favour: 0, against: 0, abstain: 0 };
   const eligibleVoters = new Set();
   let flags = 0, writeIns = 0;
   for (const v of votes) {
-    const ew = effectiveWeight(v);
+    const ew = weightForVote(v, poll);
     if (v.choice in w) { w[v.choice] += ew; c[v.choice] += 1; }
     if (ew > 0) eligibleVoters.add(v.slug);
     if (v.flagged) flags += 1;

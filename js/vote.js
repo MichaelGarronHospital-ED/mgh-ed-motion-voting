@@ -159,7 +159,7 @@ function resultsBody() {
   return closed.map(resultCard).join("");
 }
 function resultCard(poll) {
-  const t = tally(resultData.get(poll.id) || []);
+  const t = tally(resultData.get(poll.id) || [], poll);
   const met = t.quorumCount >= QUORUM_THRESHOLD;
   const pass = met && t.weight.favour > t.weight.against;
   const outcome = !met ? `<span class="result-noq">NO QUORUM</span>`

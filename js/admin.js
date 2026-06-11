@@ -2,8 +2,8 @@ import { ADMIN_PASSCODE, QUORUM_THRESHOLD, ORG_NAME } from "./config.js";
 import { ROSTER, ELIGIBLE_COUNT } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, deletePoll, openPoll, closePoll,
-  setVoteWeight, clearVote, tally, effectiveWeight, setArchived,
-  onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
+  clearVote, tally, setArchived, weightForVote, groupForVote,
+  onRosterOverrides, setPersonGroup, resolvedRoster,
   watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
 } from "./db.js";
 
@@ -196,7 +196,7 @@ function renderResults() {
   paintResults(el, d.poll, d.votes);
 }
 function paintResults(el, poll, votes) {
-  const t = tally(votes);
+  const t = tally(votes, poll);
   const quorumMet = t.quorumCount >= QUORUM_THRESHOLD;
   const pass = quorumMet && t.weight.favour > t.weight.against;
   const statusPill = `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>`;
@@ -253,44 +253,40 @@ function paintVoters(poll, votes) {
   Object.values(sessionToSlugs).forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
-  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review. Flags: same name from 2+ devices, or one device used for multiple names.`;
+  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
+    ${poll.status === "closed" ? "Weights are 🔒 frozen as of when this motion closed." : "Set categories/weights on the <strong>Physician Summary</strong> tab."}
+    Flags: same name from 2+ devices, or one device used for multiple names. <em>Submissions</em> = times the person voted/changed (counts once).`;
+  const frozen = poll.status === "closed";
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
-    const ew = effectiveWeight(v);
-    const g = v.isWriteIn ? "write-in" : groupLabel(effectiveGroup(v.slug));
+    const ew = weightForVote(v, poll);
+    const g = v.isWriteIn ? "write-in" : groupLabel(groupForVote(v, poll));
     const shared = sharedDevice.has(v.slug);
     return `<tr class="${v.flagged || shared ? "flagged" : ""}">
       <td>${escapeHtml(v.name)} ${v.flagged ? '<span class="pill flag">REVIEW</span>' : ""}${shared ? '<span class="pill flag">SHARED DEVICE</span>' : ""}${v.isWriteIn ? '<span class="pill draft">NEW</span>' : ""}</td>
       <td>${g}</td>
       <td>${fmt(ew)}</td>
       <td>${labelOf(v.choice)}</td>
-      <td>${v.submissionCount || 1}×</td>
-      <td>
-        <button class="btn ghost small" data-w="1" data-id="${v.id}">1</button>
-        <button class="btn ghost small" data-w="0.5" data-id="${v.id}">½</button>
-        <button class="btn ghost small" data-w="0" data-id="${v.id}">0</button>
-        <button class="btn ghost small" data-del="${v.id}">✕</button>
-      </td>
+      <td>${v.submissionCount || 1}</td>
+      <td><button class="btn ghost small" data-del="${v.id}">Remove</button></td>
     </tr>`;
   }).join("");
   $("voters-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Group</th><th>Weight</th><th>Vote</th><th>Subs</th><th>Set weight / remove</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="muted">No votes yet.</td></tr>`}</tbody>`;
-  $("voters-table").querySelectorAll("button[data-w]").forEach((b) =>
-    b.addEventListener("click", () => setVoteWeight(poll.id, b.dataset.id, parseFloat(b.dataset.w)).then(() => toast("Weight updated"))));
+    `<thead><tr><th>Name</th><th>Category</th><th>Weight${frozen ? " 🔒" : ""}</th><th>Vote</th><th>Submissions</th><th>Remove</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="muted">No votes yet.</td></tr>`}</tbody>`;
   $("voters-table").querySelectorAll("button[data-del]").forEach((b) =>
-    b.addEventListener("click", () => { if (confirm("Remove this vote?")) clearVote(poll.id, b.dataset.del); }));
+    b.addEventListener("click", () => { if (confirm("Remove this vote? This changes the result for this motion.")) clearVote(poll.id, b.dataset.del); }));
 }
 
 function exportCsv() {
   const d = ensureDisplay();
   if (!d) { toast("No motion selected."); return; }
   const poll = d.poll, list = d.votes || [];
-  const t = tally(list);
-  const header = ["Name", "Group", "Weight", "Vote", "Submissions", "Flagged", "WriteIn"];
+  const t = tally(list, poll);
+  const header = ["Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "WriteIn"];
   const lines = [header.join(",")];
   [...list].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => {
     lines.push([
-      csv(v.name), v.isWriteIn ? "write-in" : groupLabel(effectiveGroup(v.slug)), effectiveWeight(v),
+      csv(v.name), v.isWriteIn ? "write-in" : groupLabel(groupForVote(v, poll)), weightForVote(v, poll),
       v.choice, v.submissionCount || 1, v.flagged ? "YES" : "", v.isWriteIn ? "YES" : "",
     ].join(","));
   });
