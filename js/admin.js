@@ -49,6 +49,7 @@ let activeVotes = [];
 let votesUnsub = null;
 let editingId = null;       // motion currently being edited (only allowed before first vote)
 let selectedPollId = null;  // Results/Voters: which motion to view (null = current/open)
+let activeExpanded = true;     // active Motions card starts open
 let archivedExpanded = false;  // Archived + Trash cards are collapsed by default
 let trashExpanded = false;
 
@@ -98,8 +99,8 @@ function renderMotions() {
   const active = polls.filter((p) => !p.archived && !p.deleted);
   const archived = polls.filter((p) => p.archived && !p.deleted);
   const trashed = polls.filter((p) => p.deleted);
-  let html = active.length ? active.map(motionRow).join("")
-    : `<p class="muted">No motions yet. Add Friday's motions above.</p>`;
+  let html = collapsibleCard("active", "Motions", active.length, activeExpanded, "",
+    active.length ? active.map(motionRow).join("") : `<p class="muted">No motions yet. Add one above.</p>`);
   if (archived.length) {
     html += collapsibleCard("arch", "📁 Archived", archived.length, archivedExpanded,
       "Kept for reference, hidden from voters. Unarchive to view full results again.",
@@ -113,18 +114,20 @@ function renderMotions() {
   el.innerHTML = html;
   el.querySelectorAll("button[data-act]").forEach((b) =>
     b.addEventListener("click", () => motionAction(b.dataset.act, b.dataset.id)));
+  const xh = $("active-header"); if (xh) xh.addEventListener("click", () => { activeExpanded = !activeExpanded; renderMotions(); });
   const ah = $("arch-header"); if (ah) ah.addEventListener("click", () => { archivedExpanded = !archivedExpanded; renderMotions(); });
   const th = $("trash-header"); if (th) th.addEventListener("click", () => { trashExpanded = !trashExpanded; renderMotions(); });
 }
 
-// A collapsed card with a clickable header; expands to reveal blurb + rows.
+// A collapsible card with a clickable header; expands to reveal an optional
+// blurb + rows. First card has no top margin.
 function collapsibleCard(id, title, count, expanded, blurb, rowsHtml) {
-  return `<div class="card" style="margin-top:18px; background:var(--card2);">
+  return `<div class="card" style="${id === "active" ? "" : "margin-top:16px; "}background:var(--card2);">
     <div class="spread" id="${id}-header" style="cursor:pointer; user-select:none;">
       <strong>${title} <span class="muted">(${count})</span></strong>
       <span class="muted">${expanded ? "▾ hide" : "▸ show"}</span>
     </div>
-    ${expanded ? `<div style="margin-top:10px;"><p class="sub">${blurb}</p>${rowsHtml}</div>` : ""}
+    ${expanded ? `<div style="margin-top:10px;">${blurb ? `<p class="sub">${blurb}</p>` : ""}${rowsHtml}</div>` : ""}
   </div>`;
 }
 
@@ -258,12 +261,13 @@ function ensureDisplay() {
 }
 
 function renderResults() {
+  const sel = $("results-selector");
+  sel.innerHTML = motionSelectorHTML() || `<p class="muted" style="margin:0;">No motions yet.</p>`;
+  wireMotionSelect(sel);
   const el = $("results-body");
   const d = ensureDisplay();
-  if (!d) { el.innerHTML = motionSelectorHTML() + `<p class="muted">No motion to show. Open one, or choose a motion above.</p>`; wireMotionSelect(el); return; }
-  el.innerHTML = motionSelectorHTML() + `<div id="results-inner"></div>`;
-  wireMotionSelect(el);
-  paintResults($("results-inner"), d.poll, d.votes);
+  if (!d) { el.innerHTML = `<p class="muted" style="margin:0;">No motion to show. Open one, or choose a motion above.</p>`; return; }
+  paintResults(el, d.poll, d.votes);
 }
 function paintResults(el, poll, votes) {
   const t = tally(votes, poll);
@@ -311,15 +315,16 @@ function bars(t) {
 
 // ----------------------------------------------------------------- voters
 function renderVoters() {
+  const sel = $("voters-selector");
+  sel.innerHTML = motionSelectorHTML() || `<p class="muted" style="margin:0;">No motions yet.</p>`;
+  wireMotionSelect(sel);
   const d = ensureDisplay();
   if (!d) {
     $("voters-table").innerHTML = "";
-    $("voters-note").innerHTML = motionSelectorHTML() + "No motion to show — choose one above.";
-    wireMotionSelect($("tab-voters"));
+    $("voters-note").textContent = "No motion to show — choose one above.";
     return;
   }
   paintVoters(d.poll, d.votes);
-  wireMotionSelect($("tab-voters"));
 }
 function paintVoters(poll, votes) {
   // Detect one device (session) used to vote under MORE THAN ONE name.
@@ -331,7 +336,7 @@ function paintVoters(poll, votes) {
   Object.values(sessionToSlugs).forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
-  $("voters-note").innerHTML = motionSelectorHTML() + `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
+  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
     ${poll.status === "closed" ? "Weights are 🔒 frozen as of when this motion closed." : "Set categories/weights on the <strong>Physician Summary</strong> tab."}
     Flags: same name from 2+ devices, or one device used for multiple names. <em>Submissions</em> = times the person voted/changed (counts once).`;
   const frozen = poll.status === "closed";

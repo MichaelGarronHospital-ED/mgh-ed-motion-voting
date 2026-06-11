@@ -52,49 +52,59 @@
     </section>
 
     <!-- MOTIONS -->
-    <section id="tab-motions" class="card hide">
-      <h2>Motions</h2>
-      <label for="new-motion">Add a motion (one at a time)</label>
-      <textarea id="new-motion" placeholder="e.g. Motion to approve the proposed summer schedule as circulated."></textarea>
-      <button id="add-motion" class="btn accent">Add motion</button>
-      <div id="motion-list" style="margin-top:16px;"></div>
+    <section id="tab-motions" class="hide">
+      <div class="card">
+        <h2 style="margin-top:0;">Add a motion</h2>
+        <label for="new-motion">One at a time</label>
+        <textarea id="new-motion" placeholder="e.g. Motion to approve the proposed summer schedule as circulated."></textarea>
+        <button id="add-motion" class="btn accent">Add motion</button>
+      </div>
+      <div id="motion-list"></div>
     </section>
 
     <!-- RESULTS -->
-    <section id="tab-results" class="card hide">
-      <div id="results-body"><p class="muted">Open a motion to see live results.</p></div>
+    <section id="tab-results" class="hide">
+      <div class="card" id="results-selector"></div>
+      <div class="card" id="results-body"></div>
     </section>
 
     <!-- VOTERS -->
-    <section id="tab-voters" class="card hide">
-      <div class="spread">
-        <h2 style="margin:0;">Vote record</h2>
-        <button id="export" class="btn accent small">Export CSV</button>
-      </div>
-      <p class="sub" id="voters-note"></p>
-      <div style="max-height:60vh; overflow:auto;">
-        <table id="voters-table"></table>
+    <section id="tab-voters" class="hide">
+      <div class="card" id="voters-selector"></div>
+      <div class="card">
+        <div class="spread">
+          <h2 style="margin:0;">Vote record</h2>
+          <button id="export" class="btn accent small">Export CSV</button>
+        </div>
+        <p class="sub" id="voters-note"></p>
+        <div style="max-height:60vh; overflow:auto;">
+          <table id="voters-table"></table>
+        </div>
       </div>
     </section>
 
     <!-- ROSTER SUMMARY -->
-    <section id="tab-roster" class="card hide">
-      <div class="spread">
-        <h2 style="margin:0;">Physician summary</h2>
-        <button id="export-roster" class="btn accent small">Export CSV</button>
+    <section id="tab-roster" class="hide">
+      <div class="card">
+        <div class="spread">
+          <h2 style="margin:0;">Physician summary</h2>
+          <button id="export-roster" class="btn accent small">Export CSV</button>
+        </div>
+        <p class="sub" id="roster-counts"></p>
+        <div class="card" style="background:var(--card2); margin:4px 0 0;">
+          <strong>Legend</strong>
+          <ul style="margin:8px 0 0; padding-left:18px; line-height:1.7;">
+            <li><strong>Full vote</strong> <span class="muted">(Group 1 · 1 pt)</span> — Active staff, 8+ shifts/month</li>
+            <li><strong>Half vote</strong> <span class="muted">(Group 2 · ½ pt)</span> — Active &lt;8 shifts · Provisional active · Active secondary site</li>
+            <li><strong>No vote</strong> <span class="muted">(Courtesy · 0)</span> — non-voting; recorded but not counted</li>
+          </ul>
+        </div>
       </div>
-      <p class="sub" id="roster-counts"></p>
-      <div class="card" style="background:var(--card2); margin:4px 0 12px;">
-        <strong>Legend</strong>
-        <ul style="margin:8px 0 0; padding-left:18px; line-height:1.7;">
-          <li><strong>Full vote</strong> <span class="muted">(Group 1 · 1 pt)</span> — Active staff, 8+ shifts/month</li>
-          <li><strong>Half vote</strong> <span class="muted">(Group 2 · ½ pt)</span> — Active &lt;8 shifts · Provisional active · Active secondary site</li>
-          <li><strong>No vote</strong> <span class="muted">(Courtesy · 0)</span> — non-voting; recorded but not counted</li>
-        </ul>
-      </div>
-      <input id="roster-filter" type="text" placeholder="Filter by name…" autocomplete="off" style="margin-bottom:10px;" />
-      <div style="max-height:60vh; overflow:auto;">
-        <table id="roster-table"></table>
+      <div class="card">
+        <input id="roster-filter" type="text" placeholder="Filter by name…" autocomplete="off" style="margin-bottom:10px;" />
+        <div style="max-height:60vh; overflow:auto;">
+          <table id="roster-table"></table>
+        </div>
       </div>
     </section>
   </div>
