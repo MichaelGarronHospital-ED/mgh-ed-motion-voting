@@ -47,7 +47,8 @@ let polls = [];
 let activePoll = null;
 let activeVotes = [];
 let votesUnsub = null;
-let editingId = null;   // motion currently being edited (only allowed before first vote)
+let editingId = null;       // motion currently being edited (only allowed before first vote)
+let selectedPollId = null;  // Results/Voters: which motion to view (null = current/open)
 
 function boot() {
   // share tab
@@ -170,9 +171,34 @@ async function motionAction(act, id) {
 // ----------------------------------------------------------------- results
 // The "display poll" is the open motion, or else the most recent closed one.
 // Both the Results and Voters tabs read from this single subscription.
+// Which motion the Results/Voters tabs show: an explicit choice, else the open
+// motion, else the most recent (non-archived) closed one.
+function displayPoll() {
+  if (selectedPollId) {
+    const p = polls.find((x) => x.id === selectedPollId);
+    if (p) return p;
+  }
+  return activePoll || [...polls].reverse().find((p) => p.status === "closed" && !p.archived) || null;
+}
+function motionSelectorHTML() {
+  if (!polls.length) return "";
+  const opts = [`<option value="">Current / open motion (auto)</option>`].concat(
+    polls.map((p) => {
+      const tag = p.archived ? "📦 " : p.status === "open" ? "🟢 " : p.status === "closed" ? "✓ " : "✎ ";
+      const short = p.text.length > 60 ? p.text.slice(0, 60) + "…" : p.text;
+      return `<option value="${p.id}" ${p.id === selectedPollId ? "selected" : ""}>${tag}${escapeHtml(short)}</option>`;
+    })).join("");
+  return `<label class="sub" style="display:block;margin-bottom:4px;">View motion</label>
+    <select class="motion-select" style="margin-bottom:12px;">${opts}</select>`;
+}
+function wireMotionSelect(scope) {
+  const s = scope.querySelector(".motion-select");
+  if (s) s.addEventListener("change", () => { selectedPollId = s.value || null; renderResults(); renderVoters(); });
+}
+
 let displayUnsub = null, displayId = null, displayVotes = [];
 function ensureDisplay() {
-  const poll = activePoll || [...polls].reverse().find((p) => p.status === "closed" && !p.archived) || null;
+  const poll = displayPoll();
   if (!poll) {
     if (displayUnsub) { displayUnsub(); displayUnsub = null; }
     displayId = null; displayVotes = [];
@@ -193,8 +219,10 @@ function ensureDisplay() {
 function renderResults() {
   const el = $("results-body");
   const d = ensureDisplay();
-  if (!d) { el.innerHTML = `<p class="muted">Open a motion to see live results.</p>`; return; }
-  paintResults(el, d.poll, d.votes);
+  if (!d) { el.innerHTML = motionSelectorHTML() + `<p class="muted">No motion to show. Open one, or choose a motion above.</p>`; wireMotionSelect(el); return; }
+  el.innerHTML = motionSelectorHTML() + `<div id="results-inner"></div>`;
+  wireMotionSelect(el);
+  paintResults($("results-inner"), d.poll, d.votes);
 }
 function paintResults(el, poll, votes) {
   const t = tally(votes, poll);
@@ -242,8 +270,14 @@ function bars(t) {
 // ----------------------------------------------------------------- voters
 function renderVoters() {
   const d = ensureDisplay();
-  if (!d) { $("voters-table").innerHTML = ""; $("voters-note").textContent = "No motion selected."; return; }
+  if (!d) {
+    $("voters-table").innerHTML = "";
+    $("voters-note").innerHTML = motionSelectorHTML() + "No motion to show — choose one above.";
+    wireMotionSelect($("tab-voters"));
+    return;
+  }
   paintVoters(d.poll, d.votes);
+  wireMotionSelect($("tab-voters"));
 }
 function paintVoters(poll, votes) {
   // Detect one device (session) used to vote under MORE THAN ONE name.
@@ -255,7 +289,7 @@ function paintVoters(poll, votes) {
   Object.values(sessionToSlugs).forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
-  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
+  $("voters-note").innerHTML = motionSelectorHTML() + `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
     ${poll.status === "closed" ? "Weights are 🔒 frozen as of when this motion closed." : "Set categories/weights on the <strong>Physician Summary</strong> tab."}
     Flags: same name from 2+ devices, or one device used for multiple names. <em>Submissions</em> = times the person voted/changed (counts once).`;
   const frozen = poll.status === "closed";
