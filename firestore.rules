@@ -1,0 +1,15 @@
+rules_version = '2';
+// Open rules for a short-lived, single-meeting voting tool. Anyone with the
+// link can read/write the polls + votes collections. This is acceptable for a
+// trusted physician group meeting on an unlisted project URL. If you want to
+// reuse this long-term, lock it down (e.g. require Firebase Auth).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /polls/{poll} {
+      allow read, write: if true;
+      match /votes/{vote} {
+        allow read, write: if true;
+      }
+    }
+  }
+}

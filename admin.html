@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Motion Voting — Leadership</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- passcode gate -->
+  <div id="gate" class="wrap">
+    <h1>Leadership access</h1>
+    <p class="sub">Enter the passcode to manage motions and view results.</p>
+    <div class="card">
+      <label for="pass">Passcode</label>
+      <input id="pass" type="password" placeholder="Passcode" />
+      <button id="enter" class="btn accent">Enter</button>
+      <p id="gate-err" class="sub hide" style="color:#fca5a5;">Incorrect passcode.</p>
+    </div>
+  </div>
+
+  <!-- console -->
+  <div id="console" class="wrap wide hide">
+    <div class="spread">
+      <h1>Leadership console</h1>
+      <a href="#" id="lock" class="sub">Lock</a>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="share">Share / QR</div>
+      <div class="tab" data-tab="motions">Motions</div>
+      <div class="tab" data-tab="results">Live results</div>
+      <div class="tab" data-tab="voters">Voters</div>
+    </div>
+
+    <!-- SHARE -->
+    <section id="tab-share" class="card">
+      <h2>Send voters here</h2>
+      <p class="muted">Screen-share this QR code in the meeting, or share the link. Voters scan → pick their name → vote. No chat needed.</p>
+      <div class="center" style="margin:18px 0;">
+        <canvas id="qr"></canvas>
+      </div>
+      <label>Voting link</label>
+      <div class="row">
+        <input id="vote-url" type="text" readonly />
+        <button id="copy-url" class="btn accent small">Copy</button>
+      </div>
+      <p class="sub" id="roster-summary"></p>
+    </section>
+
+    <!-- MOTIONS -->
+    <section id="tab-motions" class="card hide">
+      <h2>Motions</h2>
+      <label for="new-motion">Add a motion (one at a time)</label>
+      <textarea id="new-motion" placeholder="e.g. Motion to approve the proposed summer schedule as circulated."></textarea>
+      <button id="add-motion" class="btn accent">Add motion</button>
+      <div id="motion-list" style="margin-top:16px;"></div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="tab-results" class="card hide">
+      <div id="results-body"><p class="muted">Open a motion to see live results.</p></div>
+    </section>
+
+    <!-- VOTERS -->
+    <section id="tab-voters" class="card hide">
+      <div class="spread">
+        <h2 style="margin:0;">Vote record</h2>
+        <button id="export" class="btn accent small">Export CSV</button>
+      </div>
+      <p class="sub" id="voters-note"></p>
+      <div style="max-height:60vh; overflow:auto;">
+        <table id="voters-table"></table>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hide"></div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>
