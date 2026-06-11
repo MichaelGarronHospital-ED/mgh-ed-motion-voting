@@ -82,6 +82,14 @@
         <button id="export-roster" class="btn accent small">Export CSV</button>
       </div>
       <p class="sub" id="roster-counts"></p>
+      <div class="card" style="background:var(--card2); margin:4px 0 12px;">
+        <strong>Legend</strong>
+        <ul style="margin:8px 0 0; padding-left:18px; line-height:1.7;">
+          <li><strong>Full vote</strong> <span class="muted">(Group 1 · 1 pt)</span> — Active staff, 8+ shifts/month</li>
+          <li><strong>Half vote</strong> <span class="muted">(Group 2 · ½ pt)</span> — Active &lt;8 shifts · Provisional active · Active secondary site</li>
+          <li><strong>No vote</strong> <span class="muted">(Courtesy · 0)</span> — non-voting; recorded but not counted</li>
+        </ul>
+      </div>
       <input id="roster-filter" type="text" placeholder="Filter by name…" autocomplete="off" style="margin-bottom:10px;" />
       <div style="max-height:60vh; overflow:auto;">
         <table id="roster-table"></table>

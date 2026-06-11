@@ -62,7 +62,7 @@ function boot() {
   const g2 = ROSTER.filter((p) => p.group === "2").length;
   const cy = ROSTER.filter((p) => p.group === "courtesy").length;
   $("roster-counts").innerHTML =
-    `Group 1 (1 pt): <strong>${g1}</strong> &nbsp;·&nbsp; Group 2 (½ pt): <strong>${g2}</strong> &nbsp;·&nbsp; Courtesy (0): <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${ELIGIBLE_COUNT}</strong> &nbsp;·&nbsp; Quorum: <strong>${QUORUM_THRESHOLD}</strong>`;
+    `Full vote: <strong>${g1}</strong> &nbsp;·&nbsp; Half vote: <strong>${g2}</strong> &nbsp;·&nbsp; No vote: <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${ELIGIBLE_COUNT}</strong> &nbsp;·&nbsp; Quorum: <strong>${QUORUM_THRESHOLD}</strong>`;
   renderRoster("");
   $("roster-filter").addEventListener("input", (e) => renderRoster(e.target.value));
   $("export-roster").addEventListener("click", exportRoster);
@@ -313,8 +313,8 @@ function exportRoster() {
 }
 
 // ----------------------------------------------------------------- utils
-function catLabel(g){return g==="1"?"Group 1":g==="2"?"Group 2":g==="courtesy"?"Courtesy":g;}
-function groupLabel(g){return g==="1"?"Group 1 (1)":g==="2"?"Group 2 (½)":g==="courtesy"?"Courtesy (0)":g;}
+function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":g;}
+function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV
 function labelOf(c){return c==="favour"?"In favour":c==="against"?"Against":c==="abstain"?"Abstain":c;}
 function fmt(n){return Number.isInteger(n)?n:Number(n).toFixed(1);}
 function csv(s){return `"${String(s).replace(/"/g,'""')}"`;}
