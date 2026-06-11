@@ -49,16 +49,16 @@
    the toggle above just lets you preview both here.
    ============================================================================ */
 
-// ---- DEMO roster (weights here are EXAMPLES so you can see ½ and 0 in action;
-//      the real weights come from js/roster.js) -------------------------------
-const G2 = new Set(["Jason Lam","Alex Chan","Karen Ho","Maria Leis","Tom Klosek","Vivian Tam"]); // ½ pt
-const CY = new Set(["Diana","Alx Florea"]);                                                       // no vote
-const NAMES = ["Adam Kaufman","Adil Shamji","Alex Chan","Alvin Yang","Alx Florea","Amanda Fitzgibbon","Andrea Lo","Andrew Maeng","Andrew Shum","Angela Marrocco","Aran Balachandran","Brandon Lam","Brendan McCullough","Brittany Cameron","Cristina Pastia","Dan Tsoy","David Ng","David Phillips","David Rosenstein","David Sheps","David Smith","Diana","Eileen Cheung","Fatemeh Bakhtiari","Francis Sem","Fraser Kegel","George Porfiris","Henry Becker","Indy Sahota","Jack Hickey","James Fairbairn","Jane Wang","Jason Lam","Jefferson Hayre","Justin Losier","Karen Ho","Kasia Stefanski","Kate Lazier","Kristin Malcolm","Kyle Vojdani","Lingli Ma","Lisa Ballinger","Lucas Mastropaolo","Luke Kyne","Manpreet Lamba","Maria Leis","Marlee Klaiman","Matthew Skelly","Mazen Jazi","Meg Reynolds","Michael Charnish","Muneesh Jha","Nadia Incardona","Nadia Primiani","Natalie Mamen","Nicole Falzone","Nima Farkhani","Rajani Vairavanathan","Rakesh Kumar","Rana Kamhawy","Rebecca Chang","Rey Kishmiri","Rob Soegtrop","Ruchi Mohindra","Russell Bahar","Ryan Gotesman","Santosh Kanjeekal","Sara Brade","Sebastian Przech","Tania Philip","Tom Klosek","Vivian Tam","Walter Himmel","Yusuf Malik"];
+// ---- Real roster from MGH ED VOTING SHEET (mirrors js/roster.js) ------------
+const GROUP1 = ["Adam Kaufman","Alvin Yang","Andrew Shum","Angela Marrocco","Brendan McCullough","Brittany Cameron","Cristina Pastia","David Phillips","David Rosenstein","David Sheps","David Smith","George Porfiris","Jack Hickey","Jason Lam","Jefferson Hayre","Karen Ho","Kasia Stefanski","Kate Lazier","Kristin Malcolm","Kyle Vojdani","Lingli Ma","Lisa Ballinger","Manpreet Lamba","Meg Reynolds","Michael Charnish","Muneesh Jha","Nadia Incardona","Rajani Vairavanathan","Ruchi Mohindra","Salvatore Sirna","Tania Philip","Tom Klosek","Walter Himmel"]; // 1 pt
+const GROUP2 = ["Aran Balachandran","David Ng","Eileen Cheung","Francis Sem","Indy Sahota","James Fairbairn","Mazen Jazi","Nadia Primiani","Natalie Mamen","Rakesh Kumar","Rey Kishmiri","Rob Soegtrop","Russell Bahar","Santosh Kanjeekal"]; // ½ pt
+const COURTESY = ["Adil Shamji","Alex Chan","Alx Florea","Amanda Fitzgibbon","Andrea Lo","Andrew Maeng","Brandon Lam","Dan Tsoy","Diana","Fatemeh Bakhtiari","Fraser Kegel","Henry Becker","Jane Wang","Justin Losier","Lucas Mastropaolo","Luke Kyne","Maria Leis","Marlee Klaiman","Matthew Skelly","Nicole Falzone","Nima Farkhani","Rana Kamhawy","Rebecca Chang","Ryan Gotesman","Sara Brade","Sebastian Przech","Vivian Tam","Yusuf Malik"]; // no vote
 const slugify = (n) => n.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-const ROSTER = NAMES.map(n => ({ name:n, slug:slugify(n), group: CY.has(n)?"courtesy":G2.has(n)?"2":"1", weight: CY.has(n)?0:G2.has(n)?0.5:1 })).sort((a,b)=>a.name.localeCompare(b.name));
+const ROSTER = [...GROUP1.map(n=>({name:n,group:"1",weight:1})),...GROUP2.map(n=>({name:n,group:"2",weight:0.5})),...COURTESY.map(n=>({name:n,group:"courtesy",weight:0}))]
+  .map(p=>({...p,slug:slugify(p.name)})).sort((a,b)=>a.name.localeCompare(b.name));
 const ROSTER_BY_SLUG = Object.fromEntries(ROSTER.map(p=>[p.slug,p]));
-const ELIGIBLE = ROSTER.filter(p=>p.weight>0).length;
-const QUORUM = 24;
+const ELIGIBLE = ROSTER.filter(p=>p.weight>0).length;   // 47
+const QUORUM = Math.ceil(ELIGIBLE/2);                    // 24
 
 // ---- in-memory state -------------------------------------------------------
 let view = "voter", adminTab = "results", voterTab = "vote", me = null, mySession = "demo-device-A", editingId = null;

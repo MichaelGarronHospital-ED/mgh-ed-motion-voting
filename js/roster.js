@@ -1,53 +1,41 @@
 // ============================================================================
-//  ROSTER — assign every physician to a group.
-//  Just move names between the three lists below. That's the only edit needed.
+//  ROSTER — assignments taken from "MGH ED VOTING SHEET.xlsx" (2026-06-11).
 //
-//    GROUP1   = 1 point per vote   (Active staff, 8+ shifts/month)
-//    GROUP2   = ½ point per vote   (Active <8 shifts, Provisional active,
-//                                   Active secondary site)
-//    COURTESY = no vote            (recorded for transparency, weight 0)
+//    GROUP1   = 1 point per vote   (Active staff, 8+ shifts/month) — 33 voters
+//    GROUP2   = ½ point per vote   (Active <8 shifts / Provisional / secondary) — 14 voters
+//    COURTESY = no vote            (on the team roster but NOT on the voting sheet) — 28
 //
-//  NOTE: Everyone is currently in GROUP1. Cut/paste names into GROUP2 or
-//  COURTESY as needed. Anyone not listed who votes is treated as a write-in
-//  (weight 0 until leadership assigns one in the admin "Voters" table).
+//  Eligible to vote (Group 1 + Group 2) = 47  →  50% = 23.5  →  quorum = 24.
+//
+//  ⚠️ NAME NOTES (voting sheet vs Teams list) — confirm these are the same people
+//  and that the displayed name is what each person will look for:
+//    • "Jack Hickey" (Teams)  — sheet says "Hickey, Zachary"
+//    • "Meg Reynolds"         — sheet "Reynolds, Megan"
+//    • "Kyle Vojdani"         — sheet "Vojdani, Omid Kyle"
+//    • "Indy Sahota"          — sheet "Sahota, Inderjeet"
+//    • "Rob Soegtrop"         — sheet "Soegtrop, Robert"
+//    • "Rey Kishmiri"         — sheet "Keshmiri, Rey"
+//    • "David Smith"          — sheet "Smith, David J"
+//    • "Karen Ho"             — sheet "Ho, Karen Cin Ting"
+//    • "Salvatore Sirna"      — on the voting sheet but was NOT in the Teams list
 // ============================================================================
 
 export const GROUP1 = [
   "Adam Kaufman",
-  "Adil Shamji",
-  "Alex Chan",
   "Alvin Yang",
-  "Alx Florea",
-  "Amanda Fitzgibbon",
-  "Andrea Lo",
-  "Andrew Maeng",
   "Andrew Shum",
   "Angela Marrocco",
-  "Aran Balachandran",
-  "Brandon Lam",
   "Brendan McCullough",
   "Brittany Cameron",
   "Cristina Pastia",
-  "Dan Tsoy",
-  "David Ng",
   "David Phillips",
   "David Rosenstein",
   "David Sheps",
   "David Smith",
-  "Diana",
-  "Eileen Cheung",
-  "Fatemeh Bakhtiari",
-  "Francis Sem",
-  "Fraser Kegel",
   "George Porfiris",
-  "Henry Becker",
-  "Indy Sahota",
   "Jack Hickey",
-  "James Fairbairn",
-  "Jane Wang",
   "Jason Lam",
   "Jefferson Hayre",
-  "Justin Losier",
   "Karen Ho",
   "Kasia Stefanski",
   "Kate Lazier",
@@ -55,46 +43,65 @@ export const GROUP1 = [
   "Kyle Vojdani",
   "Lingli Ma",
   "Lisa Ballinger",
-  "Lucas Mastropaolo",
-  "Luke Kyne",
   "Manpreet Lamba",
-  "Maria Leis",
-  "Marlee Klaiman",
-  "Matthew Skelly",
-  "Mazen Jazi",
   "Meg Reynolds",
   "Michael Charnish",
   "Muneesh Jha",
   "Nadia Incardona",
-  "Nadia Primiani",
-  "Natalie Mamen",
-  "Nicole Falzone",
-  "Nima Farkhani",
   "Rajani Vairavanathan",
-  "Rakesh Kumar",
-  "Rana Kamhawy",
-  "Rebecca Chang",
-  "Rey Kishmiri",
-  "Rob Soegtrop",
   "Ruchi Mohindra",
-  "Russell Bahar",
-  "Ryan Gotesman",
-  "Santosh Kanjeekal",
-  "Sara Brade",
-  "Sebastian Przech",
+  "Salvatore Sirna",
   "Tania Philip",
   "Tom Klosek",
-  "Vivian Tam",
   "Walter Himmel",
-  "Yusuf Malik",
 ];
 
 export const GROUP2 = [
-  // ½ point per vote — e.g. "Jane Doe",
+  "Aran Balachandran",
+  "David Ng",
+  "Eileen Cheung",
+  "Francis Sem",
+  "Indy Sahota",
+  "James Fairbairn",
+  "Mazen Jazi",
+  "Nadia Primiani",
+  "Natalie Mamen",
+  "Rakesh Kumar",
+  "Rey Kishmiri",
+  "Rob Soegtrop",
+  "Russell Bahar",
+  "Santosh Kanjeekal",
 ];
 
 export const COURTESY = [
-  // no vote — e.g. "John Doe",
+  "Adil Shamji",
+  "Alex Chan",
+  "Alx Florea",
+  "Amanda Fitzgibbon",
+  "Andrea Lo",
+  "Andrew Maeng",
+  "Brandon Lam",
+  "Dan Tsoy",
+  "Diana",
+  "Fatemeh Bakhtiari",
+  "Fraser Kegel",
+  "Henry Becker",
+  "Jane Wang",
+  "Justin Losier",
+  "Lucas Mastropaolo",
+  "Luke Kyne",
+  "Maria Leis",
+  "Marlee Klaiman",
+  "Matthew Skelly",
+  "Nicole Falzone",
+  "Nima Farkhani",
+  "Rana Kamhawy",
+  "Rebecca Chang",
+  "Ryan Gotesman",
+  "Sara Brade",
+  "Sebastian Przech",
+  "Vivian Tam",
+  "Yusuf Malik",
 ];
 
 // ---- derived helpers (no need to edit below) -------------------------------
