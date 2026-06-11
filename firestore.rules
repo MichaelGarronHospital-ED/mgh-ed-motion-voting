@@ -12,21 +12,24 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function isLeader() { return signedIn() && request.auth.token.email == 'leadership@ed-motion-voting.app'; }
-    function onlyVoteCountChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voteCount']);
-    }
     function notTouchingWeightOverride() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['weightOverride']);
     }
     function pollIsOpen(poll) {
       return get(/databases/$(database)/documents/polls/$(poll)).data.status == 'open';
     }
+    // a voter's only allowed poll write: bump voteCount by exactly +1, while open
+    function voterBumpsVoteCount(poll) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voteCount'])
+        && request.resource.data.voteCount == resource.data.get('voteCount', 0) + 1
+        && pollIsOpen(poll);
+    }
 
     match /polls/{poll} {
       allow read: if signedIn();
       allow create, delete: if isLeader();
-      // leadership edits anything; a voter may only bump the voteCount counter
-      allow update: if isLeader() || (signedIn() && onlyVoteCountChanged());
+      // leadership edits anything; a voter may only +1 the voteCount counter
+      allow update: if isLeader() || (signedIn() && voterBumpsVoteCount(poll));
 
       match /votes/{vote} {
         allow read: if signedIn();
