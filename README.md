@@ -4,8 +4,8 @@ A free, mobile-friendly weighted-voting site for live meeting motions.
 Static frontend on **GitHub Pages** + **Firebase Firestore** for real-time vote storage.
 
 - **Voters:** `index.html` — pick your name, tap *In favour / Against / Abstain*.
-- **Leadership:** `admin.html` — manage motions, see live weighted tally, quorum
-  meter, per-person table + CSV export. Passcode-protected.
+- **Leadership:** `admin-9f4k2x7q.html` — manage motions, see live weighted tally,
+  quorum meter, per-person table + CSV export. Passcode-protected + unguessable URL.
 
 Weights: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**. A motion
 passes when weighted *In favour* > weighted *Against*; abstentions count toward
@@ -35,10 +35,10 @@ Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COU
 2. Repo **Settings → Pages → Source: Deploy from a branch → `main` / root → Save**.
 3. After ~1 minute your site is live at `https://<user>.github.io/<repo>/`.
    - Voters: `…/index.html`
-   - Leadership: `…/admin.html`
+   - Leadership: `…/admin-9f4k2x7q.html`
 
 ### 4. Test (30 seconds)
-Open `admin.html`, enter the passcode → **Motions** → add a motion → **Open**.
+Open `admin-9f4k2x7q.html`, enter the passcode → **Motions** → add a motion → **Open**.
 Open `index.html` in another tab/phone, pick a name, vote. Confirm the tally
 and quorum meter update live in the admin **Live results** tab.
 

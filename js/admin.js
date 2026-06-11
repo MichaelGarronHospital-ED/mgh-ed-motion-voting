@@ -41,7 +41,7 @@ let editingId = null;   // motion currently being edited (only allowed before fi
 
 function boot() {
   // share tab
-  const url = location.origin + location.pathname.replace(/admin\.html$/, "") + "index.html";
+  const url = location.origin + location.pathname.replace(/[^/]*$/, "") + "index.html";
   $("vote-url").value = url;
   if (window.QRCode) QRCode.toCanvas($("qr"), url, { width: 240, margin: 1 }, () => {});
   $("copy-url").addEventListener("click", () => { navigator.clipboard.writeText(url); toast("Link copied"); });
