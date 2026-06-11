@@ -15,21 +15,24 @@
     .demobar .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
     .demobar .seg button { background: var(--card2); color: var(--text); border: none; padding: 8px 14px; cursor: pointer; font-size: .9rem; }
     .demobar .seg button.on { background: var(--accent); color: #08233a; font-weight: 700; }
+    .demobar .note { font-size: .72rem; color: var(--muted); }
     .demobar .spacer { flex: 1; }
     .demobar .tool { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: .82rem; }
     .qr-fake { width: 200px; height: 200px; margin: 0 auto; border-radius: 12px; background:
       repeating-conic-gradient(#0f172a 0% 25%, #e2e8f0 0% 50%) 50% / 22px 22px; opacity: .85; }
     .device { max-width: 430px; margin: 18px auto; border: 8px solid #0b1220; border-radius: 28px; overflow: hidden; box-shadow: var(--shadow); }
     .device .wrap { padding: 16px; }
+    .urlbar { font-size: .72rem; color: var(--muted); text-align: center; margin: 6px 0 0; }
   </style>
 </head>
 <body>
   <div class="demobar">
     <span class="badge">DEMO</span>
     <div class="seg">
-      <button id="seg-voter" class="on" onclick="setView('voter')">📱 Voter</button>
-      <button id="seg-admin" onclick="setView('admin')">🛡️ Leadership</button>
+      <button id="seg-voter" class="on" onclick="setView('voter')">📱 Voter link</button>
+      <button id="seg-admin" onclick="setView('admin')">🛡️ Leadership link</button>
     </div>
+    <span class="note">these are two separate URLs in production</span>
     <span class="spacer"></span>
     <button class="tool" onclick="simulate(26)">🎲 Simulate 26 votes</button>
     <button class="tool" onclick="resetDemo()">♻️ Reset</button>
@@ -42,7 +45,8 @@
 /* ============================================================================
    STANDALONE INTERACTIVE MOCK — mirrors the real app's behaviour in-memory.
    Nothing is saved. Refresh or hit Reset to start over.
-   (The live app uses Firebase + GitHub Pages; this file needs neither.)
+   Voter + Leadership are SEPARATE links in production (index.html / admin.html);
+   the toggle above just lets you preview both here.
    ============================================================================ */
 
 // ---- DEMO roster (weights here are EXAMPLES so you can see ½ and 0 in action;
@@ -57,12 +61,12 @@ const ELIGIBLE = ROSTER.filter(p=>p.weight>0).length;
 const QUORUM = 24;
 
 // ---- in-memory state -------------------------------------------------------
-let view = "voter", adminTab = "results", me = null, mySession = "demo-device-A";
+let view = "voter", adminTab = "results", voterTab = "vote", me = null, mySession = "demo-device-A", editingId = null;
 let polls, votes;
 function defaults() {
   polls = [
-    { id:"m1", text:"Motion to approve the proposed summer on-call schedule as circulated.", status:"open",  resultsVisible:true },
-    { id:"m2", text:"Motion to adopt the revised Alternate Funding Arrangement (AFA) distribution model.", status:"draft", resultsVisible:true },
+    { id:"m1", text:"Motion to approve the proposed summer on-call schedule as circulated.", status:"open" },
+    { id:"m2", text:"Motion to adopt the revised Alternate Funding Arrangement (AFA) distribution model.", status:"draft" },
   ];
   votes = { m1:{}, m2:{} };
 }
@@ -70,6 +74,7 @@ defaults();
 
 // ---- shared logic (same rules as the real app) -----------------------------
 function effW(v){ return typeof v.weightOverride==="number" ? v.weightOverride : v.weight; }
+function voteCount(id){ return Object.keys(votes[id]||{}).length; }
 function tally(map){
   const list = Object.values(map);
   const w={favour:0,against:0,abstain:0}, c={favour:0,against:0,abstain:0}, voters=new Set();
@@ -88,12 +93,26 @@ function castVote(pollId, voter, choice, session){
 function setView(v){ view=v; document.getElementById("seg-voter").classList.toggle("on",v==="voter"); document.getElementById("seg-admin").classList.toggle("on",v==="admin"); render(); }
 function render(){ document.getElementById("app").innerHTML = view==="voter" ? voterHTML() : adminHTML(); }
 
-// ========================= VOTER ===========================================
+// ========================= VOTER (index.html) ==============================
 function voterHTML(){
+  const tabs = `<div class="tabs">
+    <div class="tab ${voterTab==='vote'?'active':''}" onclick="setVoterTab('vote')">Vote</div>
+    <div class="tab ${voterTab==='results'?'active':''}" onclick="setVoterTab('results')">Results</div></div>`;
+  const body = voterTab==="vote" ? `<div class="card">${voterVote()}</div>` : voterResults();
+  const html = `<div class="device"><div class="wrap">
+      <h1>Emergency Medicine — Motion Voting</h1>
+      <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p>
+      ${tabs}${body}
+    </div><p class="urlbar">your-name.github.io/ed-motion-voting/</p></div>`;
+  return html + ((voterTab==="vote" && !me) ? afterNames() : "");
+}
+function setVoterTab(t){ voterTab=t; render(); }
+function afterNames(){ setTimeout(()=>renderNames(""),0); return ""; }
+
+function voterVote(){
   const open = polls.find(p=>p.status==="open");
-  let inner;
   if(!me){
-    inner = `
+    return `
       <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and reviewed for duplicates.</div>
       <label>Find your name</label>
       <input id="search" type="text" placeholder="Start typing your name…" oninput="renderNames(this.value)" autocomplete="off"/>
@@ -104,11 +123,12 @@ function voterHTML(){
         <input id="writein" type="text" placeholder="First Last" autocomplete="off"/>
         <button class="btn accent" onclick="doWritein()">Continue</button>
       </div>`;
-  } else if(open){
+  }
+  const head = `<div class="spread"><span class="muted">Voting as <strong>${esc(me.name)}</strong>${me.isWriteIn?" (new — pending review)":""}</span>
+        <a href="#" onclick="resetVoter(event)" class="sub">Not you?</a></div>`;
+  if(open){
     const mine = votes[open.id][me.slug];
-    inner = `
-      <div class="spread"><span class="muted">Voting as <strong>${esc(me.name)}</strong>${me.isWriteIn?" (new — pending review)":""}</span>
-        <a href="#" onclick="resetVoter(event)" class="sub">Not you?</a></div>
+    return head + `
       <span class="pill open">● VOTING OPEN</span>
       <h2 style="margin-top:10px">${esc(open.text)}</h2>
       ${me.weight===0?`<p class="disclaimer">Your vote is recorded but currently carries <strong>no weight</strong>${me.isWriteIn?" (pending leadership review)":""}.</p>`:""}
@@ -118,19 +138,31 @@ function voterHTML(){
         <button class="btn abstain ${mine&&mine.choice==="abstain"?"selected":""}" onclick="vote('abstain')">➖ Abstain</button>
       </div>
       ${mine?`<p class="center muted" style="margin-top:14px">You voted <strong>${labelOf(mine.choice)}</strong>. You can change it until voting closes.</p>`:""}`;
-  } else {
-    const closed = [...polls].reverse().find(p=>p.status==="closed"&&p.resultsVisible);
-    inner = `<div class="spread"><span class="muted">Voting as <strong>${esc(me.name)}</strong></span>
-        <a href="#" onclick="resetVoter(event)" class="sub">Not you?</a></div>` +
-      (closed ? resultBlock(closed,true) : `<div class="center" style="padding:24px 0"><div class="big">⏳</div><p class="muted">Waiting for the next motion to open…</p></div>`);
   }
-  return `<div class="device"><div class="wrap">
-    <h1>Emergency Medicine — Motion Voting</h1>
-    <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p>
-    <div class="card">${inner}</div>
-  </div></div>` + (me?"":namesScript());
+  return head + `<div class="center" style="padding:24px 0">
+      <div class="big">⏳</div>
+      <p class="muted">No motion open right now.<br>Closed motions appear under the <strong>Results</strong> tab.</p></div>`;
 }
-function namesScript(){ setTimeout(()=>renderNames(""),0); return ""; }
+
+function voterResults(){
+  const closed = polls.filter(p=>p.status==="closed");
+  if(!closed.length) return `<div class="card"><p class="muted center" style="padding:16px 0">No results yet. Closed motions will appear here.</p></div>`;
+  return closed.map(voterResultCard).join("");
+}
+function voterResultCard(poll){
+  const t=tally(votes[poll.id]); const met=t.quorumCount>=QUORUM; const pass=met && t.weight.favour>t.weight.against;
+  const outcome = !met ? `<span class="result-noq">NO QUORUM</span>` : pass?`<span class="result-pass">PASSED ✅</span>`:`<span class="result-fail">DID NOT PASS ❌</span>`;
+  const max=Math.max(t.weight.favour,t.weight.against,t.weight.abstain,1);
+  const bar=(k,l)=>`<div class="bar-row"><div class="bar-label"><span>${l}</span><span>${fmt(t.weight[k])} pts · ${t.count[k]} ${t.count[k]===1?"vote":"votes"}</span></div><div class="bar-track"><div class="bar-fill ${k}" style="width:${t.weight[k]/max*100}%"></div></div></div>`;
+  return `<div class="card">
+    <span class="pill closed">● CLOSED</span>
+    <h2 style="margin:8px 0">${esc(poll.text)}</h2>
+    <p class="center" style="font-size:1.4rem;font-weight:800;margin:6px 0">${outcome}</p>
+    <div class="bars">${bar("favour","In favour")}${bar("against","Against")}${bar("abstain","Abstain")}</div>
+    <p class="center sub ${met?"quorum-ok":"quorum-bad"}">Quorum ${t.quorumCount} / ${QUORUM} ${met?"met":"not met"}</p>
+  </div>`;
+}
+
 function renderNames(filter){
   const el = document.getElementById("namelist"); if(!el) return;
   const f=(filter||"").trim().toLowerCase();
@@ -145,14 +177,10 @@ function doWritein(){ const n=document.getElementById("writein").value.trim(); i
 function resetVoter(e){ e.preventDefault(); me=null; render(); }
 function vote(choice){ const open=polls.find(p=>p.status==="open"); castVote(open.id,me,choice,mySession); toast("Vote recorded: "+labelOf(choice)); render(); }
 
-// ========================= LEADERSHIP ======================================
+// ========================= LEADERSHIP (admin.html) =========================
 function adminHTML(){
   const tabBtn=(k,l)=>`<div class="tab ${adminTab===k?"active":""}" onclick="setTab('${k}')">${l}</div>`;
-  let body="";
-  if(adminTab==="share") body = shareTab();
-  else if(adminTab==="motions") body = motionsTab();
-  else if(adminTab==="results") body = resultsTab();
-  else body = votersTab();
+  let body = adminTab==="share"?shareTab():adminTab==="motions"?motionsTab():adminTab==="results"?resultsTab():votersTab();
   return `<div class="wrap wide">
     <div class="spread"><h1>Leadership console</h1><span class="sub">demo — passcode gate skipped</span></div>
     <div class="tabs">${tabBtn("share","Share / QR")}${tabBtn("motions","Motions")}${tabBtn("results","Live results")}${tabBtn("voters","Voters")}</div>
@@ -165,50 +193,63 @@ function shareTab(){
   return `<h2>Send voters here</h2>
     <p class="muted">Screen-share this QR code in the meeting, or share the link. Voters scan → pick their name → vote. No chat needed.</p>
     <div class="qr-fake" title="A real scannable QR code renders here in the live app"></div>
-    <p class="center sub">↑ real app shows a scannable QR of your voting link</p>
-    <label>Voting link</label>
+    <p class="center sub">↑ real app shows a scannable QR of your <strong>voter</strong> link</p>
+    <label>Voter link (share this)</label>
     <div class="row"><input type="text" readonly value="https://your-name.github.io/ed-motion-voting/index.html"/><button class="btn accent small" onclick="toast('(demo) link copied')">Copy</button></div>
+    <label style="margin-top:10px">Leadership link (keep private)</label>
+    <div class="row"><input type="text" readonly value="https://your-name.github.io/ed-motion-voting/admin.html"/><button class="btn ghost small" onclick="toast('(demo) link copied')">Copy</button></div>
     <p class="sub">${ROSTER.length} physicians · ${ELIGIBLE} eligible · quorum = ${QUORUM}.</p>`;
 }
+
 function motionsTab(){
-  const rows = polls.map(p=>`
-    <div class="poll-item"><div class="text"><span class="pill ${p.status}">${p.status.toUpperCase()}</span> ${esc(p.text)}</div>
+  const rows = polls.map(p=>{
+    const locked = voteCount(p.id) > 0;            // edit allowed only before any vote
+    if(editingId===p.id){
+      return `<div class="poll-item"><div class="text" style="width:100%">
+        <textarea id="edit-${p.id}" style="margin-bottom:8px">${esc(p.text)}</textarea>
+        <div class="row"><button class="btn accent small" onclick="mEditSave('${p.id}')">Save</button>
+          <button class="btn ghost small" onclick="mEditCancel()">Cancel</button></div></div></div>`;
+    }
+    return `<div class="poll-item"><div class="text"><span class="pill ${p.status}">${p.status.toUpperCase()}</span> ${esc(p.text)}
+        ${locked?'<span class="sub"> · 🔒 locked (voting started)</span>':""}</div>
       <div class="row">
         ${p.status!=="open"?`<button class="btn favour small" onclick="mOpen('${p.id}')">Open</button>`:`<button class="btn against small" onclick="mClose('${p.id}')">Close</button>`}
-        <button class="btn ghost small" onclick="mReveal('${p.id}')">${p.resultsVisible?"Hide result":"Reveal result"}</button>
-        <button class="btn ghost small" onclick="mDel('${p.id}')">Delete</button>
-      </div></div>`).join("");
+        ${!locked?`<button class="btn ghost small" onclick="mEdit('${p.id}')">Edit</button>`:""}
+        ${!locked?`<button class="btn ghost small" onclick="mDel('${p.id}')">Delete</button>`:""}
+      </div></div>`;
+  }).join("");
   return `<h2>Motions</h2>
+    <p class="sub">You can edit a motion's wording until the first vote is cast. After that it locks to protect the record.</p>
     <label>Add a motion</label>
     <textarea id="newm" placeholder="e.g. Motion to approve the proposed summer schedule as circulated."></textarea>
     <button class="btn accent" onclick="mAdd()">Add motion</button>
     <div style="margin-top:16px">${rows||'<p class="muted">No motions yet.</p>'}</div>`;
 }
+
 function displayPoll(){ return polls.find(p=>p.status==="open") || [...polls].reverse().find(p=>p.status==="closed"); }
 function resultsTab(){
   const poll=displayPoll();
   if(!poll) return `<p class="muted">Open a motion to see live results.</p>`;
-  return resultBlock(poll,false);
+  return resultBlock(poll);
 }
-function resultBlock(poll, voterSide){
+function resultBlock(poll){
   const t=tally(votes[poll.id]); const met=t.quorumCount>=QUORUM; const pass=met && t.weight.favour>t.weight.against;
-  const outcome = !met ? `<span class="result-noq">NO QUORUM${voterSide?"":" — cannot pass"}</span>`
-    : pass?`<span class="result-pass">PASS${voterSide?"ED":"ES"} ✅</span>`:`<span class="result-fail">${voterSide?"DID NOT PASS":"DOES NOT PASS"} ❌</span>`;
+  const outcome = !met ? `<span class="result-noq">NO QUORUM — cannot pass</span>`
+    : pass?`<span class="result-pass">PASSES ✅</span>`:`<span class="result-fail">DOES NOT PASS ❌</span>`;
   const max=Math.max(t.weight.favour,t.weight.against,t.weight.abstain,1);
   const bar=(k,l)=>`<div class="bar-row"><div class="bar-label"><span>${l}</span><span><strong>${fmt(t.weight[k])} pts</strong> · ${t.count[k]} ${t.count[k]===1?"vote":"votes"}</span></div><div class="bar-track"><div class="bar-fill ${k}" style="width:${t.weight[k]/max*100}%"></div></div></div>`;
-  const controls = voterSide ? "" : `<div class="row" style="margin-top:6px">
-      ${poll.status==="open"?`<button class="btn against small" onclick="mClose('${poll.id}')">Close voting</button>`:`<button class="btn favour small" onclick="mOpen('${poll.id}')">Re-open voting</button>`}
-      <button class="btn ghost small" onclick="mReveal('${poll.id}')">${poll.resultsVisible?"Hide from group":"Reveal to group"}</button></div>`;
-  return `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span> ${voterSide?"":`<span class="muted">${poll.resultsVisible?"visible to group":"hidden from group"}</span>`}
+  return `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>
     <h2 style="margin-top:8px">${esc(poll.text)}</h2>
     <p class="center big">${outcome}</p>
     <div class="bars">${bar("favour","In favour")}${bar("against","Against")}${bar("abstain","Abstain")}</div>
     <div class="card" style="background:var(--card2)"><div class="spread"><span>Quorum</span><span class="${met?"quorum-ok":"quorum-bad"}">${t.quorumCount} / ${QUORUM} ${met?"✅ met":"❌ NOT met"}</span></div>
       <div class="bar-track" style="margin-top:6px"><div class="bar-fill favour" style="width:${Math.min(100,t.quorumCount/QUORUM*100)}%"></div></div>
       ${!met?`<p class="sub" style="color:#fca5a5;margin:8px 0 0">Need ${QUORUM-t.quorumCount} more eligible voter(s) before this motion can be decided.</p>`:""}</div>
-    ${voterSide?"":`<p class="sub">${t.total} ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged. Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only.</p>`}
-    ${controls}`;
+    <p class="sub">${t.total} ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged. Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only. Results are always visible to voters once closed.</p>
+    <div class="row" style="margin-top:6px">
+      ${poll.status==="open"?`<button class="btn against small" onclick="mClose('${poll.id}')">Close voting</button>`:`<button class="btn favour small" onclick="mOpen('${poll.id}')">Re-open voting</button>`}</div>`;
 }
+
 function votersTab(){
   const poll=displayPoll(); if(!poll) return `<p class="muted">No motion selected.</p>`;
   const list = Object.values(votes[poll.id]).sort((a,b)=>a.name.localeCompare(b.name));
@@ -224,11 +265,13 @@ function votersTab(){
 }
 
 // ---- admin actions ---------------------------------------------------------
-function mAdd(){ const t=document.getElementById("newm").value.trim(); if(t.length<3){toast("Type the motion first.");return;} polls.push({id:"m"+(polls.length+1)+"-"+Math.floor(performance.now()),text:t,status:"draft",resultsVisible:true}); votes[polls[polls.length-1].id]={}; toast("Motion added"); render(); }
+function mAdd(){ const t=document.getElementById("newm").value.trim(); if(t.length<3){toast("Type the motion first.");return;} const id="m"+(polls.length+1)+"-"+Math.floor(performance.now()); polls.push({id,text:t,status:"draft"}); votes[id]={}; toast("Motion added"); render(); }
 function mOpen(id){ openPoll(id); toast("Motion opened"); render(); }
-function mClose(id){ const p=polls.find(x=>x.id===id); p.status="closed"; toast("Motion closed"); render(); }
-function mReveal(id){ const p=polls.find(x=>x.id===id); p.resultsVisible=!p.resultsVisible; render(); }
-function mDel(id){ if(confirm("Delete this motion?")){ polls=polls.filter(p=>p.id!==id); delete votes[id]; render(); } }
+function mClose(id){ polls.find(x=>x.id===id).status="closed"; toast("Motion closed"); render(); }
+function mEdit(id){ if(voteCount(id)>0){toast("Locked — voting has started.");return;} editingId=id; render(); }
+function mEditSave(id){ const t=document.getElementById("edit-"+id).value.trim(); if(t.length<3){toast("Motion text too short.");return;} if(voteCount(id)>0){toast("Locked — voting has started.");editingId=null;render();return;} polls.find(p=>p.id===id).text=t; editingId=null; toast("Motion updated"); render(); }
+function mEditCancel(){ editingId=null; render(); }
+function mDel(id){ if(voteCount(id)>0){toast("Locked — voting has started.");return;} if(confirm("Delete this motion?")){ polls=polls.filter(p=>p.id!==id); delete votes[id]; render(); } }
 function setW(pid,slug,w){ votes[pid][slug].weightOverride=w; toast("Weight updated"); render(); }
 function delV(pid,slug){ if(confirm("Remove this vote?")){ delete votes[pid][slug]; render(); } }
 
@@ -240,7 +283,7 @@ function simulate(n){
   pool.slice(0,n).forEach(p=>{ const r=Math.random(); const choice = r<0.6?"favour":r<0.85?"against":"abstain"; castVote(open.id,p,choice,"sim-"+p.slug); });
   toast(`Simulated ${Math.min(n,pool.length)} votes`); render();
 }
-function resetDemo(){ defaults(); me=null; toast("Demo reset"); render(); }
+function resetDemo(){ defaults(); me=null; editingId=null; toast("Demo reset"); render(); }
 function exportCsv(){
   const poll=displayPoll(); const list=Object.values(votes[poll.id]).sort((a,b)=>a.name.localeCompare(b.name));
   const t=tally(votes[poll.id]);
