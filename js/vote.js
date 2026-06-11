@@ -134,7 +134,7 @@ function voteBody() {
   // before your first vote.)
   const bound = deviceBound();
   const head = `<div class="spread"><span class="muted">Voting as <strong>${escapeHtml(me.name)}</strong></span>
-    ${bound ? `<span class="sub">🔒 locked to this device</span>` : `<a href="#" id="change-name" class="sub">Not you?</a>`}</div>`;
+    ${bound ? `<a href="#" id="switch-voter" class="sub">Switch voter</a>` : `<a href="#" id="change-name" class="sub">Not you?</a>`}</div>`;
   if (activePoll) {
     const mine = activeVotes.find((v) => v.slug === me.slug);
     return head + `
@@ -184,6 +184,15 @@ function wireVoter() {
     e.preventDefault();
     if (deviceBound()) { toast("This device is locked after voting."); return; }
     localStorage.removeItem("ed_voter"); me = null; voterTab = "vote"; render();
+  });
+  const sv = document.getElementById("switch-voter");
+  if (sv) sv.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!confirm("Switch to a different voter on this device?\n\nYour previous vote stays recorded until a new one is cast. Using one device for more than one name is flagged for leadership review.")) return;
+    // clear the lock + identity, but KEEP the device id so multi-name use is still flagged
+    localStorage.removeItem("ed_voter");
+    localStorage.removeItem("ed_bound");
+    me = null; voterTab = "vote"; render();
   });
   document.querySelectorAll("button[data-c]").forEach((b) =>
     b.addEventListener("click", () => submit(b.dataset.c)));
