@@ -108,7 +108,8 @@ function renderMotions() {
 }
 
 function motionRow(p) {
-  const locked = (p.voteCount || 0) > 0;   // edit allowed only before the first vote
+  const locked = (p.voteCount || 0) > 0;        // editing allowed only before the first vote
+  const canDelete = p.status !== "open" || !locked;  // closed/draft deletable; an OPEN motion only before its first vote
   if (editingId === p.id) {
     return `<div class="poll-item"><div class="text" style="width:100%">
       <textarea data-edit="${p.id}" style="margin-bottom:8px">${escapeHtml(p.text)}</textarea>
@@ -124,7 +125,7 @@ function motionRow(p) {
         : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
       ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
       ${p.status !== "open" ? `<button class="btn ghost small" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
-      ${!locked ? `<button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
+      ${canDelete ? `<button class="btn ghost small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
     </div>
   </div>`;
 }
@@ -164,7 +165,11 @@ async function motionAction(act, id) {
     await updatePoll(id, { text });
     editingId = null; toast("Motion updated.");
   } else if (act === "del") {
-    if (confirm("Delete this motion and its votes?")) { await deletePoll(id); toast("Deleted."); }
+    const poll = polls.find((p) => p.id === id);
+    const n = poll && poll.voteCount ? poll.voteCount : 0;
+    if (confirm(`Permanently delete this motion${n ? ` and its ${n} recorded vote(s)` : ""}? This cannot be undone.`)) {
+      await deletePoll(id); toast("Motion deleted.");
+    }
   }
 }
 
