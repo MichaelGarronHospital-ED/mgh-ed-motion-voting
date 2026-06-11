@@ -241,7 +241,7 @@ function paintResults(el, poll, votes) {
     <div class="card" style="background:var(--card2); margin-top:8px;">
       <div class="spread"><span>Quorum${poll.status === "closed" ? " 🔒" : ""}</span>
         <span class="${quorumMet ? "quorum-ok" : "quorum-bad"}">${t.quorumCount} / ${quorum} ${quorumMet ? "✅ met" : "❌ NOT met"}</span></div>
-      <div class="bar-track" style="margin-top:6px;"><div class="bar-fill favour" style="width:${Math.min(100,(t.quorumCount/quorum)*100)}%"></div></div>
+      <div class="bar-track" style="margin-top:6px;"><div class="bar-fill favour" style="width:${quorum > 0 ? Math.min(100,(t.quorumCount/quorum)*100) : 0}%"></div></div>
       ${!quorumMet ? `<p class="sub" style="color:#fca5a5;margin:8px 0 0;">Need ${quorum - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
     </div>
     <p class="sub">${t.totalVotes} total ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged for review.

@@ -161,19 +161,9 @@ export async function deletePoll(pollId) {
   await deleteDoc(doc(db, "polls", pollId));
 }
 
-// Open one motion = close every other open motion (only one open at a time).
-export async function openPoll(pollId) {
-  const all = await getDocs(pollsCol);
-  await Promise.all(all.docs.map((d) => {
-    if (d.id === pollId) return updateDoc(d.ref, { status: "open" });
-    if (d.data().status === "open") return updateDoc(d.ref, { status: "closed" });
-    return null;
-  }));
-}
-
-// Closing FREEZES each physician's category for this motion, so later
-// privilege changes never alter this (now historical) result.
-export async function closePoll(pollId) {
+// Snapshot every physician's CURRENT category for a motion (roster + any
+// write-ins who voted in it). This is what gets frozen on close.
+async function snapshotGroups(pollId) {
   const lockedGroups = {};
   ROSTER.forEach((p) => { lockedGroups[p.slug] = effectiveGroup(p.slug); });
   const vs = await getDocs(collection(db, "polls", pollId, "votes"));
@@ -181,6 +171,29 @@ export async function closePoll(pollId) {
     const s = d.data().slug;
     if (s && !(s in lockedGroups)) lockedGroups[s] = effectiveGroup(s);  // write-ins too
   });
+  return lockedGroups;
+}
+
+// Open one motion = close every other open motion (only one open at a time).
+// Any motion we auto-close here is FROZEN, exactly like an explicit close.
+export async function openPoll(pollId) {
+  const all = await getDocs(pollsCol);
+  const ops = [];
+  for (const d of all.docs) {
+    if (d.id === pollId) {
+      ops.push(updateDoc(d.ref, { status: "open" }));
+    } else if (d.data().status === "open") {
+      const lockedGroups = await snapshotGroups(d.id);
+      ops.push(updateDoc(d.ref, { status: "closed", lockedGroups }));
+    }
+  }
+  await Promise.all(ops);
+}
+
+// Closing FREEZES each physician's category for this motion, so later
+// privilege changes never alter this (now historical) result.
+export async function closePoll(pollId) {
+  const lockedGroups = await snapshotGroups(pollId);
   await updateDoc(doc(db, "polls", pollId), { status: "closed", lockedGroups });
 }
 

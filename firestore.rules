@@ -18,6 +18,9 @@ service cloud.firestore {
     function notTouchingWeightOverride() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['weightOverride']);
     }
+    function pollIsOpen(poll) {
+      return get(/databases/$(database)/documents/polls/$(poll)).data.status == 'open';
+    }
 
     match /polls/{poll} {
       allow read: if signedIn();
@@ -27,10 +30,11 @@ service cloud.firestore {
 
       match /votes/{vote} {
         allow read: if signedIn();
-        allow create: if signedIn();
-        // voters can change their own choice, but cannot set the leadership-only
-        // weight override; leadership can do anything (incl. delete).
-        allow update: if isLeader() || (signedIn() && notTouchingWeightOverride());
+        // a voter may only cast/change a ballot while the motion is OPEN, and
+        // may not set the leadership-only weight override; leadership can do
+        // anything (incl. delete and post-close cleanup).
+        allow create: if isLeader() || (signedIn() && pollIsOpen(poll));
+        allow update: if isLeader() || (signedIn() && pollIsOpen(poll) && notTouchingWeightOverride());
         allow delete: if isLeader();
       }
     }
