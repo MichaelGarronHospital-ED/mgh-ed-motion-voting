@@ -121,9 +121,10 @@ export async function castVote({ pollId, name, slug, group, weight, isWriteIn, c
       const d = snap.data();
       const sessions = d.sessionIds || [];
       const sessionIds = sessions.includes(sessionId) ? sessions : [...sessions, sessionId];
+      const changed = d.choice !== choice;   // re-tapping the SAME choice is a no-op for the count
       tx.update(ref, {
         choice,
-        submissionCount: (d.submissionCount || 1) + 1,
+        submissionCount: (d.submissionCount || 1) + (changed ? 1 : 0),
         sessionIds,
         flagged: sessionIds.length > 1,   // same name, 2+ devices → review
         lastAt: serverTimestamp(),

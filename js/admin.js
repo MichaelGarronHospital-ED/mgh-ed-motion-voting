@@ -341,7 +341,7 @@ function paintVoters(poll, votes) {
 
   $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
     ${poll.status === "closed" ? "Weights are 🔒 frozen as of when this motion closed." : "Set categories/weights on the <strong>Physician Summary</strong> tab."}
-    Flags: same name from 2+ devices, or one device used for multiple names. <em>Submissions</em> = times the person voted/changed (counts once).`;
+    Flags: same name from 2+ devices, or one device used for multiple names. <em>Submissions</em> = number of times this person changed their vote — shown only for flagged rows (still one ballot in the tally).`;
   const frozen = poll.status === "closed";
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
@@ -353,7 +353,7 @@ function paintVoters(poll, votes) {
       <td>${g}</td>
       <td>${fmt(ew)}</td>
       <td>${labelOf(v.choice)}</td>
-      <td>${v.submissionCount || 1}</td>
+      <td>${(v.flagged || shared) ? (v.submissionCount || 1) : '<span class="muted">—</span>'}</td>
       <td><button class="btn danger small" data-del="${v.id}">Remove</button></td>
     </tr>`;
   }).join("");
