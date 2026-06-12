@@ -78,6 +78,7 @@ export const COURTESY = [
   "Adil Shamji",
   "Alex Chan",
   "Alex Florea",
+  "Amanda Fitzgibbon",
   "Andrea Lo",
   "Andrew Maeng",
   "Brandon Lam",
