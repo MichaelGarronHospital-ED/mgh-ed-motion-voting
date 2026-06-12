@@ -81,7 +81,7 @@ function shell(inner) {
 // ---- name picker -----------------------------------------------------------
 function pickerHTML() {
   return `<div class="card">
-    <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and reviewed for duplicates. You must select your name to vote or view results.</div>
+    <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and device and reviewed for duplicates. You must select your name to vote or view results.</div>
     <label for="search">Find your name</label>
     <input id="search" type="text" placeholder="Start typing your name…" autocomplete="off" />
     <ul id="namelist" class="namelist"></ul>
