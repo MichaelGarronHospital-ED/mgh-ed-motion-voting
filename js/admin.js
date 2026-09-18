@@ -1,4 +1,4 @@
-import { ADMIN_PASSCODE, ORG_NAME } from "./config.js";
+import { ADMIN_PASSCODE_SHA256, ORG_NAME } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, trashPoll, restorePoll, purgePoll, openPoll, closePoll,
@@ -21,8 +21,13 @@ function unlock() {
 }
 $("enter").addEventListener("click", tryEnter);
 $("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") tryEnter(); });
+async function sha256Hex(s) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 async function tryEnter() {
-  if ($("pass").value !== ADMIN_PASSCODE) { $("gate-err").classList.remove("hide"); return; }
+  const typed = $("pass").value;
+  if ((await sha256Hex(typed)) !== ADMIN_PASSCODE_SHA256) { $("gate-err").classList.remove("hide"); return; }
   // Sign in as leadership for write access under locked rules. If the Firebase
   // auth user / provider isn't set up yet, we still open the console (writes
   // work because the rules are still open).

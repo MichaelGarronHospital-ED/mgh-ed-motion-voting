@@ -16,14 +16,20 @@ export const firebaseConfig = {
 
 // ---- 2. Admin / leadership passcode ---------------------------------------
 // Anyone with this code can open the admin page (manage motions, see the
-// per-person table, export). Change it before the meeting.
-export const ADMIN_PASSCODE = "edleadership";
+// per-person table, export). Shared "admin" code across the ED tools.
+// Stored as a SHA-256 HASH so the shared code is NOT readable in this public
+// source (it's also the interviews admin code). Admins type the plaintext code;
+// the gate hashes it and compares. To change it, run:
+//   python3 -c "import hashlib;print(hashlib.sha256(b'YOUR-CODE').hexdigest())"
+// NOTE: if you use the locked Firebase backend, update the LEADER_EMAIL Auth
+// user's password in the console to match the plaintext code (see README).
+export const ADMIN_PASSCODE_SHA256 = "d9a577b3bdf03c3881e0947775924d007c5656ad2043398694626179c9a65b88";
 
 // Leadership identity for the (optional) Firebase-auth backend lockdown.
 // This is a SHARED account label — leadership only ever types the passcode;
 // this email is used silently as the Firebase username (nobody sees/types it).
 // It doesn't need to be a real inbox. Create a matching Firebase Auth user
-// (this email + password = ADMIN_PASSCODE) and keep it identical in
+// (this email + password = the plaintext admin code) and keep it identical in
 // firestore.rules. See README.
 export const LEADER_EMAIL = "leadership@ed-motion-voting.app";
 
