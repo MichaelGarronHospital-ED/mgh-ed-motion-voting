@@ -23,7 +23,7 @@ export const firebaseConfig = {
 //   python3 -c "import hashlib;print(hashlib.sha256(b'YOUR-CODE').hexdigest())"
 // NOTE: if you use the locked Firebase backend, update the LEADER_EMAIL Auth
 // user's password in the console to match the plaintext code (see README).
-export const ADMIN_PASSCODE_SHA256 = "d9a577b3bdf03c3881e0947775924d007c5656ad2043398694626179c9a65b88";
+export const ADMIN_PASSCODE_SHA256 = "19180775d37f0a3372fc5a8d6e1e9c156ff0e1e3ef908a50686320f89ca87f9f";
 
 // Leadership identity for the (optional) Firebase-auth backend lockdown.
 // This is a SHARED account label — leadership only ever types the passcode;
