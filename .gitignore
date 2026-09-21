@@ -1,3 +1,10 @@
 node_modules/
 .DS_Store
 *.log
+
+# Personal Claude Code overrides — never commit these
+.claude/settings.local.json
+
+# Python test runners (tools/*/tests)
+__pycache__/
+.venv/
