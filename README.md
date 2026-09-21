@@ -31,11 +31,10 @@ Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COU
 (Everyone starts in GROUP1 = 1 point. Provisional / <8 shifts / secondary-site → GROUP2. Courtesy → COURTESY.)
 
 ### 3. Publish on GitHub Pages
-1. Create a new GitHub repo and upload this whole folder (or `git push`).
-2. Repo **Settings → Pages → Source: Deploy from a branch → `main` / root → Save**.
-3. After ~1 minute your site is live at `https://<user>.github.io/<repo>/`.
-   - Voters: `…/index.html`
-   - Leadership: `…/admin-9f4k2x7q.html`
+This tool ships as part of the **mgh-ed-tools** repo — Pages is already enabled
+(`main` / root), so a `git push` to `main` deploys it. About a minute later:
+   - Voters: https://dralvinyang.github.io/mgh-ed-tools/tools/motion-voting/
+   - Leadership: `…/tools/motion-voting/admin-9f4k2x7q.html`
 
 ### 4. Test (30 seconds)
 Open `admin-9f4k2x7q.html`, enter the passcode → **Motions** → add a motion → **Open**.
