@@ -31,10 +31,15 @@ Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COU
 (Everyone starts in GROUP1 = 1 point. Provisional / <8 shifts / secondary-site → GROUP2. Courtesy → COURTESY.)
 
 ### 3. Publish on GitHub Pages
-This tool ships as part of the **mgh-ed-tools** repo — Pages is already enabled
+This tool ships as part of the ED Tools repo (**`ED-motion-voting`** on GitHub —
+the rename to `mgh-ed-tools` is still pending). Pages is already enabled
 (`main` / root), so a `git push` to `main` deploys it. About a minute later:
-   - Voters: https://dralvinyang.github.io/mgh-ed-tools/tools/motion-voting/
+   - Voters: https://dralvinyang.github.io/ED-motion-voting/tools/motion-voting/
    - Leadership: `…/tools/motion-voting/admin-9f4k2x7q.html`
+
+That voter URL is what [`voter-qr.png`](voter-qr.png) encodes, so it is already
+in the ED group's hands — renaming the repo breaks the QR code until the
+redirect in `_redirect-old-repo/` is live.
 
 ### 4. Test (30 seconds)
 Open `admin-9f4k2x7q.html`, enter the passcode → **Motions** → add a motion → **Open**.
