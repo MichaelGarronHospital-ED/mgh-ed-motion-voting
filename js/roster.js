@@ -3,7 +3,7 @@
 //
 //    GROUP1   = 1 point per vote   (Active staff, 8+ shifts/month) — 34 voters
 //    GROUP2   = ½ point per vote   (Active <8 shifts / Provisional / secondary) — 14 voters
-//    COURTESY = no vote            (on the team roster but NOT on the voting sheet) — 26
+//    COURTESY = no vote            (on the team roster but NOT on the voting sheet) — 27
 //
 //  Eligible to vote (Group 1 + Group 2) = 48  →  50% = 24  →  quorum = 24.
 //  (Courtesy list pending confirmation by leadership; some may move to Group 1/2.)

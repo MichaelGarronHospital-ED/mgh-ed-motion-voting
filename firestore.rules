@@ -48,3 +48,26 @@ service cloud.firestore {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+//  HONEST LIMITS — true today, and deliberate. Pinned here so a change is a
+//  decision, not an accident.
+//
+//  • Voters are ANONYMOUS, so the rules cannot tell one voter from another.
+//    Any signed-in voter can create or overwrite the ballot at any slug while a
+//    motion is open — i.e. vote under someone else's name, or change their vote.
+//    This is the documented trade-off in CLAUDE.md ("duplicate votes are
+//    flagged, not blocked"): the app detects it (same name from 2+ devices, one
+//    device under 2+ names) and surfaces it to leadership for review, rather
+//    than blocking a legitimate vote change. It holds because voting happens in
+//    a room full of colleagues, not because the rules prevent it.
+//    To actually prevent it: stamp `uid: request.auth.uid` on create and require
+//    it to match on update. Cost: a voter who clears site data or switches
+//    device can no longer change their own vote.
+//
+//  • `weightOverride` is guarded above but no code writes it. Kept as a guard
+//    so a future leadership-only weight field can't be set by a voter.
+//
+//  • The leadership password IS the admin passcode (see js/config.js), so the
+//    strength of that passcode is the strength of every write rule here.
+// ---------------------------------------------------------------------------

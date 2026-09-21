@@ -19,7 +19,12 @@ const resultData = new Map();                  // pollId -> votes[]
 
 // ---- data subscriptions ----------------------------------------------------
 function startData() {
-  onRosterOverrides(() => {});   // keep current categories loaded so votes weight correctly
+  // Keep current categories loaded so votes weight correctly — and re-render on
+  // a change, so a mid-meeting category fix shows up in the results a voter is
+  // already looking at instead of waiting for the next unrelated render.
+  // Not while the name picker is up: re-rendering it would wipe what they are
+  // part-way through typing.
+  onRosterOverrides(() => { if (me) render(); });
   onPolls((p) => {
     polls = p;
     const open = polls.find((x) => x.status === "open" && !x.archived && !x.deleted) || null;
@@ -170,7 +175,17 @@ function resultsBody() {
   return closed.map(resultCard).join("");
 }
 function resultCard(poll) {
-  const t = tally(resultData.get(poll.id) || [], poll);
+  // Until this motion's ballots have actually arrived we know nothing — and an
+  // empty tally scores as "NO QUORUM", which on a meeting-room screen reads as a
+  // real result. Say "counting" instead of announcing a wrong outcome.
+  if (!resultData.has(poll.id)) {
+    return `<div class="card">
+      <span class="pill closed">● CLOSED</span>
+      <h2 style="margin:8px 0;">${escapeHtml(poll.text)}</h2>
+      <p class="center muted" style="padding:8px 0;">Counting votes…</p>
+    </div>`;
+  }
+  const t = tally(resultData.get(poll.id), poll);
   const quorum = quorumThreshold(poll);
   const met = t.quorumCount >= quorum;
   const outcome = !met ? `<span class="result-noq">NO QUORUM</span>`

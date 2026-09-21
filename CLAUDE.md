@@ -13,6 +13,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - `js/db.js` → Firestore + Auth wiring, tally/quorum logic.
 - `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.
 - `firestore.rules` (locked-down, auth-gated) / `firestore.rules.open` (rollback).
+- `tests/` → headless behaviour tests (dev-only, never shipped). See its README.
+- `CHANGES.md` → what changed and why, newest first.
 
 ## Rules of the road
 
@@ -26,3 +28,20 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   `firestore.rules.open`.
 - Duplicate votes are **flagged, not blocked** (a genuine vote change must still
   work); write-ins land at 0 weight with a *NEW* tag until leadership assigns one.
+  The rules *cannot* enforce one-ballot-per-person — voters are anonymous, so any
+  voter can write any name's ballot. That is the accepted trade-off; the limits
+  are spelled out under **HONEST LIMITS** at the bottom of `firestore.rules`.
+- **Never show a verdict before that motion's ballots have arrived.** An empty
+  tally scores as "NO QUORUM", so painting it early announces a wrong outcome on
+  a shared screen. Both results views and the CSV export gate on a `loaded` flag
+  fed by the first snapshot; `tests/` pins this.
+- **Leadership and voters must agree on what is open.** Voters only see motions
+  that are neither archived nor deleted, so leadership's live-motion filter uses
+  the *same* predicate and `openPoll` unarchives what it opens. A motion that is
+  `open` but `archived` is invisible to voters — don't reintroduce that state.
+- **`voteCount` is the distinct-voter counter**, not a ballot log: it drives the
+  edit lock and the purge confirmation, so anything that removes a ballot must
+  bring it down too (`clearVote` does this transactionally, floored at 0).
+- **Names are keyed by `slugify(name)`**, so two people whose names slugify
+  identically would share one ballot. Checked clean today across all 75 names —
+  re-check when adding to the roster.

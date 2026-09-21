@@ -52,6 +52,7 @@ document.querySelectorAll(".tab").forEach((t) =>
 let polls = [];
 let activePoll = null;
 let activeVotes = [];
+let activeLoaded = false;   // has the open motion's first ballot snapshot arrived?
 let votesUnsub = null;
 let editingId = null;       // motion currently being edited (only allowed before first vote)
 let selectedPollId = null;  // Results/Voters: which motion to view (null = current/open)
@@ -85,13 +86,15 @@ function boot() {
 
   onPolls((p) => {
     polls = p;
-    const open = polls.find((x) => x.status === "open" && !x.deleted) || null;
+    // Same filter the voter page uses (js/vote.js) — an archived motion is
+    // hidden from voters, so leadership must not treat one as the live motion.
+    const open = polls.find((x) => x.status === "open" && !x.archived && !x.deleted) || null;
     const changed = (activePoll && activePoll.id) !== (open && open.id);
     activePoll = open;
     if (changed) {
       if (votesUnsub) { votesUnsub(); votesUnsub = null; }
-      activeVotes = [];
-      if (activePoll) votesUnsub = onVotesFor(activePoll.id, (vs) => { activeVotes = vs; collectWriteins(vs); renderResults(); renderVoters(); });
+      activeVotes = []; activeLoaded = false;
+      if (activePoll) votesUnsub = onVotesFor(activePoll.id, (vs) => { activeVotes = vs; activeLoaded = true; collectWriteins(vs); renderResults(); renderVoters(); });
     }
     renderMotions();
     renderResults();
@@ -248,24 +251,24 @@ function wireMotionSelect(scope) {
   if (s) s.addEventListener("change", () => { selectedPollId = s.value || null; renderResults(); renderVoters(); });
 }
 
-let displayUnsub = null, displayId = null, displayVotes = [];
+let displayUnsub = null, displayId = null, displayVotes = [], displayLoaded = false;
 function ensureDisplay() {
   const poll = displayPoll();
   if (!poll) {
     if (displayUnsub) { displayUnsub(); displayUnsub = null; }
-    displayId = null; displayVotes = [];
+    displayId = null; displayVotes = []; displayLoaded = false;
     return null;
   }
   if (activePoll && poll.id === activePoll.id) {
-    if (displayUnsub) { displayUnsub(); displayUnsub = null; displayId = null; }
-    return { poll, votes: activeVotes };               // reuse the live subscription
+    if (displayUnsub) { displayUnsub(); displayUnsub = null; displayId = null; displayLoaded = false; }
+    return { poll, votes: activeVotes, loaded: activeLoaded };   // reuse the live subscription
   }
   if (poll.id !== displayId) {                          // a closed poll — subscribe once
     if (displayUnsub) displayUnsub();
-    displayId = poll.id; displayVotes = [];
-    displayUnsub = onVotesFor(poll.id, (vs) => { displayVotes = vs; collectWriteins(vs); renderResults(); renderVoters(); });
+    displayId = poll.id; displayVotes = []; displayLoaded = false;
+    displayUnsub = onVotesFor(poll.id, (vs) => { displayVotes = vs; displayLoaded = true; collectWriteins(vs); renderResults(); renderVoters(); });
   }
-  return { poll, votes: displayVotes };
+  return { poll, votes: displayVotes, loaded: displayLoaded };
 }
 
 function renderResults() {
@@ -275,9 +278,17 @@ function renderResults() {
   const el = $("results-body");
   const d = ensureDisplay();
   if (!d) { el.innerHTML = `<p class="muted" style="margin:0;">No motion to show. Open one, or choose a motion above.</p>`; return; }
-  paintResults(el, d.poll, d.votes);
+  paintResults(el, d.poll, d.votes, d.loaded);
 }
-function paintResults(el, poll, votes) {
+function paintResults(el, poll, votes, loaded) {
+  // An empty tally scores as "NO QUORUM — cannot pass". Shown before the
+  // ballots arrive that is a wrong result on a shared screen, so hold off.
+  if (!loaded) {
+    el.innerHTML = `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>
+      <h2 style="margin-top:8px;">${escapeHtml(poll.text)}</h2>
+      <p class="center muted">Counting votes…</p>`;
+    return;
+  }
   const t = tally(votes, poll);
   const quorum = quorumThreshold(poll);
   const quorumMet = t.quorumCount >= quorum;
@@ -303,7 +314,7 @@ function paintResults(el, poll, votes) {
     <div class="row" style="margin-top:6px;">
       ${poll.status === "open"
         ? `<button class="btn against small" id="r-close">Close voting</button>`
-        : `<button class="btn favour small" id="r-open">Re-open voting</button>`}
+        : `<button class="btn favour small" id="r-open">${poll.status === "draft" ? "Open voting" : "Re-open voting"}</button>`}
     </div>`;
   const c = $("r-close"), o = $("r-open");
   if (c) c.addEventListener("click", () => motionAction("close", poll.id));
@@ -330,6 +341,11 @@ function renderVoters() {
   if (!d) {
     $("voters-table").innerHTML = "";
     $("voters-note").textContent = "No motion to show — choose one above.";
+    return;
+  }
+  if (!d.loaded) {
+    $("voters-table").innerHTML = "";
+    $("voters-note").textContent = "Loading ballots…";
     return;
   }
   paintVoters(d.poll, d.votes);
@@ -371,6 +387,9 @@ function paintVoters(poll, votes) {
 function exportCsv() {
   const d = ensureDisplay();
   if (!d) { toast("No motion selected."); return; }
+  // Exporting before the ballots land would write a confident, empty, wrong
+  // result to a file someone then circulates.
+  if (!d.loaded) { toast("Still loading ballots — try again in a moment."); return; }
   const poll = d.poll, list = d.votes || [];
   const t = tally(list, poll);
   const header = ["Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "WriteIn"];

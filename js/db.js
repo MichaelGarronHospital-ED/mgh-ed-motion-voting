@@ -184,12 +184,14 @@ async function snapshotGroups(pollId) {
 
 // Open one motion = close every other open motion (only one open at a time).
 // Any motion we auto-close here is FROZEN, exactly like an explicit close.
+// Opening also UNARCHIVES: voters never see archived motions, so an archived
+// motion left "open" would be invisible to them while leadership saw it as live.
 export async function openPoll(pollId) {
   const all = await getDocs(pollsCol);
   const ops = [];
   for (const d of all.docs) {
     if (d.id === pollId) {
-      ops.push(updateDoc(d.ref, { status: "open" }));
+      ops.push(updateDoc(d.ref, { status: "open", archived: false }));
     } else if (d.data().status === "open") {
       const lockedGroups = await snapshotGroups(d.id);
       ops.push(updateDoc(d.ref, { status: "closed", lockedGroups }));
@@ -205,8 +207,20 @@ export async function closePoll(pollId) {
   await updateDoc(doc(db, "polls", pollId), { status: "closed", lockedGroups });
 }
 
+// Remove one ballot. `voteCount` is the DISTINCT-voter counter that drives the
+// "voting started" edit lock and the purge confirmation, so it has to come back
+// down with the ballot — otherwise it only ever ratchets up and both of those
+// go wrong. Guarded at 0 so a double-removal can't drive it negative.
 export async function clearVote(pollId, voteId) {
-  await deleteDoc(doc(db, "polls", pollId, "votes", voteId));
+  const pollRef = doc(db, "polls", pollId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(doc(db, "polls", pollId, "votes", voteId));
+    if (!snap.exists()) return;                       // already gone
+    const poll = await tx.get(pollRef);
+    const n = (poll.exists() && poll.data().voteCount) || 0;
+    tx.delete(doc(db, "polls", pollId, "votes", voteId));
+    if (poll.exists()) tx.update(pollRef, { voteCount: Math.max(0, n - 1) });
+  });
 }
 
 // ---- shared tally logic ----------------------------------------------------
