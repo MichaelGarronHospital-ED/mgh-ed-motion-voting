@@ -8,3 +8,6 @@ node_modules/
 # Python test runners (tools/*/tests)
 __pycache__/
 .venv/
+
+# Test copy of a tool built by the round simulation (tools/*/sim)
+site/
