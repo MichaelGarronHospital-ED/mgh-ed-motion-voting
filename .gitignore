@@ -11,3 +11,4 @@ __pycache__/
 
 # Test copy of a tool built by the round simulation (tools/*/sim)
 site/
+site-latency/
