@@ -4,6 +4,26 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Voter page no longer signs leadership out (Oct 13 2026)
+
+### Fixed — opening the voting page broke the leadership console in the same browser
+
+Firebase keeps one sign-in per browser for the whole site, shared by every tab.
+The voter page signed in anonymously on every load, which **replaced** a
+leadership session: with the console open in another tab (or a chair voting on
+the console laptop), the console's next close / delete / category change was
+refused with "Missing or insufficient permissions". Found in the Oct 13
+migration test: adding and opening a motion worked, closing it failed once the
+voter tab had been opened.
+
+The voter page now signs in anonymously only when nobody is signed in
+(`ensureSignedIn` in `js/db.js`), and signs back in if the session is dropped
+later (e.g. leadership clicks Lock in another tab). A leadership session can
+vote — the rules already allow it. Three tests in `TestSignIn`; the
+keep-the-session test fails against the old code. **30 tests, all passing.**
+
+---
+
 ## Correctness pass + first test suite (Sept 21 2026)
 
 This tool had shipped and been used without ever getting the adversarial review

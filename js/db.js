@@ -22,6 +22,26 @@ const auth = getAuth(app);
 // enabled yet (open-rules mode), the app still works.
 export function watchAuth(cb) { return onAuthStateChanged(auth, cb); }
 export function anonSignIn() { return signInAnonymously(auth); }
+// Voter page: sign in anonymously only when nobody is signed in. Firebase keeps
+// ONE sign-in per browser for the whole site, shared by every tab, so an
+// unconditional anonymous sign-in would replace a leadership session (e.g. the
+// console open in another tab, or a chair voting on the console laptop) and the
+// console's writes would then be refused. Also signs back in if the session is
+// later dropped, e.g. leadership clicks Lock in another tab. Resolves once
+// someone is signed in.
+export function ensureSignedIn() {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn, v) => { if (!settled) { settled = true; fn(v); } };
+    onAuthStateChanged(auth, (user) => {
+      if (user) { settle(resolve, user); return; }
+      signInAnonymously(auth).catch((e) => {
+        if (settled) console.warn("anon auth unavailable:", e && e.code);
+        else settle(reject, e);
+      });
+    });
+  });
+}
 export function leaderSignIn(passcode) { return signInWithEmailAndPassword(auth, LEADER_EMAIL, passcode); }
 export function leaderSignOut() { return signOut(auth); }
 export { LEADER_EMAIL };
