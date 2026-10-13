@@ -13,7 +13,7 @@ of what lives in this folder.
 Needs Python 3.11+ and one dependency (Playwright, for the headless browser).
 
 ```bash
-cd tools/motion-voting/tests
+cd tests
 pip install -r requirements.txt
 python3 -m playwright install chromium     # ~120 MB, once
 python3 -m unittest -v
@@ -63,7 +63,7 @@ driven from two pages at once — tests seed the store directly instead (see the
   about the server-side rules. The rules are the real access boundary, and the
   limits they deliberately do *not* enforce are written down at the bottom of
   that file. Testing them needs the Firestore emulator (Java + `firebase-tools`),
-  as in [`../../interviews/tests/`](../../interviews/tests/).
+  as the hiring tool does (repo `mgh-ed-hiring`, folder `tests/`).
 - **The passcode gate.** `harness.open_admin` bypasses it through the auth
   watcher, because the plaintext passcode is deliberately not in the repo —
   `js/config.js` holds only its hash.

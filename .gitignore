@@ -5,10 +5,7 @@ node_modules/
 # Personal Claude Code overrides — never commit these
 .claude/settings.local.json
 
-# Python test runners (tools/*/tests)
+# Python test runners (tests/)
 __pycache__/
 .venv/
 
-# Test copy of a tool built by the round simulation (tools/*/sim)
-site/
-site-latency/

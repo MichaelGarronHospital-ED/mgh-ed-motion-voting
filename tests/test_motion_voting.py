@@ -3,7 +3,7 @@
 Each test drives the real pages in a headless browser against a stubbed
 Firestore (see harness.py). Run with:
 
-    cd tools/motion-voting/tests && python3 -m unittest -v
+    cd tests && python3 -m unittest -v
 
 Every group maps to a promise the tool makes to a real person in a meeting.
 Tests marked REGRESSION pin a bug that was found and fixed — see CHANGES.md.

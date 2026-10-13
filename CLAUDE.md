@@ -3,6 +3,23 @@
 Live, mobile-friendly **weighted voting** for meeting motions. Static frontend +
 Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 
+## This repo
+
+- **Lives in the `MichaelGarronHospital-ED` org as `mgh-ed-motion-voting`**, served by GitHub
+  Pages from `main` (root folder, no build step) at
+  `https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/`. The repo name is part of
+  every shared link and QR code: renaming it breaks them all, because GitHub
+  does not redirect Pages sites.
+- **Split out of the old `DrAlvinYang/ED-motion-voting` repo in Oct 2026.**
+  That repo now holds only redirect pages pointing here. Its history was
+  filtered to this tool, so paths in old commits and in `CHANGES.md` may still
+  say `tools/...`; that is history, not a bug.
+- **Firebase project id `ed-motion-voting-99b96` is immutable.** It does not track the repo name;
+  don't "fix" it to match.
+- **Relative paths only.** Nothing in the code should hardcode the repo name.
+- **Org rules:** public repo (free-plan Pages), GitHub-authored Actions only,
+  feature branches merge to `main`, merged branches auto-delete.
+
 ## Files
 
 - `index.html` → voter view (loads `js/vote.js`).
@@ -21,7 +38,7 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.
   Quorum = 50% of eligible voters, computed automatically.
-- **All asset paths are relative** — never hardcode `/tools/motion-voting/`, so
+- **All asset paths are relative** — never hardcode `/mgh-ed-motion-voting/`, so
   the app keeps working wherever it's served.
 - **Firestore rules are the source of truth for access.** If you change data
   shape in `db.js`, re-check `firestore.rules`. Rollback path is

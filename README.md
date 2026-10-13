@@ -11,6 +11,27 @@ Weights: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**. A motion
 passes when weighted *In favour* > weighted *Against*; abstentions count toward
 quorum only. Quorum is computed automatically as **50% of eligible voters**.
 
+## Where it lives
+
+| | |
+|---|---|
+| Voters | https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/ |
+| Leadership | https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/admin-9f4k2x7q.html |
+| Repo | https://github.com/MichaelGarronHospital-ED/mgh-ed-motion-voting |
+| Owner | Alvin Yang |
+| Firebase project | `ed-motion-voting-99b96` (config in [`js/config.js`](js/config.js), public by design) |
+
+- **Deploys:** GitHub Pages, from `main`, root folder, no build step. A push to
+  `main` is live about a minute later.
+- **Secrets:** none in the repo and none in GitHub Actions. The admin passcode is
+  stored only as a hash in `js/config.js`; the plaintext is shared by word of mouth
+  and is also the password of the `LEADER_EMAIL` user in Firebase Auth.
+- **Old address:** this tool used to live at
+  `https://dralvinyang.github.io/ED-motion-voting/` (top level and
+  `/tools/motion-voting/`). That old repo now only redirects here, keeping the
+  path, query string and #hash, so printed QR codes and old links still work.
+  The hiring tool that shared that repo is now `mgh-ed-hiring`.
+
 ---
 
 ## Setup (~15 minutes)
@@ -31,15 +52,14 @@ Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COU
 (Everyone starts in GROUP1 = 1 point. Provisional / <8 shifts / secondary-site → GROUP2. Courtesy → COURTESY.)
 
 ### 3. Publish on GitHub Pages
-This tool ships as part of the ED Tools repo (**`ED-motion-voting`** on GitHub —
-the rename to `mgh-ed-tools` is still pending). Pages is already enabled
-(`main` / root), so a `git push` to `main` deploys it. About a minute later:
-   - Voters: https://dralvinyang.github.io/ED-motion-voting/tools/motion-voting/
-   - Leadership: `…/tools/motion-voting/admin-9f4k2x7q.html`
+Pages is already enabled (`main` / root), so a `git push` to `main` deploys it.
+About a minute later:
+   - Voters: https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/
+   - Leadership: `.../mgh-ed-motion-voting/admin-9f4k2x7q.html`
 
-That voter URL is what [`voter-qr.png`](voter-qr.png) encodes, so it is already
-in the ED group's hands — renaming the repo breaks the QR code until the
-redirect in `_redirect-old-repo/` is live.
+[`voter-qr.png`](voter-qr.png) encodes that voter URL. QR codes printed before
+the move point at the old address, which redirects here. Renaming this repo
+changes the URL and breaks the QR code, so don't, unless you leave a redirect.
 
 ### 4. Test (30 seconds)
 Open `admin-9f4k2x7q.html`, enter the passcode → **Motions** → add a motion → **Open**.

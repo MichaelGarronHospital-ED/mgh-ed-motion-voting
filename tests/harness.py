@@ -17,7 +17,7 @@ import threading
 
 HERE = pathlib.Path(__file__).parent
 TOOL = HERE.parent
-REPO = TOOL.parent.parent
+REPO = TOOL
 STUBS = HERE / "stubs"
 
 # Must match LEADER_EMAIL in js/config.js.
@@ -65,7 +65,7 @@ def wire(page, errors):
 
 
 def open_voter(page, base):
-    page.goto(f"{base}/tools/motion-voting/index.html")
+    page.goto(f"{base}/index.html")
     page.wait_for_function("() => window.__store !== undefined")
     page.wait_for_selector("#app .card")
 
@@ -73,7 +73,7 @@ def open_voter(page, base):
 def load_admin(page, base):
     """Load the admin page but leave it locked, so the store can be seeded
     before the console boots and subscribes."""
-    page.goto(f"{base}/tools/motion-voting/admin-9f4k2x7q.html")
+    page.goto(f"{base}/admin-9f4k2x7q.html")
     page.wait_for_function("() => window.__auth !== undefined")
 
 

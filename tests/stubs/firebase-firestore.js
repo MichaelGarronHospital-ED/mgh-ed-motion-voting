@@ -1,5 +1,5 @@
 // In-memory stand-in for firebase-firestore.js (module-compatible subset).
-// Only the surface tools/motion-voting/js/db.js actually uses.
+// Only the surface js/db.js actually uses.
 const STORE = new Map();          // "polls/ID" | "polls/ID/votes/SLUG" | "config/roster" -> data
 const DOC_LISTENERS = [];         // {path, cb}
 const COL_LISTENERS = [];         // {path, cb, order}
