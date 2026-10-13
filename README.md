@@ -27,9 +27,11 @@ quorum only. Quorum is computed automatically as **50% of eligible voters**.
   stored only as a hash in `js/config.js`; the plaintext is shared by word of mouth
   and is also the password of the `LEADER_EMAIL` user in Firebase Auth.
 - **Old address:** this tool used to live at
-  `https://dralvinyang.github.io/ED-motion-voting/` (top level and
-  `/tools/motion-voting/`). That old repo now only redirects here, keeping the
-  path, query string and #hash, so printed QR codes and old links still work.
+  `https://dralvinyang.github.io/ED-motion-voting/tools/motion-voting/`. That
+  old repo is archived and only redirects: old `/tools/motion-voting/…` links
+  land here with the path, query string and #hash kept, so printed QR codes
+  still work. The old top-level address goes to the ED tools dashboard
+  (https://michaelgarronhospital-ed.github.io/).
   The hiring tool that shared that repo is now `mgh-ed-hiring`.
 
 ---
