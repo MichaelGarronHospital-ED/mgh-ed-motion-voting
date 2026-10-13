@@ -1,5 +1,7 @@
 // In-memory stand-in for firebase-auth.js (module-compatible subset).
-let current = null;
+// A test can start the page already signed in (as if another tab had signed in)
+// by setting window.__authInitial in an init script.
+let current = window.__authInitial || null;
 const watchers = [];
 function emit() { watchers.forEach((cb) => cb(current)); }
 

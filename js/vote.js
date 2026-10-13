@@ -1,6 +1,6 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
 import { ORG_NAME } from "./config.js";
-import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, anonSignIn, quorumThreshold } from "./db.js";
+import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, ensureSignedIn, quorumThreshold } from "./db.js";
 import { escapeHtml, labelOf, toast } from "./util.js";
 
 document.title = ORG_NAME;
@@ -45,9 +45,10 @@ function startData() {
     render();
   });
 }
-// Anonymous sign-in first so reads/writes are authenticated under locked rules.
+// Sign in first so reads/writes are authenticated under locked rules — but keep
+// an existing (e.g. leadership) session rather than replacing it; see db.js.
 // If anonymous auth isn't enabled yet, we proceed anyway (open-rules mode).
-anonSignIn().catch((e) => console.warn("anon auth unavailable, continuing:", e && e.code)).finally(startData);
+ensureSignedIn().catch((e) => console.warn("anon auth unavailable, continuing:", e && e.code)).finally(startData);
 
 function syncResultSubs() {
   const closedIds = new Set(polls.filter((p) => p.status === "closed" && !p.archived && !p.deleted).map((p) => p.id));

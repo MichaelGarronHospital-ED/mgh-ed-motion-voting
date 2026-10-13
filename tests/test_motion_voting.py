@@ -375,6 +375,28 @@ class TestLeadershipActions(Base):
         self.assertIn("1 pts", pg.inner_text("#results-body"))
 
 
+class TestSignIn(Base):
+    """One sign-in is shared by every tab of the site, so the voter page must
+    never replace a leadership session — otherwise the console in the next tab
+    (or on the chair's own laptop) silently loses its write access."""
+
+    def test_voter_page_keeps_an_existing_leadership_session(self):
+        self.page.add_init_script(
+            "window.__authInitial = { uid: 'leader-uid', isAnonymous: false,"
+            " email: '%s' };" % h.LEADER_EMAIL)
+        p = self.voter()
+        self.assertEqual(p.evaluate("() => window.__auth.current().email"), h.LEADER_EMAIL)
+
+    def test_voter_page_signs_in_anonymously_when_nobody_is(self):
+        p = self.voter()
+        self.assertTrue(p.evaluate("() => window.__auth.current().isAnonymous"))
+
+    def test_voter_page_signs_back_in_after_a_sign_out_elsewhere(self):
+        p = self.voter()
+        p.evaluate("() => window.__auth.force(null)")
+        p.wait_for_function("() => window.__auth.current() && window.__auth.current().isAnonymous")
+
+
 class TestVoterReview(Base):
     """Duplicate detection: flagged, not blocked."""
 
