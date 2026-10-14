@@ -105,3 +105,16 @@ can't tamper via the API and only leadership can manage motions/categories):
 
 **Rollback:** if anything misbehaves, paste [`firestore.rules.open`](firestore.rules.open)
 into the Rules tab and Publish — everything works again with no auth required.
+
+### Publishing the rules from the command line
+
+`firebase.json` and `.firebaserc` point the Firebase CLI at this project
+(`ed-motion-voting-99b96`) and at `firestore.rules`, so the console paste can be replaced by:
+
+```bash
+npx firebase-tools login                    # once, as the department Google account
+npx firebase-tools deploy --only firestore:rules
+```
+
+`--only firestore:rules` publishes the rules and nothing else. Never publish during a
+live meeting. The rollback is still the console paste of `firestore.rules.open`.
