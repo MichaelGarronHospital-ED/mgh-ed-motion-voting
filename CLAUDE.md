@@ -20,6 +20,20 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Org rules:** public repo (free-plan Pages), GitHub-authored Actions only,
   feature branches merge to `main`, merged branches auto-delete.
 
+## Commands, deploy and accounts
+
+- **Local folder:** `MGH-ED-Tools/motion-voting` (short name; the repo name stays
+  `mgh-ed-motion-voting`). `../README.md` maps every ED tool.
+- **Run locally:** `python3 -m http.server 8000`, then open http://localhost:8000
+  (it talks to the live Firebase project, so don't open or close real motions).
+- **Tests:** `cd tests && python3 -m unittest -v` (needs Playwright; see `tests/README.md`).
+  On Alvin's Mac the test tools live outside iCloud in `~/.venvs/mgh-ed-tools`:
+  `~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -v`.
+- **Deploy the site:** push to `main`; GitHub Pages is live about a minute later.
+- **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
+  `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
+  account on MGHEmergencyDepartmentAdministration@tehn.ca. No other services or keys.
+
 ## Files
 
 - `index.html` → voter view (loads `js/vote.js`).
