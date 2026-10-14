@@ -32,7 +32,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Deploy the site:** push to `main`; GitHub Pages is live about a minute later.
 - **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
   `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
-  account on MGHEmergencyDepartmentAdministration@tehn.ca. No other services or keys.
+  account on MGHEmergencyDepartmentAdministration@tehn.ca (second Owner: dralvinyang@gmail.com,
+  until another ED person is added). Free Spark plan. Publish rules with
+  `npx firebase-tools deploy --only firestore:rules` (department login); live rules matched
+  the repo on 2026-10-14. No other services or keys.
 
 ## Files
 
