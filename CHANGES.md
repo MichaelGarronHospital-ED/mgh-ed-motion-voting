@@ -4,6 +4,33 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Export: every motion, ballot and the roster in one Excel file; printable results (Oct 14 2026)
+
+### Added: an Export menu in the leadership console header
+
+- **Download Excel** saves `motion-voting-records-<date>.xlsx` with four sheets:
+  Summary (counts, today's eligibility and quorum, the pass rule), Motions (every
+  motion with its status, result, weighted and counted votes, quorum, write-ins and
+  flags; motions in the trash are kept and marked), Ballots (every named ballot with
+  category, weight, vote, submissions, flags), and Roster.
+- **Print or save as PDF** prints each motion's result (verdict, quorum, points and
+  votes) on a clean white page; the browser's print dialog saves it as a PDF. Named
+  ballots stay out of the printout (voting is anonymous to the group) and are in
+  the Excel file.
+- Ballots are read fresh for every motion (`getVotesFor` in `js/db.js`), not only
+  the motion on screen, so the file is complete. Results use the same `tally` and
+  `quorumThreshold` as the console, so the file and the screen cannot disagree.
+- `js/xlsx.js` writes the .xlsx with no library and no network; it is the same
+  file as the hiring tool's. The per-motion and roster CSV buttons are unchanged.
+- The menu is a native `<details>`: keyboard and screen-reader friendly, closes on
+  Escape or a click outside. On phones the console subtitle hides so the header
+  stays on one line of buttons.
+
+Checked: 30/30 tests; axe-core clean on all 20 screens plus the open menu; Excel
+opened with openpyxl (4 sheets; results, half-vote weights, trash all correct).
+
+---
+
 ## Same look as the other ED tools; keyboard and screen-reader fixes (Oct 14 2026)
 
 ### Changed: the dark theme is gone; the tool now looks like the hiring tool and CPOE

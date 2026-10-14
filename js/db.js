@@ -68,6 +68,12 @@ export function onPolls(cb) {
   });
 }
 
+// One-off read of a motion's ballots (the leadership export reads every motion).
+export async function getVotesFor(pollId) {
+  const snap = await getDocs(collection(db, "polls", pollId, "votes"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export function onVotesFor(pollId, cb) {
   return onSnapshot(collection(db, "polls", pollId, "votes"), (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
