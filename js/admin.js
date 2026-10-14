@@ -131,7 +131,7 @@ function renderMotions() {
 // A collapsible card with a clickable header; expands to reveal an optional
 // blurb + rows. First card has no top margin.
 function collapsibleCard(id, title, count, expanded, blurb, rowsHtml) {
-  return `<div class="card" style="${id === "active" ? "" : "margin-top:16px; "}background:var(--card2);">
+  return `<div class="card"${id === "active" ? "" : ' style="margin-top:16px;"'}>
     <div class="spread" id="${id}-header" style="cursor:pointer; user-select:none;">
       <strong>${title} <span class="muted">(${count})</span></strong>
       <span class="muted">${expanded ? "▾ hide" : "▸ show"}</span>
@@ -244,7 +244,7 @@ function motionSelectorHTML() {
       return `<option value="${p.id}" ${p.id === selectedPollId ? "selected" : ""}>${tag}${escapeHtml(short)}</option>`;
     })).join("");
   return `<label class="sub" style="display:block;margin-bottom:4px;">View motion</label>
-    <select class="motion-select" style="margin-bottom:12px;">${opts}</select>`;
+    <select class="motion-select" aria-label="View motion" style="margin-bottom:12px;">${opts}</select>`;
 }
 function wireMotionSelect(scope) {
   const s = scope.querySelector(".motion-select");
@@ -307,7 +307,7 @@ function paintResults(el, poll, votes, loaded) {
       <div class="spread"><span>Quorum${poll.status === "closed" ? " 🔒" : ""}</span>
         <span class="${quorumMet ? "quorum-ok" : "quorum-bad"}">${t.quorumCount} / ${quorum} ${quorumMet ? "✅ met" : "❌ NOT met"}</span></div>
       <div class="bar-track" style="margin-top:6px;"><div class="bar-fill favour" style="width:${quorum > 0 ? Math.min(100,(t.quorumCount/quorum)*100) : 0}%"></div></div>
-      ${!quorumMet ? `<p class="sub" style="color:#fca5a5;margin:8px 0 0;">Need ${quorum - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
+      ${!quorumMet ? `<p class="sub" style="color:var(--red);margin:8px 0 0;">Need ${quorum - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
     </div>
     <p class="sub">${t.totalVotes} total ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged for review.
       Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only. Results are always visible to voters once closed.</p>

@@ -70,18 +70,19 @@ function render() {
   syncResultSubs();
   if (!me) { app.innerHTML = shell(pickerHTML()); wirePicker(); return; }
 
-  const tabs = `<div class="tabs">
-      <div class="tab ${voterTab === "vote" ? "active" : ""}" data-vtab="vote">Vote</div>
-      <div class="tab ${voterTab === "results" ? "active" : ""}" data-vtab="results">Results</div>
-    </div>`;
+  const tabs = `<nav class="tabs" aria-label="Vote or results">
+      <button type="button" class="tab ${voterTab === "vote" ? "active" : ""}" data-vtab="vote">Vote</button>
+      <button type="button" class="tab ${voterTab === "results" ? "active" : ""}" data-vtab="results">Results</button>
+    </nav>`;
   const body = voterTab === "vote" ? `<div class="card">${voteBody()}</div>` : resultsBody();
   app.innerHTML = shell(tabs + body);
   wireVoter();
 }
 
 function shell(inner) {
-  return `<h1>${escapeHtml(ORG_NAME)}</h1>
-    <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p>${inner}`;
+  return `<header class="apphead"><div class="logo" aria-hidden="true">ED</div>
+    <div class="titles"><h1>${escapeHtml(ORG_NAME)}</h1>
+    <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p></div></header>${inner}`;
 }
 
 // ---- name picker -----------------------------------------------------------
@@ -90,7 +91,7 @@ function pickerHTML() {
     <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and device and reviewed for duplicates. You must select your name to vote or view results.</div>
     <label for="search">Find your name</label>
     <input id="search" type="text" placeholder="Start typing your name…" autocomplete="off" />
-    <ul id="namelist" class="namelist"></ul>
+    <ul id="namelist" class="namelist" role="listbox" aria-label="Physicians"></ul>
     <button id="writein-btn" class="btn ghost" style="margin-top:12px;">My name isn't listed — add it</button>
     <div id="writein-box" class="hide" style="margin-top:12px;">
       <label for="writein">Type your full name</label>
@@ -106,13 +107,17 @@ function renderNames(filter = "") {
   const f = filter.trim().toLowerCase();
   const list = ROSTER.filter((p) => p.name.toLowerCase().includes(f));
   el.innerHTML = list.length
-    ? list.map((p) => `<li data-slug="${p.slug}">${escapeHtml(p.name)}</li>`).join("")
-    : `<li class="muted" style="cursor:default">No match — use “add it” below.</li>`;
+    ? list.map((p) => `<li data-slug="${p.slug}" tabindex="0" role="option" aria-selected="false">${escapeHtml(p.name)}</li>`).join("")
+    : `<li class="muted" role="option" aria-disabled="true" aria-selected="false" style="cursor:default">No match — use “add it” below.</li>`;
 }
 function wirePicker() {
   renderNames();
   const search = document.getElementById("search");
   search.addEventListener("input", () => renderNames(search.value));
+  // Enter / Space on a focused name does what a tap does (keyboard users)
+  document.getElementById("namelist").addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.closest("li[data-slug]")) { e.preventDefault(); e.target.click(); }
+  });
   document.getElementById("namelist").addEventListener("click", (e) => {
     const li = e.target.closest("li[data-slug]"); if (!li) return;
     const p = ROSTER_BY_SLUG[li.dataset.slug];

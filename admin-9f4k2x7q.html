@@ -7,32 +7,35 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <main>
   <!-- passcode gate -->
-  <div id="gate" class="wrap">
-    <h1>Leadership access</h1>
-    <p class="sub">Enter the passcode to manage motions and view results.</p>
-    <div class="card">
-      <label for="pass">Passcode</label>
-      <input id="pass" type="password" placeholder="Passcode" />
-      <button id="enter" class="btn accent">Enter</button>
-      <p id="gate-err" class="sub hide" style="color:#fca5a5;">Incorrect passcode.</p>
+  <div id="gate" class="gate">
+    <div class="gatebox">
+      <div class="logo" aria-hidden="true">ED</div>
+      <h1>Leadership access</h1>
+      <p class="sub">Enter the passcode to manage motions and view results.</p>
+      <label for="pass" class="hide">Passcode</label>
+      <input id="pass" type="password" placeholder="Passcode" aria-label="Passcode" />
+      <button id="enter" class="btn accent pillfull">Enter</button>
+      <p id="gate-err" class="err hide" role="alert">Incorrect passcode.</p>
     </div>
   </div>
 
   <!-- console -->
   <div id="console" class="wrap wide hide">
-    <div class="spread">
-      <h1>Leadership console</h1>
-      <a href="#" id="lock" class="sub">Lock</a>
-    </div>
+    <header class="apphead">
+      <div class="logo" aria-hidden="true">ED</div>
+      <div class="titles"><h1>Leadership console</h1><p class="sub">Motion Voting</p></div>
+      <a href="#" id="lock" class="btn ghost small">Lock</a>
+    </header>
 
-    <div class="tabs">
-      <div class="tab active" data-tab="share">Share / QR</div>
-      <div class="tab" data-tab="motions">Motions</div>
-      <div class="tab" data-tab="results">Live results</div>
-      <div class="tab" data-tab="voters">Voters</div>
-      <div class="tab" data-tab="roster">Physician Summary</div>
-    </div>
+    <nav class="tabs" aria-label="Console sections">
+      <button type="button" class="tab active" data-tab="share">Share / QR</button>
+      <button type="button" class="tab" data-tab="motions">Motions</button>
+      <button type="button" class="tab" data-tab="results">Live results</button>
+      <button type="button" class="tab" data-tab="voters">Voters</button>
+      <button type="button" class="tab" data-tab="roster">Physician Summary</button>
+    </nav>
 
     <!-- SHARE -->
     <section id="tab-share" class="card">
@@ -43,7 +46,7 @@
              width="260" height="260"
              style="background:#fff; padding:10px; border-radius:12px;" />
       </div>
-      <label>Voting link</label>
+      <label for="vote-url">Voting link</label>
       <div class="row">
         <input id="vote-url" type="text" readonly />
         <button id="copy-url" class="btn accent small">Copy</button>
@@ -109,7 +112,9 @@
     </section>
   </div>
 
-  <div id="toast" class="toast hide"></div>
+  </main>
+
+  <div id="toast" class="toast hide" role="status" aria-live="polite"></div>
   <script type="module" src="js/admin.js"></script>
 </body>
 </html>

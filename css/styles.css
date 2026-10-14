@@ -1,136 +1,223 @@
+/* Motion Voting: the ED tools' shared Apple-style language (same tokens as the
+   hiring tool and the CPOE console): one blue accent, iOS greys, white cards on
+   a grouped-grey page, layered soft shadows, system font. Light only, like hiring.
+   Class names are unchanged from the old dark theme, so js/ renders as before. */
 :root {
-  --bg: #0f172a;
-  --card: #1e293b;
-  --card2: #273449;
-  --line: #334155;
-  --text: #e2e8f0;
-  --muted: #94a3b8;
-  --accent: #38bdf8;
-  --favour: #22c55e;
-  --against: #ef4444;
-  --abstain: #f59e0b;
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --ink:#1d1d1f; --ink-2:#424245; --mut:#6e6e73; --faint:#6b6b70;
+  --line:#d2d2d7; --line-2:#e8e8ed; --bg:#f5f5f7; --surface:#ffffff; --fill:#f2f2f7;
+  --accent:#0071e3; --accent-press:#0060c0; --accent-tint:#e8f1fd;
+  --green:#1a7f37; --green-tint:#e7f6ec; --red:#d70015; --red-tint:#fdecec;
+  --amber:#8a5c00; --amber-tint:#fdf3e2; --grey-bar:#aeaeb2;
+  --radius:18px; --radius-sm:12px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.045);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.08), 0 20px 48px rgba(0,0,0,.10);
+  --ring:0 0 0 4px rgba(0,113,227,.35);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+  /* names the scripts still use inline */
+  --card2:var(--fill); --favour:var(--green); --against:var(--red); --abstain:var(--grey-bar);
 }
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { -webkit-text-size-adjust:100%; }
+html, body { margin:0; padding:0; }
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.45;
-  min-height: 100vh;
+  background:var(--bg); color:var(--ink); font-family:var(--font); font-size:16px;
+  line-height:1.47; letter-spacing:-0.011em; min-height:100vh;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
-.wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 48px; }
-.wrap.wide { max-width: 1080px; }
+b, strong { font-weight:600; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+:focus-visible { outline:none; box-shadow:var(--ring); border-radius:8px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
 
-h1 { font-size: 1.25rem; margin: 8px 0 2px; }
-h2 { font-size: 1.05rem; margin: 0 0 12px; }
-.sub { color: var(--muted); font-size: .85rem; margin: 0 0 16px; }
+.wrap { max-width:560px; margin:0 auto; padding:20px 16px 56px; }
+.wrap.wide { max-width:1040px; }
 
+/* ---- header: app badge + title (as hiring and the dashboard) ------------- */
+.apphead { display:flex; align-items:center; gap:12px; margin:4px 0 18px; }
+.apphead .logo, .gatebox .logo {
+  width:40px; height:40px; border-radius:11px; flex:none; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,#0a84ff,#0060c0); color:#fff; font-weight:700; font-size:1rem;
+  box-shadow:0 6px 16px rgba(0,113,227,.30);
+}
+.apphead .titles { flex:1; min-width:0; }
+.apphead h1 { margin:0; }
+.apphead .sub { margin:2px 0 0; }
+h1 { font-size:1.35rem; font-weight:700; letter-spacing:-0.02em; margin:0 0 2px; }
+h2 { font-size:1.08rem; font-weight:600; letter-spacing:-0.015em; line-height:1.35; margin:0 0 12px; }
+.sub { color:var(--mut); font-size:.88rem; margin:0 0 16px; }
+
+/* ---- cards ---------------------------------------------------------------- */
 .card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: var(--shadow);
-  margin-bottom: 16px;
+  background:var(--surface); border:1px solid var(--line-2); border-radius:var(--radius);
+  padding:18px; box-shadow:var(--shadow); margin-bottom:14px;
 }
+/* a card inside a card (motion groups, quorum box) is an inset grey panel */
+.card .card { box-shadow:none; border-color:transparent; }
 
 .disclaimer {
-  background: #422006;
-  border: 1px solid #b45309;
-  color: #fde68a;
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-size: .85rem;
-  margin-bottom: 16px;
+  background:var(--amber-tint); border:1px solid #f2dca6; color:var(--amber);
+  border-radius:var(--radius-sm); padding:12px 14px; font-size:.88rem; margin-bottom:16px;
 }
 
-label { display: block; font-size: .82rem; color: var(--muted); margin: 6px 0 4px; }
+/* ---- inputs --------------------------------------------------------------- */
+label { display:block; font-size:.82rem; font-weight:500; color:var(--mut); margin:6px 0 6px; }
 input[type="text"], input[type="password"], textarea, select {
-  width: 100%;
-  background: var(--card2);
-  border: 1px solid var(--line);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 1rem;
-  outline: none;
+  font:inherit; width:100%; color:var(--ink); background:#fbfbfd;
+  border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px;
+  transition:border-color .15s, box-shadow .15s; outline:none;
 }
-input:focus, textarea:focus { border-color: var(--accent); }
-textarea { resize: vertical; min-height: 64px; }
+input:focus, textarea:focus, select:focus { border-color:var(--accent); box-shadow:var(--ring); background:#fff; }
+textarea { resize:vertical; min-height:72px; }
+select { -webkit-appearance:none; appearance:none; padding-right:38px;
+  background:#fbfbfd url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236e6e73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center; }
 
+/* ---- name list: an iOS grouped list --------------------------------------- */
 .namelist {
-  list-style: none; margin: 10px 0 0; padding: 0;
-  max-height: 46vh; overflow-y: auto;
-  border: 1px solid var(--line); border-radius: 12px;
+  list-style:none; margin:10px 0 0; padding:0; max-height:46vh; overflow-y:auto;
+  background:var(--surface); border:1px solid var(--line-2); border-radius:var(--radius-sm);
 }
-.namelist li {
-  padding: 14px 16px; border-bottom: 1px solid var(--line);
-  cursor: pointer; font-size: 1rem;
-}
-.namelist li:last-child { border-bottom: none; }
-.namelist li:active { background: var(--card2); }
-.namelist .tag { float: right; font-size: .72rem; color: var(--muted); }
+.namelist li { padding:13px 16px; border-bottom:1px solid var(--line-2); cursor:pointer; font-size:1rem; }
+.namelist li:last-child { border-bottom:none; }
+.namelist li:hover { background:#fafafc; }
+.namelist li:active { background:var(--fill); }
+.namelist li.muted { cursor:default; }
+.namelist .tag { float:right; font-size:.74rem; color:var(--mut); }
 
+/* ---- buttons -------------------------------------------------------------- */
 .btn {
-  display: block; width: 100%; text-align: center;
-  border: none; border-radius: 14px; padding: 16px;
-  font-size: 1.05rem; font-weight: 600; cursor: pointer;
-  color: #fff; margin-top: 10px;
+  font:inherit; display:block; width:100%; text-align:center; cursor:pointer;
+  border:1px solid transparent; border-radius:14px; padding:15px 16px; margin-top:10px;
+  font-size:1.02rem; font-weight:600; color:#fff;
+  transition:background .15s, transform .06s, box-shadow .15s, opacity .15s;
 }
-.btn.favour { background: var(--favour); }
-.btn.against { background: var(--against); }
-.btn.abstain { background: var(--abstain); color: #1f2937; }
-.btn.ghost { background: var(--card2); color: var(--text); border: 1px solid var(--line); }
-.btn.accent { background: var(--accent); color: #08233a; }
-.btn.danger { background: transparent; color: var(--against); border: 1px solid var(--against); }
-.btn.small { padding: 10px 14px; font-size: .85rem; width: auto; display: inline-block; margin: 4px 6px 4px 0; }
-.btn:disabled { opacity: .5; }
-.btn.selected { outline: 3px solid #fff; }
+.btn:active { transform:scale(.985); }
+.btn:disabled { opacity:.5; cursor:default; transform:none; }
+.btn.accent { background:var(--accent); color:#fff; }
+.btn.accent:hover { background:var(--accent-press); }
+.btn.favour { background:var(--green); }
+.btn.favour:hover { background:#156a2e; }
+.btn.against { background:var(--red); }
+.btn.against:hover { background:#b80012; }
+.btn.abstain { background:var(--fill); color:var(--ink); border-color:var(--line-2); }
+.btn.abstain:hover { background:#e8e8ed; }
+.btn.ghost { background:var(--surface); color:var(--accent); border-color:var(--line); font-weight:500; }
+.btn.ghost:hover { background:#f5f5f7; }
+.btn.danger { background:var(--red-tint); color:var(--red); }
+.btn.danger:hover { background:#fbdcdc; }
+/* the choice this device made: a ring and a tick, readable on every colour */
+.btn.selected { box-shadow:0 0 0 3px var(--surface), 0 0 0 6px var(--ink); }
+.btn.selected::after { content:"  \2713"; }
+/* small buttons are hiring's pills; on small action rows the colours are tinted,
+   so a row of five actions reads calmly instead of as five alarms */
+.btn.small { display:inline-flex; align-items:center; justify-content:center; width:auto;
+  padding:7px 14px; margin:4px 6px 4px 0; font-size:.86rem; border-radius:980px; font-weight:500; }
+.btn.small.favour { background:var(--green-tint); color:var(--green); }
+.btn.small.favour:hover { background:#d6efdf; }
+.btn.small.against { background:var(--red-tint); color:var(--red); }
+.btn.small.against:hover { background:#fbdcdc; }
+.btn.small.accent { background:var(--accent); color:#fff; }
+.btn.small.ghost { color:var(--ink); }
+/* destructive actions repeated down a list stay quiet until reached for
+   (hiring's rule: seventeen red "remove" links read as seventeen problems) */
+.btn.small.danger { background:transparent; color:var(--mut); border-color:var(--line-2); }
+.btn.small.danger:hover, .btn.small.danger:focus-visible { background:var(--red-tint); color:var(--red); border-color:transparent; }
+/* a selected small option (e.g. a physician's vote category) is simply filled */
+.btn.small.selected { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:none; }
+.btn.small.selected::after { content:none; }
 
-.choice-row { display: grid; gap: 10px; }
+.choice-row { display:grid; gap:10px; margin-top:4px; }
 
-.muted { color: var(--muted); }
-.center { text-align: center; }
-.big { font-size: 2rem; font-weight: 800; }
-.pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
-.pill.open { background: #064e3b; color: #6ee7b7; }
-.pill.closed { background: #3f1d1d; color: #fca5a5; }
-.pill.draft { background: #334155; color: #cbd5e1; }
-.pill.flag { background: #7c2d12; color: #fed7aa; }
+/* ---- text helpers --------------------------------------------------------- */
+.muted { color:var(--mut); }
+.center { text-align:center; }
+.big { font-size:1.9rem; font-weight:700; letter-spacing:-0.02em; margin:14px 0; }
+small { color:var(--mut); }
 
-.result-pass { color: var(--favour); }
-.result-fail { color: var(--against); }
-.result-noq { color: var(--abstain); }
-.result-tie { color: var(--accent); }
+/* ---- status pills --------------------------------------------------------- */
+.pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:980px;
+  font-size:.72rem; font-weight:600; letter-spacing:.02em; vertical-align:middle; }
+.pill.open { background:var(--green-tint); color:var(--green); }
+.pill.closed { background:#e8e8ed; color:var(--ink-2); }
+.pill.draft { background:var(--accent-tint); color:var(--accent-press); }
+.pill.flag { background:var(--amber-tint); color:var(--amber); }
 
-.bars { margin: 10px 0; }
-.bar-row { margin: 8px 0; }
-.bar-label { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: 4px; }
-.bar-track { background: var(--card2); border-radius: 8px; height: 14px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 8px; transition: width .4s; }
-.bar-fill.favour { background: var(--favour); }
-.bar-fill.against { background: var(--against); }
-.bar-fill.abstain { background: var(--abstain); }
+/* ---- results -------------------------------------------------------------- */
+.result-pass { color:var(--green); }
+.result-fail { color:var(--red); }
+.result-noq { color:var(--amber); }
+.result-tie { color:var(--accent); }
 
-.quorum-ok { color: var(--favour); font-weight: 700; }
-.quorum-bad { color: var(--against); font-weight: 700; }
+.bars { margin:10px 0; }
+.bar-row { margin:10px 0; }
+.bar-label { display:flex; justify-content:space-between; gap:10px; font-size:.88rem; margin-bottom:6px; }
+.bar-track { background:var(--line-2); border-radius:980px; height:10px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:980px; transition:width .4s; }
+.bar-fill.favour { background:var(--green); }
+.bar-fill.against { background:var(--red); }
+.bar-fill.abstain { background:var(--grey-bar); }
 
-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--card); }
-tr.flagged td { background: #3f1d0e; }
+.quorum-ok { color:var(--green); font-weight:600; }
+.quorum-bad { color:var(--red); font-weight:600; }
 
-.tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.tab { padding: 8px 14px; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); cursor: pointer; font-size: .9rem; }
-.tab.active { background: var(--accent); color: #08233a; font-weight: 700; }
+/* ---- tables (hiring style) ------------------------------------------------ */
+table { width:100%; border-collapse:collapse; font-size:.9rem; }
+th, td { text-align:left; padding:10px; border-bottom:1px solid var(--line-2); vertical-align:middle; }
+th { color:var(--mut); font-weight:600; font-size:.76rem; text-transform:uppercase; letter-spacing:.03em;
+  white-space:nowrap; position:sticky; top:0; background:var(--surface); z-index:1; }
+tr:last-child td { border-bottom:none; }
+tr.flagged td { background:#fffaf0; }
 
-.poll-item { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.poll-item .text { flex: 1; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.hide { display: none !important; }
-.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #022c22; color: #6ee7b7; border: 1px solid #047857; padding: 12px 18px; border-radius: 12px; box-shadow: var(--shadow); z-index: 50; }
-a { color: var(--accent); }
-small { color: var(--muted); }
+/* ---- tabs: a segmented control, like the hiring tool's ------------------- */
+.tabs { display:flex; gap:2px; padding:3px; margin:0 0 16px; background:#e8e8ed; border-radius:12px;
+  overflow-x:auto; scrollbar-width:none; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab { font:inherit; flex:1 0 auto; border:none; background:none; padding:8px 14px; border-radius:9px;
+  color:var(--ink-2); font-size:.9rem; font-weight:500; cursor:pointer; white-space:nowrap; text-align:center;
+  transition:background .15s, color .15s, box-shadow .15s; }
+.tab:hover { color:var(--ink); }
+.tab.active { background:var(--surface); color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+
+/* ---- motion rows ---------------------------------------------------------- */
+.poll-item { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line-2); }
+.poll-item:last-child { border-bottom:none; }
+.poll-item .text { flex:1; min-width:0; }
+@media (max-width:640px) { .poll-item { flex-direction:column; align-items:stretch; gap:6px; } }
+.row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.row input { flex:1; min-width:0; }
+.row .btn.small { margin:0; }
+.spread { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.hide { display:none !important; }
+
+/* ---- toast (hiring's dark pill) ------------------------------------------- */
+.toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:50; max-width:90vw;
+  background:rgba(30,30,32,.96); color:#fff; padding:11px 18px; border-radius:12px; font-size:.9rem;
+  box-shadow:var(--shadow-lg); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+
+/* ---- leadership sign-in: hiring's centred card ---------------------------- */
+.gate { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  background:linear-gradient(180deg,#fbfbfd,#f0f0f4); }
+.gatebox { width:100%; max-width:380px; text-align:center; background:var(--surface); border-radius:var(--radius);
+  box-shadow:var(--shadow-lg); padding:32px 26px 28px; }
+.gatebox .logo { margin:0 auto 12px; width:46px; height:46px; border-radius:12px; font-size:1.1rem; }
+.gatebox h1 { font-size:1.35rem; margin:0 0 4px; }
+.gatebox .sub { margin:0 0 16px; }
+.gatebox .err { color:var(--red); font-size:.86rem; margin:10px 0 0; }
+.btn.pillfull { border-radius:980px; }
+
+/* ---- phones: drop the columns the rest of the row already implies, keep the
+   action buttons on one line, so nothing is cut off at 390px ---------------- */
+#roster-table td:last-child, #voters-table td:last-child { white-space:nowrap; }
+#roster-table .btn.small { margin:2px 4px 2px 0; padding:6px 11px; }
+#voters-table .btn.small { margin:0; padding:6px 11px; }
+@media (max-width:640px) {
+  #voters-table th:nth-child(3), #voters-table td:nth-child(3),   /* weight: implied by category */
+  #voters-table th:nth-child(5), #voters-table td:nth-child(5),   /* submissions: flagged rows only */
+  #roster-table th:nth-child(2), #roster-table td:nth-child(2),   /* category: shown by the filled button */
+  #roster-table th:nth-child(3), #roster-table td:nth-child(3) { display:none; }  /* pts: same */
+  th, td { padding:10px 6px; }
+  #voters-table .btn.small { padding:5px 9px; font-size:.82rem; }
+}
+.namelist li:focus-visible { box-shadow:inset 0 0 0 3px rgba(0,113,227,.45); border-radius:0; background:var(--accent-tint); }
