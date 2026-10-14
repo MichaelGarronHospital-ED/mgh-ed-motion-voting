@@ -4,6 +4,40 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Same look as the other ED tools; keyboard and screen-reader fixes (Oct 14 2026)
+
+### Changed: the dark theme is gone; the tool now looks like the hiring tool and CPOE
+
+One design language across the ED tools: light grey page, white cards, the
+system font, one blue accent, soft shadows, the "ED" app badge, segmented tabs,
+pill buttons, the dark toast. The token values are copied from the hiring tool
+(`hiring-tool/css/styles.css`), so the two read as one family. Class names did
+not change, so `js/` renders exactly as before; only `css/styles.css` was
+rewritten, plus:
+
+- Leadership sign-in is hiring's centred card (same ids: `#gate`, `#pass`,
+  `#enter`, `#gate-err`).
+- Header: "ED" badge + title on both pages.
+- Repeated destructive actions (Delete, Remove) stay grey until hovered, and a
+  selected vote category is simply filled blue instead of a heavy ring.
+- On phones, the voters and physician tables drop columns the row already
+  implies (weight, submissions; category, points), so nothing is cut off.
+
+### Fixed: keyboard and screen-reader gaps (axe-core, WCAG 2 AA)
+
+- The name list could only be clicked: names are now focusable and Enter or
+  Space picks one (listbox/option roles).
+- Tabs were `<div>`s; now real buttons, reachable by keyboard.
+- The two "View motion" dropdowns and the voting-link box had no label.
+- The voter page blocked pinch-zoom (`maximum-scale=1`); removed.
+- Pages gained a `<main>` landmark; the toast is announced (`role="status"`).
+
+Checked: 30/30 tests; axe-core clean on all 20 screens (voter picker, ballot,
+results; gate and all five console tabs; 390 and 1280 px); keyboard voting
+end to end.
+
+---
+
 ## Voter page no longer signs leadership out (Oct 13 2026)
 
 ### Fixed — opening the voting page broke the leadership console in the same browser
