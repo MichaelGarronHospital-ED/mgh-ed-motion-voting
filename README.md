@@ -23,9 +23,12 @@ quorum only. Quorum is computed automatically as **50% of eligible voters**.
 
 - **Deploys:** GitHub Pages, from `main`, root folder, no build step. A push to
   `main` is live about a minute later.
-- **Secrets:** none in the repo and none in GitHub Actions. The admin passcode is
-  stored only as a hash in `js/config.js`; the plaintext is shared by word of mouth
-  and is also the password of the `LEADER_EMAIL` user in Firebase Auth.
+- **Passwords (since Oct 14 2026):** the ED tools' shared **ED password** (voters, once per
+  device) and **Leadership password** (the settings console). Nothing about either is in
+  the repo: each is the password of one Firebase Auth account (`ED_EMAIL`, `LEADER_EMAIL`
+  in `js/config.js`), checked by Firebase, and the rules accept only those two accounts.
+  To change them, edit `~/mgh-ed-passwords.txt` and run `python3 set-passwords.py --apply`
+  in the `MGH-ED-Tools` folder.
 - **Old address:** this tool used to live at
   `https://dralvinyang.github.io/ED-motion-voting/tools/motion-voting/`. That
   old repo is archived and only redirects: old `/tools/motion-voting/…` links
@@ -47,7 +50,7 @@ quorum only. Quorum is computed automatically as **50% of eligible voters**.
 ### 2. Configure the app
 Edit [`js/config.js`](js/config.js):
 - Paste your `firebaseConfig`.
-- Change `ADMIN_PASSCODE` to something only leadership knows.
+- Passwords are not in this file: see "Sign-in" below.
 - (Quorum is automatic — 50% of eligible voters — nothing to configure.)
 
 Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COURTESY**.
@@ -90,18 +93,18 @@ and quorum meter update live in the admin **Live results** tab.
   switch names and vote again). Voters **can still change their own choice** until
   the motion closes.
 
-## Optional: backend lockdown (Firebase Auth)
+## Sign-in (Firebase Auth): the ED and Leadership passwords
 
-By default the Firestore rules are open. To require sign-in (so random visitors
-can't tamper via the API and only leadership can manage motions/categories):
+Firestore only answers two shared accounts (see `firestore.rules`):
 
-1. Firebase → **Authentication → Get started** → enable **Anonymous** and **Email/Password**.
-2. Firebase → **Authentication → Users → Add user**: email = `LEADER_EMAIL` from
-   [`js/config.js`](js/config.js), password = your `ADMIN_PASSCODE`.
-3. Make sure the email in [`firestore.rules`](firestore.rules) matches `LEADER_EMAIL`.
-4. Deploy the site; confirm **voting works** and **admin login works** (still on open rules).
-5. Firebase → Firestore → **Rules** → paste [`firestore.rules`](firestore.rules) → **Publish**.
-6. Re-test: cast a vote, change it, open/close a motion, edit a category.
+- `ED_EMAIL` (`ed@ed-motion-voting.app`), password = the **ED password**. Voters enter it
+  once on the voting page; Firebase remembers the sign-in on that device.
+- `LEADER_EMAIL` (`leadership@ed-motion-voting.app`), password = the **Leadership
+  password**. Opens the settings console (`admin-9f4k2x7q.html`).
+
+Both accounts live in Firebase → Authentication (Email/Password provider). Anonymous
+sign-in is no longer accepted by the rules. `set-passwords.py` (in `MGH-ED-Tools`) creates
+or updates both and verifies them.
 
 **Rollback:** if anything misbehaves, paste [`firestore.rules.open`](firestore.rules.open)
 into the Rules tab and Publish — everything works again with no auth required.

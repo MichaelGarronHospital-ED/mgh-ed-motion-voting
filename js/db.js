@@ -7,9 +7,9 @@ import {
   onSnapshot, query, orderBy, runTransaction, serverTimestamp, getDocs, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, LEADER_EMAIL } from "./config.js";
+import { firebaseConfig, LEADER_EMAIL, ED_EMAIL } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 
 const app = initializeApp(firebaseConfig);
@@ -17,34 +17,29 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // ---- auth ------------------------------------------------------------------
-// Voters sign in anonymously; leadership signs in with the passcode as the
-// password for LEADER_EMAIL. Both are best-effort: if the providers aren't
-// enabled yet (open-rules mode), the app still works.
+// Two shared accounts, one per password (config.js): ED_EMAIL for voters (the ED
+// password) and LEADER_EMAIL for leadership (the Leadership password). The rules
+// accept only these two, so the password is enforced by the server, not just by
+// the screen. Firebase keeps the sign-in on the device, so a phone that has
+// entered the ED password once goes straight to the ballot afterwards.
+//
+// Firebase keeps ONE sign-in per browser for the whole site, shared by every tab.
+// A leadership session therefore also counts as a member on the voter page (a
+// chair voting on the console laptop must not be signed out of the console).
 export function watchAuth(cb) { return onAuthStateChanged(auth, cb); }
-export function anonSignIn() { return signInAnonymously(auth); }
-// Voter page: sign in anonymously only when nobody is signed in. Firebase keeps
-// ONE sign-in per browser for the whole site, shared by every tab, so an
-// unconditional anonymous sign-in would replace a leadership session (e.g. the
-// console open in another tab, or a chair voting on the console laptop) and the
-// console's writes would then be refused. Also signs back in if the session is
-// later dropped, e.g. leadership clicks Lock in another tab. Resolves once
-// someone is signed in.
-export function ensureSignedIn() {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const settle = (fn, v) => { if (!settled) { settled = true; fn(v); } };
-    onAuthStateChanged(auth, (user) => {
-      if (user) { settle(resolve, user); return; }
-      signInAnonymously(auth).catch((e) => {
-        if (settled) console.warn("anon auth unavailable:", e && e.code);
-        else settle(reject, e);
-      });
-    });
-  });
-}
-export function leaderSignIn(passcode) { return signInWithEmailAndPassword(auth, LEADER_EMAIL, passcode); }
+export const isMember = (u) => !!u && !u.isAnonymous && (u.email === ED_EMAIL || u.email === LEADER_EMAIL);
+// Calls cb(user) whenever the member state changes: the user when signed in as
+// ED or leadership, null otherwise (signed out, or an old anonymous session).
+export function watchMember(cb) { return onAuthStateChanged(auth, (u) => cb(isMember(u) ? u : null)); }
+export function voterSignIn(password) { return signInWithEmailAndPassword(auth, ED_EMAIL, password); }
+export function leaderSignIn(password) { return signInWithEmailAndPassword(auth, LEADER_EMAIL, password); }
 export function leaderSignOut() { return signOut(auth); }
-export { LEADER_EMAIL };
+// Was this a wrong password (as opposed to no connection, or throttling)?
+export function isWrongPassword(e) {
+  const c = (e && e.code) || "";
+  return c.includes("wrong-password") || c.includes("invalid-credential") || c.includes("user-not-found") || c.includes("invalid-login");
+}
+export { LEADER_EMAIL, ED_EMAIL };
 
 const pollsCol = collection(db, "polls");
 

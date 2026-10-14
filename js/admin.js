@@ -1,11 +1,11 @@
-import { ADMIN_PASSCODE_SHA256, ORG_NAME } from "./config.js";
+import { ORG_NAME } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, trashPoll, restorePoll, purgePoll, openPoll, closePoll,
   clearVote, tally, setArchived, weightForVote, groupForVote, getVotesFor,
   onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
   eligibleCount, quorumThreshold,
-  watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
+  watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL, isWrongPassword,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, csv, toast } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
@@ -22,19 +22,18 @@ function unlock() {
 }
 $("enter").addEventListener("click", tryEnter);
 $("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") tryEnter(); });
-async function sha256Hex(s) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// The Leadership password is checked by Firebase itself (it is the password of
+// the LEADER_EMAIL account); nothing about it is stored in this public code, and
+// the console opens only on a real sign-in, so writes are always authorised.
 async function tryEnter() {
-  const typed = $("pass").value;
-  if ((await sha256Hex(typed)) !== ADMIN_PASSCODE_SHA256) { $("gate-err").classList.remove("hide"); return; }
-  // Sign in as leadership for write access under locked rules. If the Firebase
-  // auth user / provider isn't set up yet, we still open the console (writes
-  // work because the rules are still open).
-  try { await leaderSignIn($("pass").value); }
-  catch (e) { console.warn("leader auth not active (open-rules mode):", e && e.code); }
-  unlock();
+  const typed = $("pass").value, err = $("gate-err");
+  if (!typed) return;
+  $("enter").disabled = true; err.classList.add("hide");
+  try { await leaderSignIn(typed); unlock(); }
+  catch (e) {
+    err.textContent = isWrongPassword(e) ? "Incorrect password." : "Couldn't sign in. Check your connection and try again.";
+    err.classList.remove("hide");
+  } finally { $("enter").disabled = false; }
 }
 // Auto-unlock on reload if a leadership session is already persisted.
 watchAuth((user) => { if (user && user.email === LEADER_EMAIL) unlock(); });

@@ -40,9 +40,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 ## Files
 
 - `index.html` → voter view (loads `js/vote.js`).
-- `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Passcode-gated +
+- `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Leadership-password-gated (Firebase sign-in) +
   unguessable filename; keep the filename obscure if it's ever rotated.
-- `js/config.js` → Firebase config, `ADMIN_PASSCODE`, `LEADER_EMAIL`, `ORG_NAME`.
+- `js/config.js` → Firebase config, `LEADER_EMAIL` + `ED_EMAIL` (the two shared accounts;
+  the passwords live only in Firebase Auth), `ORG_NAME`.
 - `js/roster.js` → the roster and GROUP1 / GROUP2 / COURTESY weight assignments.
 - `js/db.js` → Firestore + Auth wiring, tally/quorum logic.
 - `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.
