@@ -46,6 +46,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - `js/roster.js` → the roster and GROUP1 / GROUP2 / COURTESY weight assignments.
 - `js/db.js` → Firestore + Auth wiring, tally/quorum logic.
 - `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.
+- `js/xlsx.js` → dependency-free .xlsx writer behind the console's Export menu
+  (identical copy in the hiring tool; keep the two the same).
 - `firestore.rules` (locked-down, auth-gated) / `firestore.rules.open` (rollback).
 - `tests/` → headless behaviour tests (dev-only, never shipped). See its README.
 - `CHANGES.md` → what changed and why, newest first.
