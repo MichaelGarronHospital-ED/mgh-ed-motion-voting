@@ -4,7 +4,7 @@ Serves the repo over localhost and swaps the Firebase CDN modules for the
 in-memory stubs in `stubs/`, so the real app code in `js/` runs unmodified
 against a fake Firestore. No Firebase project, no credentials, no network.
 
-Why localhost rather than file://  — the app uses crypto.subtle (the admin
+Why localhost rather than file://: the app uses crypto.subtle (the admin
 passcode hash), which only exists in a secure context; 127.0.0.1 counts as one.
 """
 import contextlib
@@ -86,7 +86,7 @@ def load_admin(page, base):
 
 def unlock_admin(page, read=None, then=None):
     """Unlock the console and, in the SAME tick, read a selector's text (or run
-    `then`) — i.e. observe the very first paint, before any snapshot arrives.
+    `then`), i.e. observe the very first paint, before any snapshot arrives.
 
     The passcode gate is bypassed via the auth watcher rather than by typing a
     code: the plaintext passcode is deliberately not in the repo (config.js
@@ -170,8 +170,10 @@ def pick_voter(page, name):
     page.click(f'#namelist li[data-slug="{slugify(name)}"]')
 
 
-OUTCOMES = ("PASSED ✅", "DID NOT PASS ❌", "PASSES ✅", "DOES NOT PASS ❌",
-            "NO QUORUM", "NO QUORUM — cannot pass", "TIE 🤝")
+# Every verdict line either results view can show (voter: past tense; leadership:
+# present tense). Icons are SVG, so the visible line is the words alone.
+OUTCOMES = ("Passed", "Did not pass", "Passes", "Does not pass",
+            "No quorum", "No quorum: cannot pass", "Tie")
 
 
 def outcomes(text):
@@ -180,5 +182,5 @@ def outcomes(text):
 
 
 def fmt(n):
-    """Mirror of fmt() in js/util.js — whole numbers bare, else one decimal."""
+    """Mirror of fmt() in js/util.js: whole numbers bare, else one decimal."""
     return str(int(n)) if float(n).is_integer() else f"{n:.1f}"

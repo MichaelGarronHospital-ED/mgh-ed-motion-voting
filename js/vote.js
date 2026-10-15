@@ -1,7 +1,7 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
 import { ORG_NAME } from "./config.js";
 import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, watchMember, voterSignIn, isWrongPassword, quorumThreshold } from "./db.js";
-import { escapeHtml, labelOf, toast } from "./util.js";
+import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar } from "./util.js";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -19,7 +19,7 @@ const resultData = new Map();                  // pollId -> votes[]
 
 // ---- data subscriptions ----------------------------------------------------
 function startData() {
-  // Keep current categories loaded so votes weight correctly — and re-render on
+  // Keep current categories loaded so votes weight correctly, and re-render on
   // a change, so a mid-meeting category fix shows up in the results a voter is
   // already looking at instead of waiting for the next unrelated render.
   // Not while the name picker is up: re-rendering it would wipe what they are
@@ -74,37 +74,41 @@ function syncResultSubs() {
 
 // ---- render ----------------------------------------------------------------
 function render() {
-  if (!authKnown) { app.innerHTML = shell(`<div class="card"><p class="muted center" style="margin:8px 0;">Loading…</p></div>`); return; }
-  if (!member) { app.innerHTML = shell(gateHTML()); wireGate(); return; }
+  if (!authKnown) { app.innerHTML = `<div class="card"><p class="ed-hint center">Loading…</p></div>`; return; }
+  if (!member) { app.innerHTML = gateHTML(); wireGate(); return; }
   syncResultSubs();
   if (!me) { app.innerHTML = shell(pickerHTML()); wirePicker(); return; }
 
-  const tabs = `<nav class="tabs" aria-label="Vote or results">
-      <button type="button" class="tab ${voterTab === "vote" ? "active" : ""}" data-vtab="vote">Vote</button>
-      <button type="button" class="tab ${voterTab === "results" ? "active" : ""}" data-vtab="results">Results</button>
-    </nav>`;
-  const body = voterTab === "vote" ? `<div class="card">${voteBody()}</div>` : resultsBody();
+  const tabBtn = (k, l) => `<button type="button" class="tab ${voterTab === k ? "active" : ""}" data-vtab="${k}" aria-pressed="${voterTab === k}">${l}</button>`;
+  const tabs = `<nav class="tabs ed-seg" aria-label="Vote or results">${tabBtn("vote", "Vote")}${tabBtn("results", "Results")}</nav>`;
+  const body = voterTab === "vote" ? `<div class="card stack">${voteBody()}</div>` : resultsBody();
   app.innerHTML = shell(tabs + body);
   wireVoter();
 }
 
 function shell(inner) {
-  return `<header class="apphead"><div class="logo" aria-hidden="true">ED</div>
-    <div class="titles"><h1>${escapeHtml(ORG_NAME)}</h1>
-    <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p></div></header>${inner}`;
+  return `<header class="topbar"><span class="ed-badge" aria-hidden="true">ED</span><span class="brand">MGH Emergency Department</span></header>
+    <h1 class="ed-title page-title">Motion Voting</h1>
+    <p class="lede">Tap to cast your vote. Live and anonymous to the group.</p>${inner}`;
 }
 
 // ---- ED password screen ------------------------------------------------------
+// The same sign-in card as every ED tool (see css/ed-ui.css): badge, title, one
+// labelled field, one button.
 function gateHTML() {
-  return `<div class="card">
-    <form id="edgate" autocomplete="on">
-      <label for="edpw">ED password</label>
-      <input id="edpw" type="password" autocomplete="current-password" placeholder="Enter the ED password" required />
-      <button id="edgo" class="btn accent" type="submit">Continue</button>
-      <p id="ederr" class="err hide" role="alert"></p>
-      <p class="sub center" style="margin:12px 0 0;">This device will remember it, so you only enter it once.</p>
+  return `<div class="gate-screen"><div class="card gate">
+    <span class="ed-badge" aria-hidden="true">ED</span>
+    <h1>Motion Voting</h1>
+    <p class="ed-muted">Enter the ED password to vote.</p>
+    <form id="edgate" class="gate-form" autocomplete="on">
+      <label class="ed-label" for="edpw">ED password
+        <input class="ed-field" id="edpw" type="password" autocomplete="current-password" required />
+      </label>
+      <p id="ederr" class="ed-error err hide" role="alert"></p>
+      <button id="edgo" class="ed-btn ed-btn-filled" type="submit">Continue</button>
+      <p class="ed-hint">This device remembers it, so you only enter it once.</p>
     </form>
-  </div>`;
+  </div></div>`;
 }
 function wireGate() {
   const f = document.getElementById("edgate"), pw = document.getElementById("edpw"), err = document.getElementById("ederr");
@@ -117,7 +121,8 @@ function wireGate() {
     try { await voterSignIn(pw.value); }        // watchMember re-renders on success
     catch (ex) {
       btn.disabled = false;
-      err.textContent = isWrongPassword(ex) ? "That's not the ED password." : "Couldn't sign in. Check your connection and try again.";
+      const msg = isWrongPassword(ex) ? "That's not the ED password." : "Couldn't sign in. Check your connection and try again.";
+      err.innerHTML = icon("alert", 18) + `<span>${msg}</span>`;
       err.classList.remove("hide"); pw.select();
     }
   });
@@ -125,17 +130,19 @@ function wireGate() {
 
 // ---- name picker -----------------------------------------------------------
 function pickerHTML() {
-  return `<div class="card">
-    <div class="disclaimer">⚠️ Please select <strong>your own name only</strong>, and vote once. Votes are linked to your name and device and reviewed for duplicates. You must select your name to vote or view results.</div>
-    <label for="search">Find your name</label>
-    <input id="search" type="text" placeholder="Start typing your name…" autocomplete="off" />
+  return `<div class="card stack">
+    <p class="notice">${icon("warn", 20)}<span>Choose <strong>your own name only</strong> and vote once. Votes are linked to your name and device and checked for duplicates.</span></p>
+    <label class="ed-label" for="search">Find your name
+      <input class="ed-field" id="search" type="text" placeholder="Start typing your name" autocomplete="off" />
+    </label>
     <ul id="namelist" class="namelist" role="listbox" aria-label="Physicians"></ul>
-    <button id="writein-btn" class="btn ghost" style="margin-top:12px;">My name isn't listed — add it</button>
-    <div id="writein-box" class="hide" style="margin-top:12px;">
-      <label for="writein">Type your full name</label>
-      <input id="writein" type="text" placeholder="First Last" autocomplete="off" />
-      <button id="writein-confirm" class="btn accent">Continue</button>
-      <p class="sub" style="margin-top:8px;">New / unlisted names are added to the record for leadership.</p>
+    <button id="writein-btn" type="button" class="ed-btn ed-btn-plain linkbtn" aria-expanded="false" aria-controls="writein-box">My name isn't listed</button>
+    <div id="writein-box" class="hide stack">
+      <label class="ed-label" for="writein">Type your full name
+        <input class="ed-field" id="writein" type="text" placeholder="First Last" autocomplete="off" />
+      </label>
+      <button id="writein-confirm" type="button" class="ed-btn ed-btn-filled">Continue</button>
+      <p class="ed-hint">New names are added to the record for leadership to review.</p>
     </div>
   </div>`;
 }
@@ -146,7 +153,7 @@ function renderNames(filter = "") {
   const list = ROSTER.filter((p) => p.name.toLowerCase().includes(f));
   el.innerHTML = list.length
     ? list.map((p) => `<li data-slug="${p.slug}" tabindex="0" role="option" aria-selected="false">${escapeHtml(p.name)}</li>`).join("")
-    : `<li class="muted" role="option" aria-disabled="true" aria-selected="false" style="cursor:default">No match — use “add it” below.</li>`;
+    : `<li class="none" role="option" aria-disabled="true" aria-selected="false">No match. Use “My name isn't listed” below.</li>`;
 }
 function wirePicker() {
   renderNames();
@@ -161,8 +168,11 @@ function wirePicker() {
     const p = ROSTER_BY_SLUG[li.dataset.slug];
     setVoter({ name: p.name, slug: p.slug, group: p.group, weight: p.weight, isWriteIn: false });
   });
-  document.getElementById("writein-btn").addEventListener("click", () =>
-    document.getElementById("writein-box").classList.toggle("hide"));
+  document.getElementById("writein-btn").addEventListener("click", (e) => {
+    const open = !document.getElementById("writein-box").classList.toggle("hide");
+    e.currentTarget.setAttribute("aria-expanded", String(open));
+    if (open) document.getElementById("writein").focus();
+  });
   document.getElementById("writein-confirm").addEventListener("click", () => {
     const name = document.getElementById("writein").value.trim();
     if (name.length < 3) { toast("Please type your full name."); return; }
@@ -182,68 +192,62 @@ function setVoter(v) {
 function deviceBound() { return localStorage.getItem("ed_bound"); }
 
 // ---- vote tab --------------------------------------------------------------
+const CHOICES = [["favour", "In favour", "check"], ["against", "Against", "x"], ["abstain", "Abstain", "minus"]];
 function voteBody() {
-  // Every voter — including courtesy / write-ins — sees the same ballot. The
+  // Every voter (courtesy and write-ins included) sees the same ballot. The
   // weighting (0 for courtesy) is applied behind the scenes; leadership sees it
   // in the Voters table, but it is never surfaced to the voter.
   // Once any vote is cast on this device it is locked to that person, so you
   // can't switch names and vote again. (Correcting a mis-tap is only possible
   // before your first vote.)
   const bound = deviceBound();
-  const head = `<div class="spread"><span class="muted">Voting as <strong>${escapeHtml(me.name)}</strong></span>
-    ${bound ? `<a href="#" id="switch-voter" class="sub">Switch voter</a>` : `<a href="#" id="change-name" class="sub">Not you?</a>`}</div>`;
+  const head = `<div class="voter-line"><span class="ed-muted">Voting as <strong>${escapeHtml(me.name)}</strong></span>
+    ${bound ? `<button type="button" id="switch-voter" class="ed-btn ed-btn-plain linkbtn">Switch voter</button>`
+            : `<button type="button" id="change-name" class="ed-btn ed-btn-plain linkbtn">Not you?</button>`}</div>`;
   if (activePoll) {
     // Only reveal a previously-cast choice if THIS device cast it. Otherwise
-    // (e.g. browsing to someone else's name) the ballot shows blank — you
+    // (e.g. browsing to someone else's name) the ballot shows blank: you
     // can't peek at how another person voted.
     const mine = (deviceBound() === me.slug) ? activeVotes.find((v) => v.slug === me.slug) : null;
+    const tile = ([c, l, ic]) => `<button type="button" class="vote" data-c="${c}" aria-pressed="${!!(mine && mine.choice === c)}">${icon(ic, 26)}${l}</button>`;
     return head + `
-      <span class="pill open">● VOTING OPEN</span>
-      <h2 style="margin-top:10px;">${escapeHtml(activePoll.text)}</h2>
-      <div class="choice-row">
-        <button class="btn favour ${mine && mine.choice === "favour" ? "selected" : ""}" data-c="favour">👍 In favour</button>
-        <button class="btn against ${mine && mine.choice === "against" ? "selected" : ""}" data-c="against">👎 Against</button>
-        <button class="btn abstain ${mine && mine.choice === "abstain" ? "selected" : ""}" data-c="abstain">➖ Abstain</button>
-      </div>
-      ${mine ? `<p class="center muted" style="margin-top:14px;">You voted <strong>${labelOf(mine.choice)}</strong>. You can change it until voting closes.</p>` : ""}`;
+      <span class="ed-pill ed-pill-good"><span class="dot"></span>Voting open</span>
+      <h2 class="motion-text">${escapeHtml(activePoll.text)}</h2>
+      <div class="votes" role="group" aria-label="Your vote">${CHOICES.map(tile).join("")}</div>
+      <p class="ed-hint">${mine ? `You voted <strong>${labelOf(mine.choice)}</strong>. You can change it until voting closes.`
+        : "You can change your vote until leadership closes the motion."}</p>`;
   }
-  return head + `<div class="center" style="padding:24px 0;">
-    <div class="big">⏳</div>
-    <p class="muted">No motion open right now.<br>Closed motions appear under the <strong>Results</strong> tab.</p></div>`;
+  return head + `<div class="ed-empty">${icon("clock", 40)}
+    <strong>No motion open right now</strong>
+    <span>Closed motions appear under Results.</span></div>`;
 }
 
 // ---- results tab (numbers hidden from voters) ------------------------------
 function resultsBody() {
   const closed = polls.filter((p) => p.status === "closed" && !p.archived && !p.deleted).reverse();   // newest first
-  if (!closed.length) return `<div class="card"><p class="muted center" style="padding:16px 0;">No results yet. Closed motions will appear here.</p></div>`;
+  if (!closed.length) return `<div class="card"><div class="ed-empty"><strong>No results yet</strong><span>Closed motions will appear here.</span></div></div>`;
   return closed.map(resultCard).join("");
 }
 function resultCard(poll) {
-  // Until this motion's ballots have actually arrived we know nothing — and an
-  // empty tally scores as "NO QUORUM", which on a meeting-room screen reads as a
+  // Until this motion's ballots have actually arrived we know nothing, and an
+  // empty tally scores as "No quorum", which on a meeting-room screen reads as a
   // real result. Say "counting" instead of announcing a wrong outcome.
+  const top = `<span class="ed-pill ed-pill-quiet">Closed</span>
+      <h2 class="motion-text">${escapeHtml(poll.text)}</h2>`;
   if (!resultData.has(poll.id)) {
-    return `<div class="card">
-      <span class="pill closed">● CLOSED</span>
-      <h2 style="margin:8px 0;">${escapeHtml(poll.text)}</h2>
-      <p class="center muted" style="padding:8px 0;">Counting votes…</p>
-    </div>`;
+    return `<div class="card stack">${top}<p class="ed-hint">Counting votes…</p></div>`;
   }
   const t = tally(resultData.get(poll.id), poll);
   const quorum = quorumThreshold(poll);
   const met = t.quorumCount >= quorum;
-  const outcome = !met ? `<span class="result-noq">NO QUORUM</span>`
-    : t.weight.favour > t.weight.against ? `<span class="result-pass">PASSED ✅</span>`
-    : t.weight.favour < t.weight.against ? `<span class="result-fail">DID NOT PASS ❌</span>`
-    : `<span class="result-tie">TIE 🤝</span>`;
-  const max = Math.max(t.weight.favour, t.weight.against, t.weight.abstain, 1);
-  const bar = (k, l) => `<div class="bar-row"><div class="bar-label"><span>${l}</span></div>
-    <div class="bar-track"><div class="bar-fill ${k}" style="width:${(t.weight[k] / max) * 100}%"></div></div></div>`;
-  return `<div class="card">
-    <span class="pill closed">● CLOSED</span>
-    <h2 style="margin:8px 0;">${escapeHtml(poll.text)}</h2>
-    <p class="center" style="font-size:1.4rem;font-weight:800;margin:6px 0;">${outcome}</p>
-    <div class="bars">${bar("favour", "In favour")}${bar("against", "Against")}${bar("abstain", "Abstain")}</div>
+  const outcome = !met ? verdictHTML("noq", "No quorum")
+    : t.weight.favour > t.weight.against ? verdictHTML("pass", "Passed")
+    : t.weight.favour < t.weight.against ? verdictHTML("fail", "Did not pass")
+    : verdictHTML("tie", "Tie");
+  return `<div class="card stack">${top}
+    ${outcome}
+    ${stackedBar(t.weight)}
+    <p class="legend"><span><i class="sw favour"></i>In favour</span><span><i class="sw against"></i>Against</span><span><i class="sw abstain"></i>Abstain</span></p>
   </div>`;
 }
 
@@ -279,7 +283,7 @@ async function submit(choice) {
     localStorage.setItem("ed_bound", me.slug);   // lock this device to this person
     toast("Vote recorded: " + labelOf(choice));
     render();
-  } catch (e) { console.error(e); toast("Could not record vote — try again."); }
+  } catch (e) { console.error(e); toast("Could not record vote. Try again."); }
 }
 
 render();

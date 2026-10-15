@@ -1,0 +1,190 @@
+/* ed-ui.css - the shared look for every MGH ED staff tool (v1, 2026-10-15).
+ *
+ * MASTER COPY: dashboard repo, shared/ed-ui.css. Exact copies live in:
+ *   hiring-tool/css/ed-ui.css
+ *   motion-voting/css/ed-ui.css
+ *   patient-hub/Website/src/admin/ed-ui.css
+ * Change the master, copy it to all three, ship each tool. `bash check-all.sh`
+ * (MGH-ED-Tools) fails if any copy differs. The Patient Hub statistics page
+ * cannot load a stylesheet (its CSP allows only nonce'd inline CSS), so it
+ * repeats the token values in functions/internal/analytics.js; a test there
+ * keeps them equal to this file.
+ *
+ * House rules (approved by Alvin 2026-10-15, sample: "ED Tools Look" artifact):
+ * - The phone's own font. One blue accent = "you can press this". Green, amber and
+ *   red only mean good, attention, problem.
+ * - Every text colour reaches 7:1 contrast (WCAG AAA) on the surfaces it is used on,
+ *   in light and dark. Do not add a colour without computing its contrast.
+ * - Light and dark follow the device setting. Print is always light.
+ * - Touch targets at least 44px on touch screens. Form fields at least 16px text
+ *   (iOS zooms below that).
+ * - Sentence case everywhere ("Add candidate"). No emoji as icons; use inline SVG
+ *   line icons drawn with currentColor.
+ * - Quiet by default: one grey hint line, no boxes inside boxes.
+ *
+ * This file only adds tokens and opt-in `ed-` classes; it never styles bare
+ * elements beyond body font and colour, so it can load before a tool's own CSS.
+ * No em dashes in this file (Patient Hub lint).
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --ed-bg: #f5f5f7;          /* page */
+  --ed-surface: #ffffff;     /* cards, sheets */
+  --ed-surface-2: #f2f2f7;   /* fields, nested quiet areas */
+  --ed-fill: #e8e8ed;        /* segmented-control track, quiet pills */
+
+  /* Text and lines */
+  --ed-ink: #1d1d1f;         /* 15.5:1 on bg */
+  --ed-ink-2: #4f4f54;       /* secondary text, 7.48:1 on bg, 8.14:1 on surface */
+  --ed-line: #d2d2d7;        /* table header rule, field border */
+  --ed-line-soft: #e5e5ea;   /* list separators */
+
+  /* Accent (one blue) */
+  --ed-accent: #0052a3;      /* 7.68:1 on white, 7.05:1 on bg */
+  --ed-accent-press: #00427f;
+  --ed-accent-tint: #eaf2fc;
+  --ed-accent-ink: #00478f;  /* accent text on tint, 8.10:1 */
+  --ed-on-accent: #ffffff;
+
+  /* Status (text colour on its own tint, all 7:1 or better) */
+  --ed-green: #0e5e27;   --ed-green-tint: #eaf6ee;
+  --ed-amber: #6b4600;   --ed-amber-tint: #fdf4e4;
+  --ed-red: #9c000d;     --ed-red-tint: #fdeeee;
+  --ed-purple: #3f3db8;  --ed-purple-tint: #f0f0fd;
+
+  --ed-toast-bg: #1d1d1f;
+  --ed-toast-ink: #f5f5f7;
+
+  /* Shape and depth */
+  --ed-r-lg: 16px;   /* cards, sheets */
+  --ed-r-md: 12px;   /* fields, vote buttons, tiles */
+  --ed-r-sm: 10px;   /* segmented-control track */
+  --ed-r-xs: 8px;    /* segments, icon tiles */
+  --ed-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 16px rgba(0, 0, 0, .04);
+  --ed-shadow-lg: 0 8px 32px rgba(0, 0, 0, .12);
+  --ed-ring: 0 0 0 4px rgba(0, 82, 163, .32);
+  --ed-tap: 44px;
+
+  /* Type */
+  --ed-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --ed-font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --ed-text: 17px;        /* body */
+  --ed-text-sm: 15px;     /* hints, secondary lines, table cells */
+  --ed-text-xs: 13px;     /* pills, captions; never smaller */
+  --ed-title: clamp(28px, 5vw, 34px);  /* page large title */
+  --ed-h2: 22px;
+  --ed-h3: 20px;
+
+  /* Layout */
+  --ed-gutter: 16px;
+  --ed-maxw: 1040px;
+  --ed-maxw-narrow: 640px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ed-bg: #000000;
+    --ed-surface: #1c1c1e;
+    --ed-surface-2: #2c2c2e;
+    --ed-fill: #3a3a3c;
+    --ed-ink: #f5f5f7;
+    --ed-ink-2: #aeaeb2;      /* 7.69:1 on surface */
+    --ed-line: #3a3a3c;
+    --ed-line-soft: #2c2c2e;
+    --ed-accent: #7dbdff;     /* 8.58:1 on surface, 7.03:1 on surface-2 */
+    --ed-accent-press: #a3d0ff;
+    --ed-accent-tint: #0d2a47;
+    --ed-accent-ink: #7dbdff;
+    --ed-on-accent: #000000;  /* 10.6:1 on accent */
+    --ed-green: #6fd08c;   --ed-green-tint: #0f2d19;
+    --ed-amber: #ffc061;   --ed-amber-tint: #33270d;
+    --ed-red: #ff9a96;     --ed-red-tint: #3a1414;
+    --ed-purple: #b4b2ff;  --ed-purple-tint: #24234a;
+    --ed-toast-bg: #f5f5f7;
+    --ed-toast-ink: #1d1d1f;
+    --ed-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
+    --ed-shadow-lg: 0 0 0 1px rgba(255, 255, 255, .08), 0 8px 32px rgba(0, 0, 0, .6);
+    --ed-ring: 0 0 0 4px rgba(125, 189, 255, .4);
+  }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --ed-bg: #ffffff; --ed-surface: #ffffff; --ed-surface-2: #f2f2f7; --ed-fill: #e8e8ed;
+    --ed-ink: #000000; --ed-ink-2: #3a3a3c; --ed-line: #c7c7cc; --ed-line-soft: #e5e5ea;
+    --ed-accent: #0052a3; --ed-accent-ink: #00478f; --ed-accent-tint: #eaf2fc; --ed-on-accent: #ffffff;
+    --ed-green: #0e5e27; --ed-green-tint: #eaf6ee; --ed-amber: #6b4600; --ed-amber-tint: #fdf4e4;
+    --ed-red: #9c000d; --ed-red-tint: #fdeeee; --ed-purple: #3f3db8; --ed-purple-tint: #f0f0fd;
+    --ed-shadow: none; --ed-shadow-lg: none;
+  }
+}
+
+/* ---- Opt-in building blocks (match the approved sample) ---- */
+
+.ed-page { background: var(--ed-bg); color: var(--ed-ink); font: var(--ed-text)/1.47 var(--ed-font); -webkit-font-smoothing: antialiased; }
+.ed-title { font: 700 var(--ed-title)/1.1 var(--ed-font-display); letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+.ed-muted { color: var(--ed-ink-2); }
+
+.ed-card { background: var(--ed-surface); border-radius: var(--ed-r-lg); box-shadow: var(--ed-shadow); padding: 20px; }
+
+/* App badge (the small rounded "ED" square) */
+.ed-badge { width: 32px; height: 32px; border-radius: 9px; background: var(--ed-accent); color: var(--ed-on-accent); display: inline-grid; place-items: center; font: 700 13px/1 var(--ed-font-display); letter-spacing: .02em; flex: none; }
+
+/* Buttons: pill shape, 44px tall */
+.ed-btn { appearance: none; border: 0; border-radius: 999px; min-height: var(--ed-tap); padding: 0 20px; font: 600 var(--ed-text)/1 var(--ed-font); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; transition: background-color .15s; }
+.ed-btn-filled { background: var(--ed-accent); color: var(--ed-on-accent); }
+.ed-btn-filled:active { background: var(--ed-accent-press); }
+.ed-btn-tinted { background: var(--ed-accent-tint); color: var(--ed-accent-ink); }
+.ed-btn-plain { background: none; color: var(--ed-accent-ink); padding: 0 8px; }
+.ed-btn-danger { background: var(--ed-red-tint); color: var(--ed-red); }
+.ed-btn:disabled { opacity: .45; cursor: default; }
+
+/* Segmented control: tabs, ratings, filters. Mark the chosen one aria-pressed="true" or aria-selected="true". */
+.ed-seg { display: flex; background: var(--ed-fill); border-radius: var(--ed-r-sm); padding: 3px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.ed-seg::-webkit-scrollbar { display: none; }
+.ed-seg > button { flex: 1 0 auto; border: 0; background: none; border-radius: var(--ed-r-xs); min-height: 38px; padding: 0 14px; font: 500 var(--ed-text-sm)/1 var(--ed-font); color: var(--ed-ink); cursor: pointer; white-space: nowrap; }
+.ed-seg > button[aria-pressed="true"], .ed-seg > button[aria-selected="true"] { background: var(--ed-surface); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+@media (pointer: coarse) { .ed-seg > button { min-height: var(--ed-tap); } }
+
+/* Fields */
+.ed-field { font: var(--ed-text)/1.4 var(--ed-font); color: var(--ed-ink); background: var(--ed-surface-2); border: 1px solid transparent; border-radius: var(--ed-r-md); min-height: var(--ed-tap); padding: 10px 14px; width: 100%; box-sizing: border-box; }
+.ed-field:focus { outline: none; border-color: var(--ed-accent); box-shadow: var(--ed-ring); }
+.ed-label { display: flex; flex-direction: column; gap: 6px; font: 600 var(--ed-text-sm)/1.3 var(--ed-font); }
+.ed-hint { font: 400 var(--ed-text-sm)/1.4 var(--ed-font); color: var(--ed-ink-2); }
+.ed-error { font: 400 var(--ed-text-sm)/1.4 var(--ed-font); color: var(--ed-red); }
+
+/* Pills */
+.ed-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font: 600 var(--ed-text-xs)/1.4 var(--ed-font); white-space: nowrap; }
+.ed-pill-good { background: var(--ed-green-tint); color: var(--ed-green); }
+.ed-pill-info { background: var(--ed-accent-tint); color: var(--ed-accent-ink); }
+.ed-pill-quiet { background: var(--ed-fill); color: var(--ed-ink-2); }
+.ed-pill-warn { background: var(--ed-amber-tint); color: var(--ed-amber); }
+.ed-pill-bad { background: var(--ed-red-tint); color: var(--ed-red); }
+
+/* Grouped list (iPhone Settings style): rows share one card, inset separators */
+.ed-list { list-style: none; margin: 0; padding: 0; background: var(--ed-surface); border-radius: var(--ed-r-lg); box-shadow: var(--ed-shadow); overflow: hidden; }
+.ed-list > li { display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 10px 16px; position: relative; }
+.ed-list > li + li::before { content: ""; position: absolute; top: 0; right: 0; left: var(--ed-list-inset, 16px); border-top: 1px solid var(--ed-line-soft); }
+
+/* Table */
+.ed-table { border-collapse: collapse; width: 100%; font: var(--ed-text-sm)/1.4 var(--ed-font); font-variant-numeric: tabular-nums; }
+.ed-table th { text-align: left; font-weight: 600; color: var(--ed-ink-2); padding: 10px 16px; border-bottom: 1px solid var(--ed-line); text-transform: none; letter-spacing: 0; }
+.ed-table td { padding: 12px 16px; border-bottom: 1px solid var(--ed-line-soft); }
+.ed-table tr:last-child td { border-bottom: 0; }
+.ed-table .num { text-align: right; }
+
+/* Toast */
+.ed-toast { display: inline-flex; align-items: center; gap: 10px; background: var(--ed-toast-bg); color: var(--ed-toast-ink); border-radius: 999px; padding: 10px 18px; font: 500 var(--ed-text-sm)/1.3 var(--ed-font); box-shadow: var(--ed-shadow-lg); }
+
+/* Empty state */
+.ed-empty { text-align: center; padding: 28px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--ed-ink-2); font-size: var(--ed-text-sm); }
+.ed-empty > svg { width: 40px; height: 40px; margin-bottom: 4px; }
+.ed-empty > strong { color: var(--ed-ink); font-size: var(--ed-text); }
+
+.ed-focus:focus-visible, .ed-btn:focus-visible, .ed-seg > button:focus-visible { outline: none; box-shadow: var(--ed-ring); }
+
+@media (prefers-reduced-motion: reduce) { .ed-btn { transition: none; } }

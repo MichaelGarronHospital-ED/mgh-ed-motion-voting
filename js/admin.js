@@ -7,11 +7,11 @@ import {
   eligibleCount, quorumThreshold,
   watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL, isWrongPassword,
 } from "./db.js";
-import { escapeHtml, labelOf, fmt, csv, toast } from "./util.js";
+import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
 
 const $ = (id) => document.getElementById(id);
-document.title = ORG_NAME + " — Leadership";
+document.title = ORG_NAME + " · Leadership";
 
 // ----------------------------------------------------------------- gate
 let booted = false;
@@ -19,9 +19,10 @@ function unlock() {
   $("gate").classList.add("hide");
   $("console").classList.remove("hide");
   if (!booted) { booted = true; boot(); }
+  updateTabHint();
 }
-$("enter").addEventListener("click", tryEnter);
-$("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") tryEnter(); });
+// A real form: Enter in the field and a tap on Continue both submit it.
+$("gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryEnter(); });
 // The Leadership password is checked by Firebase itself (it is the password of
 // the LEADER_EMAIL account); nothing about it is stored in this public code, and
 // the console opens only on a real sign-in, so writes are always authorised.
@@ -31,7 +32,8 @@ async function tryEnter() {
   $("enter").disabled = true; err.classList.add("hide");
   try { await leaderSignIn(typed); unlock(); }
   catch (e) {
-    err.textContent = isWrongPassword(e) ? "Incorrect password." : "Couldn't sign in. Check your connection and try again.";
+    const msg = isWrongPassword(e) ? "Incorrect password." : "Couldn't sign in. Check your connection and try again.";
+    err.innerHTML = icon("alert", 18) + `<span>${msg}</span>`;
     err.classList.remove("hide");
   } finally { $("enter").disabled = false; }
 }
@@ -41,12 +43,23 @@ $("lock").addEventListener("click", (e) => { e.preventDefault(); leaderSignOut()
 
 // ----------------------------------------------------------------- tabs
 function showTab(name) {
-  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x.dataset.tab === name));
+  document.querySelectorAll(".tab").forEach((x) => {
+    x.classList.toggle("active", x.dataset.tab === name);
+    x.setAttribute("aria-pressed", String(x.dataset.tab === name));
+  });
   ["share", "motions", "results", "voters", "roster"].forEach((n) =>
     $("tab-" + n).classList.toggle("hide", n !== name));
 }
 document.querySelectorAll(".tab").forEach((t) =>
-  t.addEventListener("click", () => showTab(t.dataset.tab)));
+  t.addEventListener("click", () => { showTab(t.dataset.tab); t.scrollIntoView({ block: "nearest", inline: "nearest" }); }));
+// On a narrow phone the five tabs can run past the edge: fade the edge so it is
+// clear there is more to scroll to.
+const tabsNav = document.querySelector("#console .tabs");
+function updateTabHint() {
+  tabsNav.parentElement.classList.toggle("more", tabsNav.scrollLeft + tabsNav.clientWidth < tabsNav.scrollWidth - 2);
+}
+tabsNav.addEventListener("scroll", updateTabHint, { passive: true });
+window.addEventListener("resize", updateTabHint);
 
 // ----------------------------------------------------------------- state
 let polls = [];
@@ -63,8 +76,8 @@ let trashExpanded = false;
 function boot() {
   // share tab
   const url = location.origin + location.pathname.replace(/[^/]*$/, "") + "index.html";
-  $("vote-url").value = url;
-  $("copy-url").addEventListener("click", () => { navigator.clipboard.writeText(url); toast("Link copied"); });
+  $("vote-url").textContent = url;
+  $("copy-url").addEventListener("click", () => { navigator.clipboard.writeText(url); toast("Link copied."); });
   $("roster-summary").textContent =
     `${ROSTER.length} listed physicians · ${eligibleCount(null)} currently eligible · quorum = ${quorumThreshold(null)} (50% of eligible).`;
 
@@ -90,7 +103,7 @@ function boot() {
 
   onPolls((p) => {
     polls = p;
-    // Same filter the voter page uses (js/vote.js) — an archived motion is
+    // Same filter the voter page uses (js/vote.js): an archived motion is
     // hidden from voters, so leadership must not treat one as the live motion.
     const open = polls.find((x) => x.status === "open" && !x.archived && !x.deleted) || null;
     const changed = (activePoll && activePoll.id) !== (open && open.id);
@@ -112,16 +125,16 @@ function renderMotions() {
   const active = polls.filter((p) => !p.archived && !p.deleted);
   const archived = polls.filter((p) => p.archived && !p.deleted);
   const trashed = polls.filter((p) => p.deleted);
-  let html = collapsibleCard("active", "Motions", active.length, activeExpanded, "",
-    active.length ? active.map(motionRow).join("") : `<p class="muted">No motions yet. Add one above.</p>`);
+  let html = collapsibleCard("active", "", "Motions", active.length, activeExpanded, "",
+    active.length ? active.map(motionRow).join("") : `<p class="ed-hint">No motions yet. Add one above.</p>`);
   if (archived.length) {
-    html += collapsibleCard("arch", "📁 Archived", archived.length, archivedExpanded,
-      "Kept for reference, hidden from voters. Unarchive to view full results again.",
+    html += collapsibleCard("arch", "folder", "Archived", archived.length, archivedExpanded,
+      "Kept for reference, hidden from voters. Unarchive to see full results again.",
       archived.map(archivedRow).join(""));
   }
   if (trashed.length) {
-    html += collapsibleCard("trash", "🗑️ Trash", trashed.length, trashExpanded,
-      "Deleted motions are kept here and hidden from voters. Restore one, or delete permanently.",
+    html += collapsibleCard("trash", "trash", "Trash", trashed.length, trashExpanded,
+      "Hidden from voters. Restore a motion, or delete it permanently.",
       trashed.map(trashedRow).join(""));
   }
   el.innerHTML = html;
@@ -132,56 +145,62 @@ function renderMotions() {
   const th = $("trash-header"); if (th) th.addEventListener("click", () => { trashExpanded = !trashExpanded; renderMotions(); });
 }
 
-// A collapsible card with a clickable header; expands to reveal an optional
-// blurb + rows. First card has no top margin.
-function collapsibleCard(id, title, count, expanded, blurb, rowsHtml) {
-  return `<div class="card"${id === "active" ? "" : ' style="margin-top:16px;"'}>
-    <div class="spread" id="${id}-header" style="cursor:pointer; user-select:none;">
-      <strong>${title} <span class="muted">(${count})</span></strong>
-      <span class="muted">${expanded ? "▾ hide" : "▸ show"}</span>
-    </div>
-    ${expanded ? `<div style="margin-top:10px;">${blurb ? `<p class="sub">${blurb}</p>` : ""}${rowsHtml}</div>` : ""}
-  </div>`;
+// A collapsible card. The header is a real button (keyboard and screen-reader
+// reachable) that says whether it is open; it expands to an optional hint + rows.
+function collapsibleCard(id, ic, title, count, expanded, blurb, rowsHtml) {
+  return `<section class="card group">
+    <h2 class="group-head"><button type="button" class="disclosure" id="${id}-header" aria-expanded="${expanded}" aria-controls="${id}-body">
+      ${ic ? icon(ic, 20) : ""}<span class="t">${title}</span><span class="count">${count}</span>${icon("chevron", 20)}
+    </button></h2>
+    ${expanded ? `<div class="group-body" id="${id}-body">${blurb ? `<p class="ed-hint">${blurb}</p>` : ""}${rowsHtml}</div>` : ""}
+  </section>`;
+}
+const STATUS_PILL = { open: "ed-pill-good", closed: "ed-pill-quiet", draft: "ed-pill-info" };
+const STATUS_WORD = { open: "Open", closed: "Closed", draft: "Draft" };
+function statusPill(status) {
+  return `<span class="ed-pill ${STATUS_PILL[status] || "ed-pill-quiet"}">${status === "open" ? '<span class="dot"></span>' : ""}${STATUS_WORD[status] || escapeHtml(status)}</span>`;
 }
 
 function motionRow(p) {
   const locked = (p.voteCount || 0) > 0;        // editing allowed only before the first vote
   const canDelete = p.status !== "open" || !locked;  // closed/draft deletable; an OPEN motion only before its first vote
   if (editingId === p.id) {
-    return `<div class="poll-item"><div class="text" style="width:100%">
-      <textarea data-edit="${p.id}" style="margin-bottom:8px">${escapeHtml(p.text)}</textarea>
-      <div class="row"><button class="btn accent small" data-act="save" data-id="${p.id}">Save</button>
-        <button class="btn ghost small" data-act="cancel" data-id="${p.id}">Cancel</button></div></div></div>`;
+    return `<div class="poll-item editing">
+      <label class="ed-label">Motion wording
+        <textarea class="ed-field" data-edit="${p.id}" rows="3">${escapeHtml(p.text)}</textarea>
+      </label>
+      <div class="row"><button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="save" data-id="${p.id}">Save</button>
+        <button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="cancel" data-id="${p.id}">Cancel</button></div></div>`;
   }
-  const pill = `<span class="pill ${p.status}">${p.status.toUpperCase()}</span>`;
   return `<div class="poll-item">
-    <div class="text">${pill} ${escapeHtml(p.text)}${locked ? `<span class="sub"> · 🔒 locked (voting started)</span>` : ""}</div>
+    <div class="text"><div class="meta">${statusPill(p.status)}${locked ? `<span class="locknote">${icon("lock", 16)}Locked: voting started</span>` : ""}</div>
+      <p>${escapeHtml(p.text)}</p></div>
     <div class="row">
       ${p.status !== "open"
-        ? `<button class="btn favour small" data-act="open" data-id="${p.id}">Open</button>`
-        : `<button class="btn against small" data-act="close" data-id="${p.id}">Close</button>`}
-      ${p.status === "open" ? `<button class="btn accent small" data-act="goto-results" data-id="${p.id}">Live results →</button>` : ""}
-      ${!locked ? `<button class="btn ghost small" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
-      ${p.status !== "open" ? `<button class="btn ghost small" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
-      ${canDelete ? `<button class="btn danger small" data-act="del" data-id="${p.id}">Delete</button>` : ""}
+        ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="open" data-id="${p.id}">Open</button>`
+        : `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="close" data-id="${p.id}">Close</button>`}
+      ${p.status === "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="goto-results" data-id="${p.id}">Live results</button>` : ""}
+      ${!locked ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
+      ${p.status !== "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
+      ${canDelete ? `<button type="button" class="ed-btn btn-quiet btn-sm" data-act="del" data-id="${p.id}">Delete</button>` : ""}
     </div>
   </div>`;
 }
 
 function archivedRow(p) {
   return `<div class="poll-item">
-    <div class="text"><span class="pill draft">ARCHIVED</span> ${escapeHtml(p.text)}</div>
+    <div class="text"><div class="meta"><span class="ed-pill ed-pill-quiet">Archived</span></div><p>${escapeHtml(p.text)}</p></div>
     <div class="row">
-      <button class="btn ghost small" data-act="unarchive" data-id="${p.id}">Unarchive</button>
+      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="unarchive" data-id="${p.id}">Unarchive</button>
     </div>
   </div>`;
 }
 function trashedRow(p) {
   return `<div class="poll-item">
-    <div class="text"><span class="pill draft">TRASHED</span> ${escapeHtml(p.text)}</div>
+    <div class="text"><div class="meta"><span class="ed-pill ed-pill-quiet">In trash</span></div><p>${escapeHtml(p.text)}</p></div>
     <div class="row">
-      <button class="btn ghost small" data-act="restore" data-id="${p.id}">Restore</button>
-      <button class="btn danger small" data-act="purge" data-id="${p.id}">Delete permanently</button>
+      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="restore" data-id="${p.id}">Restore</button>
+      <button type="button" class="ed-btn ed-btn-danger btn-sm" data-act="purge" data-id="${p.id}">Delete permanently</button>
     </div>
   </div>`;
 }
@@ -191,7 +210,7 @@ async function motionAction(act, id) {
     if (polls.some((p) => p.status === "open" && p.id !== id))
       if (!confirm("This will close the currently open motion. Continue?")) return;
     await openPoll(id);
-    toast("Motion opened — voters can now vote.");
+    toast("Motion opened. Voters can vote now.");
   } else if (act === "close") {
     await closePoll(id); toast("Motion closed.");
   } else if (act === "goto-results") {
@@ -207,7 +226,7 @@ async function motionAction(act, id) {
     editingId = null; renderMotions();
   } else if (act === "save") {
     const poll = polls.find((p) => p.id === id);
-    if ((poll.voteCount || 0) > 0) { toast("Locked — voting has started."); editingId = null; renderMotions(); return; }
+    if ((poll.voteCount || 0) > 0) { toast("Locked: voting has started."); editingId = null; renderMotions(); return; }
     const ta = document.querySelector(`textarea[data-edit="${id}"]`);
     const text = ta.value.trim();
     if (text.length < 3) { toast("Motion text too short."); return; }
@@ -241,14 +260,14 @@ function displayPoll() {
 function motionSelectorHTML() {
   const choosable = polls.filter((p) => !p.deleted);
   if (!choosable.length) return "";
-  const opts = [`<option value="">Current / open motion (auto)</option>`].concat(
+  const opts = [`<option value="">Current motion (auto)</option>`].concat(
     choosable.map((p) => {
-      const tag = p.archived ? "📦 " : p.status === "open" ? "🟢 " : p.status === "closed" ? "✓ " : "✎ ";
+      const tag = p.archived ? "Archived" : STATUS_WORD[p.status] || p.status;
       const short = p.text.length > 60 ? p.text.slice(0, 60) + "…" : p.text;
-      return `<option value="${p.id}" ${p.id === selectedPollId ? "selected" : ""}>${tag}${escapeHtml(short)}</option>`;
+      return `<option value="${p.id}" ${p.id === selectedPollId ? "selected" : ""}>${tag} · ${escapeHtml(short)}</option>`;
     })).join("");
-  return `<label class="sub" style="display:block;margin-bottom:4px;">View motion</label>
-    <select class="motion-select" aria-label="View motion" style="margin-bottom:12px;">${opts}</select>`;
+  return `<label class="ed-label">View motion
+    <select class="ed-field motion-select">${opts}</select></label>`;
 }
 function wireMotionSelect(scope) {
   const s = scope.querySelector(".motion-select");
@@ -267,7 +286,7 @@ function ensureDisplay() {
     if (displayUnsub) { displayUnsub(); displayUnsub = null; displayId = null; displayLoaded = false; }
     return { poll, votes: activeVotes, loaded: activeLoaded };   // reuse the live subscription
   }
-  if (poll.id !== displayId) {                          // a closed poll — subscribe once
+  if (poll.id !== displayId) {                          // a closed poll: subscribe once
     if (displayUnsub) displayUnsub();
     displayId = poll.id; displayVotes = []; displayLoaded = false;
     displayUnsub = onVotesFor(poll.id, (vs) => { displayVotes = vs; displayLoaded = true; collectWriteins(vs); renderResults(); renderVoters(); });
@@ -277,74 +296,65 @@ function ensureDisplay() {
 
 function renderResults() {
   const sel = $("results-selector");
-  sel.innerHTML = motionSelectorHTML() || `<p class="muted" style="margin:0;">No motions yet.</p>`;
+  sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
   wireMotionSelect(sel);
   const el = $("results-body");
   const d = ensureDisplay();
-  if (!d) { el.innerHTML = `<p class="muted" style="margin:0;">No motion to show. Open one, or choose a motion above.</p>`; return; }
+  if (!d) { el.innerHTML = `<p class="ed-hint">No motion to show. Open one, or choose a motion above.</p>`; return; }
   paintResults(el, d.poll, d.votes, d.loaded);
 }
 function paintResults(el, poll, votes, loaded) {
-  // An empty tally scores as "NO QUORUM — cannot pass". Shown before the
+  // An empty tally scores as "No quorum: cannot pass". Shown before the
   // ballots arrive that is a wrong result on a shared screen, so hold off.
+  const top = `${statusPill(poll.status)}<h2 class="motion-text">${escapeHtml(poll.text)}</h2>`;
   if (!loaded) {
-    el.innerHTML = `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>
-      <h2 style="margin-top:8px;">${escapeHtml(poll.text)}</h2>
-      <p class="center muted">Counting votes…</p>`;
+    el.innerHTML = `${top}<p class="ed-hint">Counting votes…</p>`;
     return;
   }
   const t = tally(votes, poll);
   const quorum = quorumThreshold(poll);
   const quorumMet = t.quorumCount >= quorum;
-  const statusPill = `<span class="pill ${poll.status}">${poll.status.toUpperCase()}</span>`;
-  const outcome = !quorumMet
-    ? `<span class="result-noq">NO QUORUM — cannot pass</span>`
-    : t.weight.favour > t.weight.against ? `<span class="result-pass">PASSES ✅</span>`
-    : t.weight.favour < t.weight.against ? `<span class="result-fail">DOES NOT PASS ❌</span>`
-    : `<span class="result-tie">TIE 🤝</span>`;
-  el.innerHTML = `
-    ${statusPill}
-    <h2 style="margin-top:8px;">${escapeHtml(poll.text)}</h2>
-    <p class="center big">${outcome}</p>
+  const outcome = !quorumMet ? verdictHTML("noq", "No quorum: cannot pass")
+    : t.weight.favour > t.weight.against ? verdictHTML("pass", "Passes")
+    : t.weight.favour < t.weight.against ? verdictHTML("fail", "Does not pass")
+    : verdictHTML("tie", "Tie");
+  const need = quorum - t.quorumCount;
+  el.innerHTML = `${top}
+    ${outcome}
     ${bars(t)}
-    <div class="card" style="background:var(--card2); margin-top:8px;">
-      <div class="spread"><span>Quorum${poll.status === "closed" ? " 🔒" : ""}</span>
-        <span class="${quorumMet ? "quorum-ok" : "quorum-bad"}">${t.quorumCount} / ${quorum} ${quorumMet ? "✅ met" : "❌ NOT met"}</span></div>
-      <div class="bar-track" style="margin-top:6px;"><div class="bar-fill favour" style="width:${quorum > 0 ? Math.min(100,(t.quorumCount/quorum)*100) : 0}%"></div></div>
-      ${!quorumMet ? `<p class="sub" style="color:var(--red);margin:8px 0 0;">Need ${quorum - t.quorumCount} more eligible voter(s) before this motion can be decided.</p>` : ""}
+    <div class="quorum ${quorumMet ? "met" : "short"}">
+      <div class="spread"><span class="q-label">Quorum${poll.status === "closed" ? `${icon("lock", 16)}<span class="ed-muted">frozen at close</span>` : ""}</span>
+        <span class="q-state">${icon(quorumMet ? "check" : "alert", 18)}${t.quorumCount} of ${quorum} ${quorumMet ? "met" : "not met"}</span></div>
+      <div class="bar" aria-hidden="true"><span class="${quorumMet ? "favour" : "short"}" style="width:${quorum > 0 ? Math.min(100, (t.quorumCount / quorum) * 100) : 0}%"></span></div>
+      ${!quorumMet ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
     </div>
-    <p class="sub">${t.totalVotes} total ballots · ${t.writeIns} write-in(s) · ${t.flags} flagged for review.
-      Pass rule: weighted <em>In favour</em> &gt; weighted <em>Against</em>; abstentions count to quorum only. Results are always visible to voters once closed.</p>
-    <div class="row" style="margin-top:6px;">
+    <p class="ed-hint">${t.totalVotes} ${t.totalVotes === 1 ? "ballot" : "ballots"} · ${t.writeIns} write-in${t.writeIns === 1 ? "" : "s"} · ${t.flags} flagged. Passes when weighted In favour beats weighted Against; abstentions count only toward quorum.</p>
+    <div class="row">
       ${poll.status === "open"
-        ? `<button class="btn against small" id="r-close">Close voting</button>`
-        : `<button class="btn favour small" id="r-open">${poll.status === "draft" ? "Open voting" : "Re-open voting"}</button>`}
+        ? `<button type="button" class="ed-btn ed-btn-filled" id="r-close">Close voting</button>`
+        : `<button type="button" class="ed-btn ed-btn-filled" id="r-open">${poll.status === "draft" ? "Open voting" : "Re-open voting"}</button>`}
     </div>`;
   const c = $("r-close"), o = $("r-open");
   if (c) c.addEventListener("click", () => motionAction("close", poll.id));
   if (o) o.addEventListener("click", () => motionAction("open", poll.id));
 }
 
+// One stacked bar plus a legend with the weighted points and head counts.
 function bars(t) {
-  const max = Math.max(t.weight.favour, t.weight.against, t.weight.abstain, 1);
-  const row = (key, label) => `
-    <div class="bar-row">
-      <div class="bar-label"><span>${label}</span>
-        <span><strong>${fmt(t.weight[key])} pts</strong> · ${t.count[key]} ${t.count[key]===1?"vote":"votes"}</span></div>
-      <div class="bar-track"><div class="bar-fill ${key}" style="width:${(t.weight[key]/max)*100}%"></div></div>
-    </div>`;
-  return `<div class="bars">${row("favour","In favour")}${row("against","Against")}${row("abstain","Abstain")}</div>`;
+  const row = (key, label) => `<li><i class="sw ${key}"></i><span class="lbl">${label}</span>
+      <span class="num"><strong>${fmt(t.weight[key])} pts</strong> · ${t.count[key]} ${t.count[key] === 1 ? "vote" : "votes"}</span></li>`;
+  return `${stackedBar(t.weight)}<ul class="tally">${row("favour", "In favour")}${row("against", "Against")}${row("abstain", "Abstain")}</ul>`;
 }
 
 // ----------------------------------------------------------------- voters
 function renderVoters() {
   const sel = $("voters-selector");
-  sel.innerHTML = motionSelectorHTML() || `<p class="muted" style="margin:0;">No motions yet.</p>`;
+  sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
   wireMotionSelect(sel);
   const d = ensureDisplay();
   if (!d) {
     $("voters-table").innerHTML = "";
-    $("voters-note").textContent = "No motion to show — choose one above.";
+    $("voters-note").textContent = "No motion to show. Choose one above.";
     return;
   }
   if (!d.loaded) {
@@ -364,26 +374,26 @@ function paintVoters(poll, votes) {
   Object.values(sessionToSlugs).forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
-  $("voters-note").innerHTML = `Motion: <em>${escapeHtml(poll.text)}</em> · ${votes.length} ballots · ${reviewCount} to review.
-    ${poll.status === "closed" ? "Weights are 🔒 frozen as of when this motion closed." : "Set categories/weights on the <strong>Physician Summary</strong> tab."}
-    Flags: same name from 2+ devices, or one device used for multiple names. <em>Submissions</em> = number of times this person changed their vote — shown only for flagged rows (still one ballot in the tally).`;
+  // One hint line; what the flags mean sits in the "What the flags mean" fold.
+  $("voters-note").textContent = `${votes.length} ${votes.length === 1 ? "ballot" : "ballots"} · ${reviewCount} to review · `
+    + (poll.status === "closed" ? "weights frozen when this motion closed" : "set categories under Physicians");
   const frozen = poll.status === "closed";
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
     const ew = weightForVote(v, poll);
-    const g = v.isWriteIn ? "write-in" : groupLabel(groupForVote(v, poll));
+    const g = v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, poll));
     const shared = sharedDevice.has(v.slug);
     return `<tr class="${v.flagged || shared ? "flagged" : ""}">
-      <td>${escapeHtml(v.name)} ${v.flagged ? '<span class="pill flag">REVIEW</span>' : ""}${shared ? '<span class="pill flag">SHARED DEVICE</span>' : ""}${v.isWriteIn ? '<span class="pill draft">NEW</span>' : ""}</td>
-      <td>${g}</td>
-      <td>${fmt(ew)}</td>
-      <td>${labelOf(v.choice)}</td>
-      <td>${(v.flagged || shared) ? (v.submissionCount || 1) : '<span class="muted">—</span>'}</td>
-      <td><button class="btn danger small" data-del="${v.id}">Remove</button></td>
+      <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
+      <td class="cat">${g}</td>
+      <td class="num">${fmt(ew)}</td>
+      <td class="choice">${labelOf(v.choice)}</td>
+      <td class="num subs">${(v.flagged || shared) ? (v.submissionCount || 1) : ""}</td>
+      <td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${v.id}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>
     </tr>`;
   }).join("");
   $("voters-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th>Weight${frozen ? " 🔒" : ""}</th><th>Vote</th><th>Submissions</th><th>Remove</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="muted">No votes yet.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category</th><th class="num">Weight${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th><th class="num">Submissions</th><th><span class="sr">Remove</span></th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
   $("voters-table").querySelectorAll("button[data-del]").forEach((b) =>
     b.addEventListener("click", () => { if (confirm("Remove this vote? This changes the result for this motion.")) clearVote(poll.id, b.dataset.del); }));
 }
@@ -393,7 +403,7 @@ function exportCsv() {
   if (!d) { toast("No motion selected."); return; }
   // Exporting before the ballots land would write a confident, empty, wrong
   // result to a file someone then circulates.
-  if (!d.loaded) { toast("Still loading ballots — try again in a moment."); return; }
+  if (!d.loaded) { toast("Still loading ballots. Try again in a moment."); return; }
   const poll = d.poll, list = d.votes || [];
   const t = tally(list, poll);
   const header = ["Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "WriteIn"];
@@ -441,21 +451,22 @@ function renderRosterTab() {
   const g2 = roster.filter((p) => p.group === "2").length;
   const cy = roster.filter((p) => p.group === "courtesy").length;
   $("roster-counts").innerHTML =
-    `Full vote: <strong>${g1}</strong> &nbsp;·&nbsp; Half vote: <strong>${g2}</strong> &nbsp;·&nbsp; No vote: <strong>${cy}</strong> &nbsp;·&nbsp; Eligible: <strong>${eligibleCount(null)}</strong> &nbsp;·&nbsp; Quorum: <strong>${quorumThreshold(null)}</strong>`;
+    `Full vote <strong>${g1}</strong> · Half vote <strong>${g2}</strong> · No vote <strong>${cy}</strong> · Eligible <strong>${eligibleCount(null)}</strong> · Quorum <strong>${quorumThreshold(null)}</strong>`;
 
   const f = rosterFilter.trim().toLowerCase();
   const list = roster.filter((p) => p.name.toLowerCase().includes(f)).sort((a, b) => a.name.localeCompare(b.name));
   const rows = list.map((p) => {
-    const btn = (g, l) => `<button class="btn ghost small ${p.group === g ? "selected" : ""}" data-setgrp="${g}" data-slug="${p.slug}">${l}</button>`;
+    // The category picker is a segmented control: one track, the current one raised.
+    const btn = (g, l) => `<button type="button" data-setgrp="${g}" data-slug="${p.slug}" aria-pressed="${p.group === g}">${l}</button>`;
     return `<tr>
-      <td>${escapeHtml(p.name)}${p.isWriteIn ? ' <span class="pill draft">NEW</span>' : ""}</td>
-      <td>${catLabel(p.group)}</td>
-      <td>${fmt(p.weight)}</td>
-      <td>${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</td>
+      <td class="who">${escapeHtml(p.name)}${p.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
+      <td class="cat">${uiCat(p.group)}</td>
+      <td class="num">${fmt(p.weight)}</td>
+      <td class="act"><div class="ed-seg cat-seg" role="group" aria-label="Category for ${escapeHtml(p.name)}">${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</div></td>
     </tr>`;
   }).join("");
   $("roster-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th>Pts</th><th>Set category</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="muted">No match.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category</th><th class="num">Points</th><th>Set category</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="ed-muted">No match.</td></tr>`}</tbody>`;
   $("roster-table").querySelectorAll("button[data-setgrp]").forEach((b) =>
     b.addEventListener("click", () => setPersonGroup(b.dataset.slug, b.dataset.setgrp).then(() => toast("Category updated."))));
 }
@@ -573,5 +584,7 @@ async function printAll() {
 }
 
 // ----------------------------------------------------------------- category labels
-function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":"— (uncategorized)";}
+// catLabel feeds the CSV and Excel records: keep its words exactly as they are.
+function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":"\u2014 (uncategorized)";}
+function uiCat(g){return g==="1"||g==="2"||g==="courtesy"?catLabel(g):"Uncategorized";}   // on screen
 function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV
