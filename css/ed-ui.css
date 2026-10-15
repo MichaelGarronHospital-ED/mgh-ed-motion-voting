@@ -1,4 +1,4 @@
-/* ed-ui.css - the shared look for every MGH ED staff tool (v1, 2026-10-15).
+/* ed-ui.css - the shared look for every MGH ED staff tool (v2, 2026-10-15).
  *
  * MASTER COPY: dashboard repo, shared/ed-ui.css. Exact copies live in:
  *   hiring-tool/css/ed-ui.css
@@ -34,7 +34,7 @@
   --ed-bg: #f5f5f7;          /* page */
   --ed-surface: #ffffff;     /* cards, sheets */
   --ed-surface-2: #f2f2f7;   /* fields, nested quiet areas */
-  --ed-fill: #e8e8ed;        /* segmented-control track, quiet pills */
+  --ed-fill: #e8e8ed;        /* segmented-control track, quiet pills; only --ed-ink text on it */
 
   /* Text and lines */
   --ed-ink: #1d1d1f;         /* 15.5:1 on bg */
@@ -91,7 +91,7 @@
     --ed-surface-2: #2c2c2e;
     --ed-fill: #3a3a3c;
     --ed-ink: #f5f5f7;
-    --ed-ink-2: #aeaeb2;      /* 7.69:1 on surface */
+    --ed-ink-2: #bdbdc2;      /* 9.09:1 on surface, 7.45:1 on surface-2 */
     --ed-line: #3a3a3c;
     --ed-line-soft: #2c2c2e;
     --ed-accent: #7dbdff;     /* 8.58:1 on surface, 7.03:1 on surface-2 */
@@ -101,7 +101,7 @@
     --ed-on-accent: #000000;  /* 10.6:1 on accent */
     --ed-green: #6fd08c;   --ed-green-tint: #0f2d19;
     --ed-amber: #ffc061;   --ed-amber-tint: #33270d;
-    --ed-red: #ff9a96;     --ed-red-tint: #3a1414;
+    --ed-red: #ffa8a4;     --ed-red-tint: #3a1414;
     --ed-purple: #b4b2ff;  --ed-purple-tint: #24234a;
     --ed-toast-bg: #f5f5f7;
     --ed-toast-ink: #1d1d1f;
@@ -161,7 +161,7 @@
 .ed-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font: 600 var(--ed-text-xs)/1.4 var(--ed-font); white-space: nowrap; }
 .ed-pill-good { background: var(--ed-green-tint); color: var(--ed-green); }
 .ed-pill-info { background: var(--ed-accent-tint); color: var(--ed-accent-ink); }
-.ed-pill-quiet { background: var(--ed-fill); color: var(--ed-ink-2); }
+.ed-pill-quiet { background: var(--ed-fill); color: var(--ed-ink); }  /* ink-2 on fill is under 7:1 */
 .ed-pill-warn { background: var(--ed-amber-tint); color: var(--ed-amber); }
 .ed-pill-bad { background: var(--ed-red-tint); color: var(--ed-red); }
 
