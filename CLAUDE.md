@@ -29,6 +29,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Tests:** `cd tests && python3 -m unittest -v` (needs Playwright; see `tests/README.md`).
   On Alvin's Mac the test tools live outside iCloud in `~/.venvs/mgh-ed-tools`:
   `~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -v`.
+- **Database rules tests:** `cd tests/rules && npm install && npm test` (Firestore emulator;
+  needs Java). 12 tests: only ed@ and leadership@ get in, voters vote only while a motion
+  is open and add exactly one to its count, only leadership manages. Run after any change
+  to `firestore.rules`.
 - **Deploy the site:** push to `main`; GitHub Pages is live about a minute later.
 - **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
   `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
