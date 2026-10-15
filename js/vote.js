@@ -1,6 +1,6 @@
 import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
 import { ORG_NAME } from "./config.js";
-import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, ensureSignedIn, quorumThreshold } from "./db.js";
+import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, watchMember, voterSignIn, isWrongPassword, quorumThreshold } from "./db.js";
 import { escapeHtml, labelOf, toast } from "./util.js";
 
 document.title = ORG_NAME;
@@ -45,10 +45,17 @@ function startData() {
     render();
   });
 }
-// Sign in first so reads/writes are authenticated under locked rules — but keep
-// an existing (e.g. leadership) session rather than replacing it; see db.js.
-// If anonymous auth isn't enabled yet, we proceed anyway (open-rules mode).
-ensureSignedIn().catch((e) => console.warn("anon auth unavailable, continuing:", e && e.code)).finally(startData);
+// ---- the ED password ---------------------------------------------------------
+// Voting needs the ED password once per device; Firebase remembers the sign-in,
+// so after that a voter scans the QR code and goes straight to the ballot. A
+// leadership session in the same browser also counts (see db.js). Data starts
+// only once someone is signed in: the rules refuse everyone else.
+let member = null, authKnown = false, started = false;
+watchMember((u) => {
+  member = u; authKnown = true;
+  if (u && !started) { started = true; startData(); }
+  render();
+});
 
 function syncResultSubs() {
   const closedIds = new Set(polls.filter((p) => p.status === "closed" && !p.archived && !p.deleted).map((p) => p.id));
@@ -67,6 +74,8 @@ function syncResultSubs() {
 
 // ---- render ----------------------------------------------------------------
 function render() {
+  if (!authKnown) { app.innerHTML = shell(`<div class="card"><p class="muted center" style="margin:8px 0;">Loading…</p></div>`); return; }
+  if (!member) { app.innerHTML = shell(gateHTML()); wireGate(); return; }
   syncResultSubs();
   if (!me) { app.innerHTML = shell(pickerHTML()); wirePicker(); return; }
 
@@ -83,6 +92,35 @@ function shell(inner) {
   return `<header class="apphead"><div class="logo" aria-hidden="true">ED</div>
     <div class="titles"><h1>${escapeHtml(ORG_NAME)}</h1>
     <p class="sub">Tap to cast your vote. Live and anonymous to the group.</p></div></header>${inner}`;
+}
+
+// ---- ED password screen ------------------------------------------------------
+function gateHTML() {
+  return `<div class="card">
+    <form id="edgate" autocomplete="on">
+      <label for="edpw">ED password</label>
+      <input id="edpw" type="password" autocomplete="current-password" placeholder="Enter the ED password" required />
+      <button id="edgo" class="btn accent" type="submit">Continue</button>
+      <p id="ederr" class="err hide" role="alert"></p>
+      <p class="sub center" style="margin:12px 0 0;">This device will remember it, so you only enter it once.</p>
+    </form>
+  </div>`;
+}
+function wireGate() {
+  const f = document.getElementById("edgate"), pw = document.getElementById("edpw"), err = document.getElementById("ederr");
+  pw.focus();
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!pw.value) return;
+    const btn = document.getElementById("edgo");
+    btn.disabled = true; err.classList.add("hide");
+    try { await voterSignIn(pw.value); }        // watchMember re-renders on success
+    catch (ex) {
+      btn.disabled = false;
+      err.textContent = isWrongPassword(ex) ? "That's not the ED password." : "Couldn't sign in. Check your connection and try again.";
+      err.classList.remove("hide"); pw.select();
+    }
+  });
 }
 
 // ---- name picker -----------------------------------------------------------

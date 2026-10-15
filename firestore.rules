@@ -10,7 +10,14 @@ rules_version = '2';
 //     adjust/remove votes. Update the email here if your leader email differs.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    // Signed in with one of the two shared passwords: the ED password (account
+    // ed@…, voters) or the Leadership password (leadership@…). An anonymous or
+    // any other account is refused, so the ED password is enforced here, by the
+    // server, and not only by the screen. Keep the emails identical to config.js.
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email in ['ed@ed-motion-voting.app', 'leadership@ed-motion-voting.app'];
+    }
     function isLeader() { return signedIn() && request.auth.token.email == 'leadership@ed-motion-voting.app'; }
     function notTouchingWeightOverride() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['weightOverride']);

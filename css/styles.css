@@ -204,7 +204,7 @@ tr.flagged td { background:#fffaf0; }
 .gatebox .logo { margin:0 auto 12px; width:46px; height:46px; border-radius:12px; font-size:1.1rem; }
 .gatebox h1 { font-size:1.35rem; margin:0 0 4px; }
 .gatebox .sub { margin:0 0 16px; }
-.gatebox .err { color:var(--red); font-size:.86rem; margin:10px 0 0; }
+.gatebox .err, .err { color:var(--red); font-size:.86rem; margin:10px 0 0; }
 .btn.pillfull { border-radius:980px; }
 
 /* ---- phones: drop the columns the rest of the row already implies, keep the

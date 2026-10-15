@@ -387,14 +387,42 @@ class TestSignIn(Base):
         p = self.voter()
         self.assertEqual(p.evaluate("() => window.__auth.current().email"), h.LEADER_EMAIL)
 
-    def test_voter_page_signs_in_anonymously_when_nobody_is(self):
+    def test_voter_page_asks_for_the_ed_password_and_signs_in_as_ed(self):
+        # self.voter() goes through the ED-password screen (harness.open_voter)
         p = self.voter()
-        self.assertTrue(p.evaluate("() => window.__auth.current().isAnonymous"))
+        self.assertEqual(p.evaluate("() => window.__auth.current().email"), h.ED_EMAIL)
+        self.assertFalse(p.evaluate("() => window.__auth.current().isAnonymous"))
 
-    def test_voter_page_signs_back_in_after_a_sign_out_elsewhere(self):
+    def test_voter_page_shows_the_password_screen_after_a_sign_out_elsewhere(self):
         p = self.voter()
         p.evaluate("() => window.__auth.force(null)")
-        p.wait_for_function("() => window.__auth.current() && window.__auth.current().isAnonymous")
+        p.wait_for_selector("#edpw")
+        self.assertIsNone(p.query_selector("#search"))
+
+    def test_a_wrong_ed_password_is_refused_and_says_so(self):
+        self.page.add_init_script("window.__authReject = true;")
+        self.page.goto(f"{self.base}/index.html")
+        self.page.fill("#edpw", "nope")
+        self.page.click("#edgo")
+        self.page.wait_for_selector("#ederr:not(.hide)")
+        self.assertIn("not the ED password", self.page.inner_text("#ederr"))
+        self.assertIsNone(self.page.query_selector("#search"))
+
+    def test_a_wrong_leadership_password_opens_nothing(self):
+        self.page.add_init_script("window.__authReject = true;")
+        h.load_admin(self.page, self.base)
+        self.page.fill("#pass", "nope")
+        self.page.click("#enter")
+        self.page.wait_for_selector("#gate-err:not(.hide)")
+        self.assertEqual(self.page.inner_text("#gate-err"), "Incorrect password.")
+        self.assertTrue(self.page.evaluate("document.getElementById('console').classList.contains('hide')"))
+
+    def test_an_old_anonymous_session_is_not_enough_to_vote(self):
+        self.page.add_init_script(
+            "window.__authInitial = { uid: 'anon-x', isAnonymous: true, email: null };")
+        self.page.goto(f"{self.base}/index.html")
+        self.page.wait_for_selector("#edpw")
+        self.assertIsNone(self.page.query_selector("#search"))
 
 
 class TestVoterReview(Base):

@@ -4,6 +4,29 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Sign-in: the ED password to vote, the Leadership password for settings (Oct 14 2026)
+
+The ED tools now share three passwords (Leadership, ED, Guest; MGH-ED-Tools/README.md).
+For voting:
+
+- **Voters enter the ED password once per device.** Firebase remembers the sign-in, so
+  at later meetings they scan the QR code and go straight to the ballot. The password is
+  the password of a shared Firebase account (`ED_EMAIL`), and `firestore.rules` now accept
+  only that account and leadership's: an anonymous visitor with a forwarded link can no
+  longer read or vote. Old anonymous sessions see the password screen.
+- **Leadership enters the Leadership password**, checked by Firebase as the password of
+  `LEADER_EMAIL`. The SHA-256 hash of the old passcode is gone from the public config,
+  and the console no longer opens when the Firebase sign-in fails (it used to open with a
+  warning, with writes then refused).
+- A leadership session still counts on the voter page (a chair voting on the console
+  laptop is not signed out of the console).
+
+Tests: 33/33 (the anonymous-sign-in tests replaced: password screen, sign-in as ED,
+password screen again after a sign-out elsewhere, an old anonymous session refused, a
+wrong ED or Leadership password refused with a clear message). axe-core clean.
+
+---
+
 ## Export: every motion, ballot and the roster in one Excel file; printable results (Oct 14 2026)
 
 ### Added: an Export menu in the leadership console header

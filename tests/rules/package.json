@@ -1,0 +1,15 @@
+{
+  "name": "ed-motion-voting-rules-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Firestore security-rule tests for motion voting. Dev-only: the tool itself has no build step and no dependencies.",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project ed-motion-voting-test \"node --test\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.3.0",
+    "firebase-tools": "^13.29.1"
+  }
+}

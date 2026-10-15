@@ -18,8 +18,10 @@ export async function signInAnonymously() {
 }
 export async function signInWithEmailAndPassword(auth, email, password) {
   // The harness accepts whatever the page sends; rule enforcement is not modelled.
-  if (!password) { const e = new Error("bad password"); e.code = "auth/wrong-password"; throw e; }
-  current = { uid: "leader-uid", isAnonymous: false, email };
+  // window.__authReject = true makes every sign-in fail like a wrong password,
+  // the way Firebase answers once email-enumeration protection is on.
+  if (!password || window.__authReject) { const e = new Error("bad password"); e.code = "auth/invalid-credential"; throw e; }
+  current = { uid: email && email.startsWith("leadership") ? "leader-uid" : "ed-uid", isAnonymous: false, email };
   emit();
   return { user: current };
 }

@@ -14,24 +14,16 @@ export const firebaseConfig = {
   appId: "1:121642121257:web:5ef04d3e13f0b84983c438"
 };
 
-// ---- 2. Admin / leadership passcode ---------------------------------------
-// Anyone with this code can open the admin page (manage motions, see the
-// per-person table, export). Shared "admin" code across the ED tools.
-// Stored as a SHA-256 HASH so the shared code is NOT readable in this public
-// source (it's also the interviews admin code). Admins type the plaintext code;
-// the gate hashes it and compares. To change it, run:
-//   python3 -c "import hashlib;print(hashlib.sha256(b'YOUR-CODE').hexdigest())"
-// NOTE: if you use the locked Firebase backend, update the LEADER_EMAIL Auth
-// user's password in the console to match the plaintext code (see README).
-export const ADMIN_PASSCODE_SHA256 = "19180775d37f0a3372fc5a8d6e1e9c156ff0e1e3ef908a50686320f89ca87f9f";
-
-// Leadership identity for the (optional) Firebase-auth backend lockdown.
-// This is a SHARED account label — leadership only ever types the passcode;
-// this email is used silently as the Firebase username (nobody sees/types it).
-// It doesn't need to be a real inbox. Create a matching Firebase Auth user
-// (this email + password = the plaintext admin code) and keep it identical in
-// firestore.rules. See README.
+// ---- 2. Sign-in (the ED tools' shared passwords) ---------------------------
+// Two shared Firebase accounts, one per password. Nobody types these emails:
+// they are fixed labels the app uses as the Firebase username, and they do not
+// need to be real inboxes. The PASSWORDS are the shared secrets and live only in
+// Firebase Authentication, never in this public file.
+//   • LEADER_EMAIL — the Leadership password: the settings console.
+//   • ED_EMAIL     — the ED password: voting (each phone remembers it).
+// Keep both identical in firestore.rules.
 export const LEADER_EMAIL = "leadership@ed-motion-voting.app";
+export const ED_EMAIL = "ed@ed-motion-voting.app";
 
 // ---- 3. Branding ----------------------------------------------------------
 export const ORG_NAME = "MGH ED - Motion Voting";

@@ -29,6 +29,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Tests:** `cd tests && python3 -m unittest -v` (needs Playwright; see `tests/README.md`).
   On Alvin's Mac the test tools live outside iCloud in `~/.venvs/mgh-ed-tools`:
   `~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -v`.
+- **Database rules tests:** `cd tests/rules && npm install && npm test` (Firestore emulator;
+  needs Java). 12 tests: only ed@ and leadership@ get in, voters vote only while a motion
+  is open and add exactly one to its count, only leadership manages. Run after any change
+  to `firestore.rules`.
 - **Deploy the site:** push to `main`; GitHub Pages is live about a minute later.
 - **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
   `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
@@ -40,9 +44,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 ## Files
 
 - `index.html` → voter view (loads `js/vote.js`).
-- `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Passcode-gated +
+- `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Leadership-password-gated (Firebase sign-in) +
   unguessable filename; keep the filename obscure if it's ever rotated.
-- `js/config.js` → Firebase config, `ADMIN_PASSCODE`, `LEADER_EMAIL`, `ORG_NAME`.
+- `js/config.js` → Firebase config, `LEADER_EMAIL` + `ED_EMAIL` (the two shared accounts;
+  the passwords live only in Firebase Auth), `ORG_NAME`.
 - `js/roster.js` → the roster and GROUP1 / GROUP2 / COURTESY weight assignments.
 - `js/db.js` → Firestore + Auth wiring, tally/quorum logic.
 - `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.

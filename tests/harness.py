@@ -22,6 +22,7 @@ STUBS = HERE / "stubs"
 
 # Must match LEADER_EMAIL in js/config.js.
 LEADER_EMAIL = "leadership@ed-motion-voting.app"
+ED_EMAIL = "ed@ed-motion-voting.app"   # must match ED_EMAIL in js/config.js
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -65,9 +66,15 @@ def wire(page, errors):
 
 
 def open_voter(page, base):
+    """Load the voter page and get past the ED-password screen (the stub accepts
+    any non-empty password; the real check is Firebase's, enforced by the rules)."""
     page.goto(f"{base}/index.html")
     page.wait_for_function("() => window.__store !== undefined")
     page.wait_for_selector("#app .card")
+    if page.query_selector("#edpw"):
+        page.fill("#edpw", "test-ed-password")
+        page.click("#edgo")
+        page.wait_for_selector("#search, #app .tabs")
 
 
 def load_admin(page, base):
