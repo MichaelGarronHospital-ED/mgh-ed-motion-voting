@@ -4,6 +4,32 @@ Running log of what changed and why, newest first.
 
 ---
 
+## The shared ED tools look, for voters and leadership (Oct 15 2026)
+
+Same look as every ED tool: `css/ed-ui.css` is an exact copy of the master in the
+dashboard repo (`shared/ed-ui.css`) and loads before `css/styles.css`. Light and dark
+follow the device; print stays light; every text colour reaches 7:1 (WCAG AAA).
+
+- **One sign-in card** for both passwords (badge, title, a visible label, one button).
+- **Voting:** three choice tiles with line icons; the chosen one gets the blue border and
+  tint (no more heavy black ring). "Not you?" and "Switch voter" look like links.
+- **Verdicts:** one size, with an icon, in sentence case ("Passed", "No quorum: cannot
+  pass"), then one stacked result bar and a legend. Exports keep their old words.
+- **No emoji** anywhere on screen: inline SVG icons instead.
+- **Console:** all five tabs fit on a 375px phone (shorter names; a fade shows when a
+  narrower screen has more to scroll). Archived and Trash headers are real buttons.
+  Archived and trash pills are grey. The category picker is a segmented control. The
+  quorum box is quiet grey with only its status in colour. On phones the Voters and
+  Physicians tables become two-line rows, and the page scrolls instead of a 60vh box.
+  The six-line Voters help is one hint line plus a "What the flags mean" fold. The
+  voting link wraps in full, with a full-size "Copy link" button.
+- Almost all inline styles moved into `css/styles.css` (the two left are result-bar widths).
+
+Tests: 33/33 (verdict and flag strings updated to the new visible words). Rules tests
+12/12. axe-core (WCAG A to AAA plus best practice) clean on every main screen, light and dark.
+
+---
+
 ## Sign-in: the ED password to vote, the Leadership password for settings (Oct 14 2026)
 
 The ED tools now share three passwords (Leadership, ED, Guest; MGH-ED-Tools/README.md).

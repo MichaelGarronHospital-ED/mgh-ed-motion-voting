@@ -6,7 +6,7 @@ Firestore (see harness.py). Run with:
     cd tests && python3 -m unittest -v
 
 Every group maps to a promise the tool makes to a real person in a meeting.
-Tests marked REGRESSION pin a bug that was found and fixed — see CHANGES.md.
+Tests marked REGRESSION pin a bug that was found and fixed; see CHANGES.md.
 """
 import unittest
 
@@ -75,7 +75,7 @@ class TestRosterAndQuorum(Base):
         pg.click('[data-vtab="results"]')
         pg.wait_for_timeout(300)
         # Every courtesy member voting still cannot carry a motion.
-        self.assertEqual(h.outcomes(pg.inner_text("#app")), ["NO QUORUM"])
+        self.assertEqual(h.outcomes(pg.inner_text("#app")), ["No quorum"])
 
     def test_pass_rule_is_weighted_favour_over_against(self):
         pg = self.admin()
@@ -86,7 +86,7 @@ class TestRosterAndQuorum(Base):
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
         body = pg.inner_text("#results-body")
-        self.assertEqual(h.outcomes(body), ["PASSES ✅"])
+        self.assertEqual(h.outcomes(body), ["Passes"])
         self.assertIn("24 pts", body)
 
     def test_tie_is_reported_as_a_tie(self):
@@ -96,7 +96,7 @@ class TestRosterAndQuorum(Base):
         h.seed_ballots(pg, "p1", h.GROUP1[13:26], choice="against")
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
-        self.assertEqual(h.outcomes(pg.inner_text("#results-body")), ["TIE 🤝"])
+        self.assertEqual(h.outcomes(pg.inner_text("#results-body")), ["Tie"])
 
     def test_half_weight_group_counts_as_half_a_point(self):
         pg = self.admin()
@@ -204,7 +204,7 @@ class TestResultsAreNeverWrong(Base):
         self.assertEqual(h.outcomes(first), [], "a verdict was shown before the count")
         self.assertIn("Counting votes", first)
         pg.wait_for_timeout(400)
-        self.assertEqual(h.outcomes(pg.inner_text("#app")), ["PASSED ✅"])
+        self.assertEqual(h.outcomes(pg.inner_text("#app")), ["Passed"])
 
     def test_admin_sees_counting_not_a_verdict_before_ballots_load(self):
         # The motion is known but its ballots are still in flight: hold the
@@ -220,7 +220,7 @@ class TestResultsAreNeverWrong(Base):
         self.assertIn("Counting votes", stalled)
         pg.evaluate("window.__store.release('polls/p1/votes')")
         pg.wait_for_timeout(300)
-        self.assertEqual(h.outcomes(pg.inner_text("#results-body")), ["PASSES ✅"])
+        self.assertEqual(h.outcomes(pg.inner_text("#results-body")), ["Passes"])
 
     def test_voter_results_show_counting_while_ballots_are_in_flight(self):
         pg = self.voter()
@@ -233,7 +233,7 @@ class TestResultsAreNeverWrong(Base):
         self.assertEqual(h.outcomes(pg.inner_text("#app")), [])
         pg.evaluate("window.__store.release('polls/p1/votes')")
         pg.wait_for_timeout(300)
-        self.assertEqual(h.outcomes(pg.inner_text("#app")), ["PASSED ✅"])
+        self.assertEqual(h.outcomes(pg.inner_text("#app")), ["Passed"])
 
     def test_export_is_refused_until_the_ballots_are_in(self):
         pg = self.admin()
@@ -322,7 +322,7 @@ class TestLeadershipActions(Base):
 
     def test_draft_motions_offer_open_not_reopen(self):
         pg = self.admin()
-        # A draft is neither open nor closed, so it is never auto-displayed —
+        # A draft is neither open nor closed, so it is never auto-displayed:
         # it has to be picked from the motion selector.
         h.seed_poll(pg, pid="pd", status="draft", text="Never opened")
         pg.wait_for_timeout(250)
@@ -377,7 +377,7 @@ class TestLeadershipActions(Base):
 
 class TestSignIn(Base):
     """One sign-in is shared by every tab of the site, so the voter page must
-    never replace a leadership session — otherwise the console in the next tab
+    never replace a leadership session, otherwise the console in the next tab
     (or on the chair's own laptop) silently loses its write access."""
 
     def test_voter_page_keeps_an_existing_leadership_session(self):
@@ -441,7 +441,7 @@ class TestVoterReview(Base):
         h.tab(pg, "voters")
         pg.wait_for_timeout(250)
         table = pg.inner_text("#voters-table")
-        self.assertIn("REVIEW", table)
+        self.assertIn("Needs review", table)
         self.assertIn("1 to review", pg.inner_text("#voters-note"))
 
     def test_one_device_under_two_names_is_flagged(self):
@@ -456,7 +456,7 @@ class TestVoterReview(Base):
         pg.wait_for_timeout(250)
         h.tab(pg, "voters")
         pg.wait_for_timeout(250)
-        self.assertIn("SHARED DEVICE", pg.inner_text("#voters-table"))
+        self.assertIn("Shared device", pg.inner_text("#voters-table"))
 
 
 if __name__ == "__main__":

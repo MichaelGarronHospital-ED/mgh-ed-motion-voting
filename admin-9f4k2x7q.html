@@ -3,71 +3,76 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Motion Voting — Leadership</title>
+  <meta name="color-scheme" content="light dark" />
+  <title>Motion Voting · Leadership</title>
+  <link rel="stylesheet" href="css/ed-ui.css" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
   <main>
-  <!-- passcode gate -->
-  <div id="gate" class="gate">
-    <div class="gatebox">
-      <div class="logo" aria-hidden="true">ED</div>
-      <h1>Leadership access</h1>
-      <p class="sub">Enter the Leadership password to manage motions and view results.</p>
-      <label for="pass" class="hide">Leadership password</label>
-      <input id="pass" type="password" placeholder="Leadership password" aria-label="Leadership password" autocomplete="current-password" />
-      <button id="enter" class="btn accent pillfull">Enter</button>
-      <p id="gate-err" class="err hide" role="alert">Incorrect password.</p>
+  <!-- Leadership password: the same sign-in card as every ED tool -->
+  <div id="gate" class="gate-screen">
+    <div class="card gate">
+      <span class="ed-badge" aria-hidden="true">ED</span>
+      <h1>Leadership console</h1>
+      <p class="ed-muted">Enter the Leadership password to manage motions and see results.</p>
+      <form id="gate-form" class="gate-form">
+        <label class="ed-label" for="pass">Leadership password
+          <input class="ed-field" id="pass" type="password" autocomplete="current-password" />
+        </label>
+        <p id="gate-err" class="ed-error err hide" role="alert">Incorrect password.</p>
+        <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
+      </form>
     </div>
   </div>
 
   <!-- console -->
   <div id="console" class="wrap wide hide">
-    <header class="apphead">
-      <div class="logo" aria-hidden="true">ED</div>
-      <div class="titles"><h1>Leadership console</h1><p class="sub">Motion Voting</p></div>
+    <header class="topbar">
+      <span class="ed-badge" aria-hidden="true">ED</span>
+      <span class="brand">Motion Voting</span>
       <details class="menu" id="export-menu">
-        <summary class="btn ghost small">Export</summary>
+        <summary class="ed-btn ed-btn-tinted btn-sm">Export</summary>
         <div class="menu-pop" role="menu">
           <button type="button" role="menuitem" id="export-all">Download Excel<small>Every motion, ballot and the roster</small></button>
           <button type="button" role="menuitem" id="print-all">Print or save as PDF<small>Results of every motion</small></button>
         </div>
       </details>
-      <a href="#" id="lock" class="btn ghost small">Lock</a>
+      <button type="button" id="lock" class="ed-btn ed-btn-plain btn-sm">Lock</button>
     </header>
+    <h1 class="ed-title page-title">Leadership console</h1>
 
-    <nav class="tabs" aria-label="Console sections">
-      <button type="button" class="tab active" data-tab="share">Share / QR</button>
-      <button type="button" class="tab" data-tab="motions">Motions</button>
-      <button type="button" class="tab" data-tab="results">Live results</button>
-      <button type="button" class="tab" data-tab="voters">Voters</button>
-      <button type="button" class="tab" data-tab="roster">Physician Summary</button>
-    </nav>
+    <div class="tabs-wrap">
+      <nav class="tabs ed-seg" aria-label="Console sections">
+        <button type="button" class="tab active" data-tab="share" aria-pressed="true">Share</button>
+        <button type="button" class="tab" data-tab="motions" aria-pressed="false">Motions</button>
+        <button type="button" class="tab" data-tab="results" aria-pressed="false">Results</button>
+        <button type="button" class="tab" data-tab="voters" aria-pressed="false">Voters</button>
+        <button type="button" class="tab" data-tab="roster" aria-pressed="false">Physicians</button>
+      </nav>
+    </div>
 
     <!-- SHARE -->
-    <section id="tab-share" class="card">
+    <section id="tab-share" class="card stack">
       <h2>Send voters here</h2>
-      <p class="muted">Screen-share this QR code in the meeting, or share the link. Voters scan → pick their name → vote. No chat needed.</p>
-      <div class="center" style="margin:18px 0;">
-        <img id="qr" src="voter-qr.png" alt="QR code to the voter link"
-             width="260" height="260"
-             style="background:#fff; padding:10px; border-radius:12px;" />
+      <p class="ed-hint">Screen-share this QR code in the meeting, or send the link. Voters scan, pick their name and vote.</p>
+      <img id="qr" class="qr" src="voter-qr.png" alt="QR code to the voter link" width="260" height="260" />
+      <div class="stack-sm">
+        <span class="field-label">Voting link</span>
+        <p id="vote-url" class="linkbox"></p>
+        <button id="copy-url" type="button" class="ed-btn ed-btn-tinted">Copy link</button>
       </div>
-      <label for="vote-url">Voting link</label>
-      <div class="row">
-        <input id="vote-url" type="text" readonly />
-        <button id="copy-url" class="btn accent small">Copy</button>
-      </div>
-      <p class="sub" id="roster-summary"></p>
+      <p class="ed-hint" id="roster-summary"></p>
     </section>
 
     <!-- MOTIONS -->
     <section id="tab-motions" class="hide">
-      <div class="card">
-        <h2 style="margin-top:0;">Add a motion</h2>
-        <label for="new-motion">One at a time</label>
-        <textarea id="new-motion" placeholder="e.g. Motion to approve the proposed summer schedule as circulated."></textarea>
-        <button id="add-motion" class="btn accent">Add motion</button>
+      <div class="card stack">
+        <h2>Add a motion</h2>
+        <label class="ed-label" for="new-motion">One at a time
+          <textarea class="ed-field" id="new-motion" rows="3" placeholder="For example: Motion to approve the proposed summer schedule as circulated."></textarea>
+        </label>
+        <div><button id="add-motion" type="button" class="ed-btn ed-btn-filled">Add motion</button></div>
       </div>
       <div id="motion-list"></div>
     </section>
@@ -75,53 +80,54 @@
     <!-- RESULTS -->
     <section id="tab-results" class="hide">
       <div class="card" id="results-selector"></div>
-      <div class="card" id="results-body"></div>
+      <div class="card stack" id="results-body"></div>
     </section>
 
     <!-- VOTERS -->
     <section id="tab-voters" class="hide">
       <div class="card" id="voters-selector"></div>
-      <div class="card">
+      <div class="card stack">
         <div class="spread">
-          <h2 style="margin:0;">Vote record</h2>
-          <button id="export" class="btn accent small">Export CSV</button>
+          <h2>Vote record</h2>
+          <button id="export" type="button" class="ed-btn ed-btn-tinted btn-sm">Export CSV</button>
         </div>
-        <p class="sub" id="voters-note"></p>
-        <div style="max-height:60vh; overflow:auto;">
-          <table id="voters-table"></table>
-        </div>
+        <p class="ed-hint" id="voters-note"></p>
+        <details class="about">
+          <summary>What the flags mean</summary>
+          <p class="ed-hint"><strong>Needs review:</strong> the same name voted from two or more devices.
+            <strong>Shared device:</strong> one device voted under more than one name.
+            <strong>Submissions</strong> is how many times a flagged person changed their vote; it is still one ballot in the tally.</p>
+        </details>
+        <div class="tablebox"><table id="voters-table" class="ed-table"></table></div>
       </div>
     </section>
 
     <!-- ROSTER SUMMARY -->
     <section id="tab-roster" class="hide">
-      <div class="card">
+      <div class="card stack">
         <div class="spread">
-          <h2 style="margin:0;">Physician summary</h2>
-          <button id="export-roster" class="btn accent small">Export CSV</button>
+          <h2>Physician summary</h2>
+          <button id="export-roster" type="button" class="ed-btn ed-btn-tinted btn-sm">Export CSV</button>
         </div>
-        <p class="sub" id="roster-counts"></p>
-        <div class="card" style="background:var(--card2); margin:4px 0 0;">
-          <strong>Legend</strong>
-          <ul style="margin:8px 0 0; padding-left:18px; line-height:1.7;">
-            <li><strong>Full vote</strong> <span class="muted">(Group 1 · 1 pt)</span> — Active staff, 8+ shifts/month</li>
-            <li><strong>Half vote</strong> <span class="muted">(Group 2 · ½ pt)</span> — Active &lt;8 shifts · Provisional active · Active secondary site</li>
-            <li><strong>No vote</strong> <span class="muted">(Courtesy · 0)</span> — non-voting; recorded but not counted</li>
-          </ul>
-        </div>
+        <p class="ed-hint" id="roster-counts"></p>
+        <ul class="keylist">
+          <li><strong>Full vote</strong> <span class="ed-muted">(Group 1, 1 point):</span> active staff, 8 or more shifts a month</li>
+          <li><strong>Half vote</strong> <span class="ed-muted">(Group 2, ½ point):</span> active under 8 shifts, provisional active, active secondary site</li>
+          <li><strong>No vote</strong> <span class="ed-muted">(Courtesy, 0):</span> recorded but not counted</li>
+        </ul>
       </div>
-      <div class="card">
-        <input id="roster-filter" type="text" placeholder="Filter by name…" autocomplete="off" style="margin-bottom:10px;" />
-        <div style="max-height:60vh; overflow:auto;">
-          <table id="roster-table"></table>
-        </div>
+      <div class="card stack">
+        <label class="ed-label" for="roster-filter">Filter by name
+          <input class="ed-field" id="roster-filter" type="search" placeholder="Type a name" autocomplete="off" />
+        </label>
+        <div class="tablebox"><table id="roster-table" class="ed-table"></table></div>
       </div>
     </section>
   </div>
 
   </main>
 
-  <div id="toast" class="toast hide" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast ed-toast hide" role="status" aria-live="polite"></div>
   <script type="module" src="js/admin.js"></script>
 </body>
 </html>
