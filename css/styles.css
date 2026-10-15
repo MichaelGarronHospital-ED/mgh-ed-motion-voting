@@ -147,7 +147,7 @@ select.ed-field { -webkit-appearance:none; appearance:none; padding-right:40px; 
 /* ---- leadership: header, tabs, export menu --------------------------------- */
 .tabs-wrap { position:relative; margin:0 0 16px; }
 .tabs-wrap.more::after { content:""; position:absolute; top:0; right:0; bottom:0; width:36px; pointer-events:none;
-  border-radius:0 var(--ed-r-sm) var(--ed-r-sm) 0; background:linear-gradient(90deg, rgba(0,0,0,0), var(--ed-fill) 75%); }
+  border-radius:0 var(--ed-r-sm) var(--ed-r-sm) 0; background:linear-gradient(90deg, rgba(0,0,0,0), var(--ed-seg-track) 75%); }
 #app > .tabs { margin:0 0 16px; }
 /* five tabs fit across a 375px phone; narrower screens scroll, with the fade above */
 @media (max-width:480px) { .tabs.ed-seg > button { padding:0 6px; } }

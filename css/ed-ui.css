@@ -1,4 +1,4 @@
-/* ed-ui.css - the shared look for every MGH ED staff tool (v2, 2026-10-15).
+/* ed-ui.css - the shared look for every MGH ED staff tool (v3, 2026-10-15).
  *
  * MASTER COPY: dashboard repo, shared/ed-ui.css. Exact copies live in:
  *   hiring-tool/css/ed-ui.css
@@ -34,7 +34,9 @@
   --ed-bg: #f5f5f7;          /* page */
   --ed-surface: #ffffff;     /* cards, sheets */
   --ed-surface-2: #f2f2f7;   /* fields, nested quiet areas */
-  --ed-fill: #e8e8ed;        /* segmented-control track, quiet pills; only --ed-ink text on it */
+  --ed-fill: #e8e8ed;        /* quiet pills, chips; only --ed-ink text on it */
+  --ed-seg-track: #e8e8ed;   /* segmented-control track */
+  --ed-seg-on: #ffffff;      /* the chosen segment (lighter than its track in both themes) */
 
   /* Text and lines */
   --ed-ink: #1d1d1f;         /* 15.5:1 on bg */
@@ -90,6 +92,8 @@
     --ed-surface: #1c1c1e;
     --ed-surface-2: #2c2c2e;
     --ed-fill: #3a3a3c;
+    --ed-seg-track: #2c2c2e;
+    --ed-seg-on: #48484a;     /* ink on it 8.38:1 */
     --ed-ink: #f5f5f7;
     --ed-ink-2: #bdbdc2;      /* 9.09:1 on surface, 7.45:1 on surface-2 */
     --ed-line: #3a3a3c;
@@ -114,7 +118,7 @@
 @media print {
   :root {
     color-scheme: light;
-    --ed-bg: #ffffff; --ed-surface: #ffffff; --ed-surface-2: #f2f2f7; --ed-fill: #e8e8ed;
+    --ed-bg: #ffffff; --ed-surface: #ffffff; --ed-surface-2: #f2f2f7; --ed-fill: #e8e8ed; --ed-seg-track: #e8e8ed; --ed-seg-on: #ffffff;
     --ed-ink: #000000; --ed-ink-2: #3a3a3c; --ed-line: #c7c7cc; --ed-line-soft: #e5e5ea;
     --ed-accent: #0052a3; --ed-accent-ink: #00478f; --ed-accent-tint: #eaf2fc; --ed-on-accent: #ffffff;
     --ed-green: #0e5e27; --ed-green-tint: #eaf6ee; --ed-amber: #6b4600; --ed-amber-tint: #fdf4e4;
@@ -144,10 +148,10 @@
 .ed-btn:disabled { opacity: .45; cursor: default; }
 
 /* Segmented control: tabs, ratings, filters. Mark the chosen one aria-pressed="true" or aria-selected="true". */
-.ed-seg { display: flex; background: var(--ed-fill); border-radius: var(--ed-r-sm); padding: 3px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.ed-seg { display: flex; background: var(--ed-seg-track); border-radius: var(--ed-r-sm); padding: 3px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .ed-seg::-webkit-scrollbar { display: none; }
 .ed-seg > button { flex: 1 0 auto; border: 0; background: none; border-radius: var(--ed-r-xs); min-height: 38px; padding: 0 14px; font: 500 var(--ed-text-sm)/1 var(--ed-font); color: var(--ed-ink); cursor: pointer; white-space: nowrap; }
-.ed-seg > button[aria-pressed="true"], .ed-seg > button[aria-selected="true"] { background: var(--ed-surface); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.ed-seg > button[aria-pressed="true"], .ed-seg > button[aria-selected="true"] { background: var(--ed-seg-on); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
 @media (pointer: coarse) { .ed-seg > button { min-height: var(--ed-tap); } }
 
 /* Fields */
