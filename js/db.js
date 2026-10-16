@@ -450,6 +450,9 @@ export async function openPoll(pollId) {
 // Step 1 of the upgrade has no voters' board yet, so this is a plain batch.
 export async function closeMotion(pollId, seen) {
   const p = knownPolls.find((x) => x.id === pollId) || {};
+  // Already closed (by another laptop): stop here. The rules refuse a second
+  // close too, so a close that waited offline cannot land on a closed motion.
+  if (p.status === "closed") throw Object.assign(new Error("already closed"), { code: "failed-precondition", why: "closed" });
   const b = writeBatch(db);
   b.update(pollRef(pollId), {
     status: "closed", closedAt: serverTimestamp(),
@@ -570,6 +573,12 @@ export async function reopenMotion(pollId, reason) {
     });
     return "reopened";
   });
+}
+
+// Is a result saved for this motion (on the server)?
+export async function resultSaved(pollId) {
+  const s = await getDocFromServer(pollRef(pollId));
+  return s.exists() && !!s.data().result;
 }
 
 // Why a close was refused, in plain words, from the motion as the server has it.

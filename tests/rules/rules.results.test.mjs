@@ -100,6 +100,18 @@ describe("closing and saving (the real closeMotion and saveResult)", () => {
       closeOfOpenedAt: past(999999) }));
     await assertFails(updateDoc(doc(leader(), "polls/m1"), { status: "closed", closedAt: serverTimestamp() }));
   });
+  it("a motion is closed once: a second close from a laptop that missed the first is refused", async () => {
+    const a = await app();
+    as(leader());
+    a.setKnownPolls([{ id: "m1", text: "Motion one", status: "open", openedAt: OPENED }]);   // out of date
+    await assertSucceeds(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
+    const first = await readRaw("polls/m1");
+    await assertFails(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
+    assert.ok((await readRaw("polls/m1")).closedAt.isEqual(first.closedAt));
+    // the previous page's close (no closing time) of a closed motion still passes, as before
+    await assertSucceeds(updateDoc(doc(leader(), "polls/m1"), { status: "closed", lockedGroups: { x: "1" } }));
+    a.setKnownPolls([]);
+  });
   it("back-dated closing or opening times are refused", async () => {
     await assertFails(updateDoc(doc(leader(), "polls/m1"), { status: "closed", closedAt: past(5000), closeOfOpenedAt: OPENED }));
     await assertFails(updateDoc(doc(leader(), "polls/d1"), { status: "open", openedAt: past(5000) }));

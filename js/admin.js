@@ -8,7 +8,7 @@ import {
   onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
-  setKnownPolls, tsMillis,
+  setKnownPolls, tsMillis, resultSaved,
 } from "./db.js";
 import { toast, icon, escapeHtml } from "./util.js";
 import { $, S, R } from "./admin-state.js";
@@ -287,6 +287,11 @@ async function closeFlow(id) {
   } catch (e) {
     clearTimeout(slowT); clearTimeout(stuckT);
     S.busy -= 1;
+    if (e && e.why === "closed") {
+      sheet.status("Could not close: it is already closed.");
+      sheet.hint(""); sheet.actions([["OK", () => sheet.close()]]);
+      return false;
+    }
     const why = classify(e) === "refused" ? await whyCloseRefused(id, seen.openedAt) : "no connection";
     sheet.status(`Could not close: ${why}${/[.]$/.test(why) ? "" : "."}`);
     sheet.hint("");
@@ -304,7 +309,15 @@ async function saveFlow(id) {
   S.saving.add(id); S.busy += 1;
   sheet.open("Saving the result", "Saving the result... Keep this page open.", IOS_HINT);
   try {
-    await withTimeout(saveResult(id), 20000);
+    const r = await withTimeout(saveResult(id), 20000);
+    // "Saved" only when a result really exists (another laptop may have saved
+    // it, or the motion may have been re-opened since).
+    if (r !== "saved" && !(await resultSaved(id))) {
+      sheet.status("Result not saved: the motion was re-opened or changed since it closed.");
+      sheet.hint("");
+      sheet.actions([["OK", () => sheet.close()]]);
+      return;
+    }
     sheet.close();
     toast("Motion closed. Result saved.");
   } catch (e) {

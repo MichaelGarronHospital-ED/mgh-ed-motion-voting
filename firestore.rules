@@ -144,6 +144,10 @@ service cloud.firestore {
         // a result only on a motion that was ALREADY closed, in its own write
         && (!('result' in a) || (b.get('status', '') == 'closed' && a.status == 'closed' && resultOk(a)))
         && timeOk(a, b, 'closedAt') && timeOk(a, b, 'openedAt')
+        // a motion is closed once: a second close (a new closing time) of a
+        // motion already closed is refused, so it can never move the frozen
+        // categories or the time its result is checked against
+        && !(b.get('status', '') == 'closed' && a.get('status', '') == 'closed' && ch.hasAny(['closedAt', 'closeOfOpenedAt']))
         && !(b.get('status', '') == 'closed' && a.get('status', '') != 'closed' && !isReopen(poll, ch))
         // a close must name the opening it closes, so a close queued offline
         // cannot land on a motion that was re-opened (or opened again) since;

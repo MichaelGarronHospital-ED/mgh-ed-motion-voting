@@ -365,6 +365,21 @@ class TestFailurePaths(Base):
         pg.wait_for_timeout(200)
         self.assertIn("Result saved at", pg.inner_text("#results-body"))
 
+    def test_save_says_saved_only_when_a_result_exists(self):
+        pg = self.admin()
+        seed_open(pg, ballots=h.GROUP1[:3])
+        pg.wait_for_timeout(300)
+        h.tab(pg, "results")
+        pg.evaluate("window.__store.stall('polls/p1/votes')")
+        pg.click("#r-close")
+        pg.wait_for_function("() => window.__store.get('polls/p1').status === 'closed'")
+        # another laptop re-opens it before this one has counted
+        h.seed(pg, "polls/p1", {**h.get(pg, "polls/p1"), "status": "open", "openedAt": h.ts(NOW + 1000)})
+        pg.evaluate("window.__store.release('polls/p1/votes')")
+        pg.wait_for_function("() => document.querySelector('#sheet-status').textContent.includes('Result not saved: the motion was re-opened')")
+        self.assertNotIn("Result saved", pg.inner_text("#toast"))
+        self.assertNotIn("result", h.get(pg, "polls/p1"))
+
     def test_leaving_while_saving_asks_first(self):
         pg = self.admin()
         seed_open(pg, ballots=h.GROUP1[:3])
