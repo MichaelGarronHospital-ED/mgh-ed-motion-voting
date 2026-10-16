@@ -15,7 +15,7 @@ Firestore > config has both documents, or the phones' Results tab shows results)
   leadership's console has been opened."
 - A result that is late to save is still counted once by the phone after 30 seconds.
 
-No rules change. Tests: 194 browser tests (fallback tests replaced), 117 rules tests
+No rules change. Tests: 198 browser tests (fallback tests replaced), 121 rules tests
 (the two fallback reads removed from the list of what phones read).
 
 ## Check-in, remote, vote receipts (voting upgrade step 7, Oct 2026)
