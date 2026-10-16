@@ -1,10 +1,11 @@
 import { ORG_NAME } from "./config.js";
-import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
+import { ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
 import {
   onPolls, onVotesFor, addPoll, updatePoll, trashPoll, restorePoll, purgePoll, openPoll, closePoll,
   clearVote, tally, setArchived, weightForVote, groupForVote, getVotesFor,
   onRosterOverrides, setPersonGroup, resolvedRoster, effectiveGroup,
   eligibleCount, quorumThreshold,
+  addPhysician, removePhysician, restorePhysician, removedRoster, rosterPerson, isRemoved,
   watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL, isWrongPassword,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar } from "./util.js";
@@ -78,8 +79,6 @@ function boot() {
   const url = location.origin + location.pathname.replace(/[^/]*$/, "") + "index.html";
   $("vote-url").textContent = url;
   $("copy-url").addEventListener("click", () => { navigator.clipboard.writeText(url); toast("Link copied."); });
-  $("roster-summary").textContent =
-    `${ROSTER.length} listed physicians · ${eligibleCount(null)} currently eligible · quorum = ${quorumThreshold(null)} (50% of eligible).`;
 
   $("add-motion").addEventListener("click", async () => {
     const text = $("new-motion").value.trim();
@@ -93,6 +92,7 @@ function boot() {
   // ---- roster summary (editable, persisted in Firestore) ----
   $("roster-filter").addEventListener("input", (e) => { rosterFilter = e.target.value; renderRosterTab(); });
   $("export-roster").addEventListener("click", exportRoster);
+  wireAddPhysician();
   $("export-all").addEventListener("click", () => { closeMenu(); exportAll(); });
   $("print-all").addEventListener("click", () => { closeMenu(); printAll(); });
   document.addEventListener("click", (e) => { if (!e.target.closest("#export-menu")) closeMenu(); });
@@ -444,8 +444,10 @@ function collectWriteins(votes) {
 function renderRosterTab() {
   // base roster (with current category overrides) + any write-ins who've voted,
   // so leadership can grant them a category too.
+  $("roster-summary").textContent =
+    `${resolvedRoster().length} listed physicians · ${eligibleCount(null)} currently eligible · quorum = ${quorumThreshold(null)} (50% of eligible).`;
   const writeins = Object.keys(knownWriteins)
-    .filter((slug) => !ROSTER_BY_SLUG[slug])
+    .filter((slug) => !ROSTER_BY_SLUG[slug] && !rosterPerson(slug) && !isRemoved(slug))
     .map((slug) => { const g = effectiveGroup(slug); return { name: knownWriteins[slug], slug, group: g, weight: WEIGHTS[g] !== undefined ? WEIGHTS[g] : 0, isWriteIn: true }; });
   const roster = resolvedRoster().concat(writeins);
   const g1 = roster.filter((p) => p.group === "1").length;
@@ -463,13 +465,51 @@ function renderRosterTab() {
       <td class="who">${escapeHtml(p.name)}${p.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
       <td class="cat">${uiCat(p.group)}</td>
       <td class="num">${fmt(p.weight)}</td>
-      <td class="act"><div class="ed-seg cat-seg" role="group" aria-label="Category for ${escapeHtml(p.name)}">${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</div></td>
+      <td class="act"><div class="row-act"><div class="ed-seg cat-seg" role="group" aria-label="Category for ${escapeHtml(p.name)}">${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</div>${p.isWriteIn ? "" : `<button type="button" class="ed-btn btn-quiet btn-sm" data-remove="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}" aria-label="Remove ${escapeHtml(p.name)} from the list">Remove</button>`}</div></td>
     </tr>`;
   }).join("");
   $("roster-table").innerHTML =
     `<thead><tr><th>Name</th><th>Category</th><th class="num">Points</th><th>Set category</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="ed-muted">No match.</td></tr>`}</tbody>`;
   $("roster-table").querySelectorAll("button[data-setgrp]").forEach((b) =>
     b.addEventListener("click", () => setPersonGroup(b.dataset.slug, b.dataset.setgrp).then(() => toast("Category updated."))));
+  $("roster-table").querySelectorAll("button[data-remove]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const live = activePoll ? " If they have voted on the open motion, that vote stops counting." : "";
+      if (!confirm(`Remove ${b.dataset.name} from the list? They can no longer pick their name to vote. Closed motions keep their results.${live} You can restore them below.`)) return;
+      removePhysician(b.dataset.remove).then(() => toast(`${b.dataset.name} removed.`), () => toast("Could not save. Check your connection and try again."));
+    }));
+  renderRemoved();
+}
+// Removed physicians, each with Restore (nothing is ever deleted).
+function renderRemoved() {
+  const gone = removedRoster();
+  $("removed-card").classList.toggle("hide", !gone.length);
+  $("removed-list").innerHTML = gone.map((p) => `<li><span>${escapeHtml(p.name)}</span><button type="button" class="ed-btn ed-btn-tinted btn-sm" data-restore="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}">Restore</button></li>`).join("");
+  $("removed-list").querySelectorAll("button[data-restore]").forEach((b) =>
+    b.addEventListener("click", () => restorePhysician(b.dataset.restore).then(() => toast(`${b.dataset.name} restored.`), () => toast("Could not save. Check your connection and try again."))));
+}
+// Add a physician: a name and a category. Same name as a removed physician
+// restores them; same name as someone listed changes nothing.
+function wireAddPhysician() {
+  let group = "1";
+  const seg = $("add-cat");
+  seg.querySelectorAll("button[data-grp]").forEach((b) => b.addEventListener("click", () => {
+    group = b.dataset.grp;
+    seg.querySelectorAll("button[data-grp]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  }));
+  $("add-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("add-name").value.trim().replace(/\s+/g, " ");
+    if (name.length < 3 || !/[a-z]/i.test(name)) { toast("Type the physician's full name."); return; }
+    const btn = $("add-go");
+    btn.disabled = true;
+    try {
+      const r = await addPhysician(name, group);
+      if (r === "exists") toast(`${name} is already on the list.`);
+      else { toast(r === "restored" ? `${name} restored.` : `${name} added.`); $("add-name").value = ""; }
+    } catch (err) { console.error(err); toast("Could not save. Check your connection and try again."); }
+    finally { btn.disabled = false; }
+  });
 }
 function exportRoster() {
   const lines = ["Name,Category,Points per vote"];
@@ -586,6 +626,6 @@ async function printAll() {
 
 // ----------------------------------------------------------------- category labels
 // catLabel feeds the CSV and Excel records: keep its words exactly as they are.
-function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":"\u2014 (uncategorized)";}
+function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":g==="removed"?"Removed":"\u2014 (uncategorized)";}
 function uiCat(g){return g==="1"||g==="2"||g==="courtesy"?catLabel(g):"Uncategorized";}   // on screen
 function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV

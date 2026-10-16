@@ -1,6 +1,6 @@
-import { ROSTER, ROSTER_BY_SLUG, slugify } from "./roster.js";
+import { slugify } from "./roster.js";
 import { ORG_NAME } from "./config.js";
-import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, watchMember, voterSignIn, isWrongPassword, quorumThreshold } from "./db.js";
+import { onPolls, onVotesFor, castVote, getSessionId, tally, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson, watchMember, voterSignIn, isWrongPassword, quorumThreshold } from "./db.js";
 import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar } from "./util.js";
 
 document.title = ORG_NAME;
@@ -23,8 +23,13 @@ function startData() {
   // a change, so a mid-meeting category fix shows up in the results a voter is
   // already looking at instead of waiting for the next unrelated render.
   // Not while the name picker is up: re-rendering it would wipe what they are
-  // part-way through typing.
-  onRosterOverrides(() => { if (me) render(); });
+  // part-way through typing, so only its name list is redrawn (a physician
+  // added or removed by leadership shows up straight away).
+  onRosterOverrides(() => {
+    if (me) { render(); return; }
+    const search = document.getElementById("search");
+    renderNames(search ? search.value : "");
+  });
   onPolls((p) => {
     polls = p;
     const open = polls.find((x) => x.status === "open" && !x.archived && !x.deleted) || null;
@@ -152,7 +157,7 @@ function renderNames(filter = "") {
   const el = document.getElementById("namelist");
   if (!el) return;
   const f = filter.trim().toLowerCase();
-  const list = ROSTER.filter((p) => p.name.toLowerCase().includes(f));
+  const list = currentRoster().filter((p) => p.name.toLowerCase().includes(f));
   el.innerHTML = list.length
     ? list.map((p) => `<li data-slug="${escapeHtml(p.slug)}" tabindex="0" role="option" aria-selected="false">${escapeHtml(p.name)}</li>`).join("")
     : `<li class="none" role="option" aria-disabled="true" aria-selected="false">No match. Use “My name isn't listed” below.</li>`;
@@ -167,7 +172,7 @@ function wirePicker() {
   });
   document.getElementById("namelist").addEventListener("click", (e) => {
     const li = e.target.closest("li[data-slug]"); if (!li) return;
-    const p = ROSTER_BY_SLUG[li.dataset.slug];
+    const p = rosterPerson(li.dataset.slug); if (!p) return;
     setVoter({ name: p.name, slug: p.slug, group: p.group, weight: p.weight, isWriteIn: false });
   });
   document.getElementById("writein-btn").addEventListener("click", (e) => {
@@ -179,8 +184,8 @@ function wirePicker() {
     const name = document.getElementById("writein").value.trim();
     if (name.length < 3) { toast("Please type your full name."); return; }
     const slug = slugify(name);
-    if (ROSTER_BY_SLUG[slug]) {
-      const p = ROSTER_BY_SLUG[slug];
+    const p = rosterPerson(slug);
+    if (p) {
       setVoter({ name: p.name, slug: p.slug, group: p.group, weight: p.weight, isWriteIn: false });
     } else {
       setVoter({ name, slug, group: "writein", weight: 0, isWriteIn: true });

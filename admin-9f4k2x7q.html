@@ -122,10 +122,31 @@
         </ul>
       </div>
       <div class="card stack">
+        <h2>Add a physician</h2>
+        <form id="add-form" class="stack">
+          <label class="ed-label" for="add-name">Full name
+            <input class="ed-field" id="add-name" type="text" placeholder="First Last" autocomplete="off" />
+          </label>
+          <div class="stack-sm">
+            <span class="ed-label" id="add-cat-label">Category</span>
+            <div class="ed-seg cat-seg" id="add-cat" role="group" aria-labelledby="add-cat-label">
+              <button type="button" data-grp="1" aria-pressed="true">Full</button><button type="button" data-grp="2" aria-pressed="false">Half</button><button type="button" data-grp="courtesy" aria-pressed="false">No vote</button>
+            </div>
+          </div>
+          <button id="add-go" type="submit" class="ed-btn ed-btn-filled">Add physician</button>
+          <p class="ed-hint">They appear in the voters' name list straight away. Closed motions keep their results.</p>
+        </form>
+      </div>
+      <div class="card stack">
         <label class="ed-label" for="roster-filter">Filter by name
           <input class="ed-field" id="roster-filter" type="search" placeholder="Type a name" autocomplete="off" />
         </label>
         <div class="tablebox"><table id="roster-table" class="ed-table"></table></div>
+      </div>
+      <div class="card stack hide" id="removed-card">
+        <h2>Removed</h2>
+        <p class="ed-hint">Not in the voters' name list and not counted toward quorum. Closed motions keep their results. Restore puts them back with the same category.</p>
+        <ul id="removed-list" class="removed-list"></ul>
       </div>
     </section>
   </div>

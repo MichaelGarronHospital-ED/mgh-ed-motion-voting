@@ -394,6 +394,117 @@ class TestLeadershipActions(Base):
         self.assertIn("1 pts", pg.inner_text("#results-body"))
 
 
+
+class TestAddRemovePhysicians(Base):
+    """Leadership adds and removes physicians in the console. Removing hides,
+    never deletes, and no closed motion's result may move."""
+
+    def add(self, pg, name, grp="1"):
+        h.tab(pg, "roster")
+        pg.fill("#add-name", name)
+        pg.click(f'#add-cat button[data-grp="{grp}"]')
+        pg.click("#add-go")
+        pg.wait_for_timeout(300)
+
+    def remove(self, pg, name):
+        h.tab(pg, "roster")
+        pg.fill("#roster-filter", name)
+        pg.wait_for_timeout(150)
+        pg.once("dialog", lambda d: d.accept())
+        pg.click(f'#roster-table button[data-remove="{h.slugify(name)}"]')
+        pg.wait_for_timeout(400)
+        pg.fill("#roster-filter", "")
+
+    def test_adding_a_physician_lists_them_with_their_category(self):
+        pg = self.admin()
+        self.add(pg, "  Zed   Newdoc ", "2")
+        cfg = h.get(pg, "config/roster")
+        self.assertEqual(cfg["added"]["zed-newdoc"], {"name": "Zed Newdoc"})
+        self.assertEqual(cfg["groups"]["zed-newdoc"], "2")
+        pg.fill("#roster-filter", "Zed")
+        pg.wait_for_timeout(150)
+        self.assertIn("Half vote", pg.inner_text("#roster-table"))
+        self.assertIn(f"{h.ELIGIBLE + 1} currently eligible", pg.inner_text("#roster-summary"))
+        # the same name again changes nothing
+        self.add(pg, "Zed Newdoc", "1")
+        self.assertEqual(h.get(pg, "config/roster")["groups"]["zed-newdoc"], "2")
+
+    def test_remove_then_restore(self):
+        pg = self.admin()
+        name = h.GROUP1[0]
+        self.remove(pg, name)
+        self.assertTrue(h.get(pg, "config/roster")["removed"][h.slugify(name)])
+        self.assertIn(f"{h.ELIGIBLE - 1} currently eligible", pg.inner_text("#roster-summary"))
+        pg.fill("#roster-filter", name)
+        pg.wait_for_timeout(150)
+        self.assertIn("No match", pg.inner_text("#roster-table"))
+        self.assertIn(name, pg.inner_text("#removed-list"))
+        pg.click(f'#removed-list button[data-restore="{h.slugify(name)}"]')
+        pg.wait_for_timeout(300)
+        self.assertFalse(h.get(pg, "config/roster")["removed"][h.slugify(name)])
+        self.assertIn(f"{h.ELIGIBLE} currently eligible", pg.inner_text("#roster-summary"))
+        self.assertTrue(pg.is_hidden("#removed-card"))
+
+    def test_voters_see_added_names_and_not_removed_ones(self):
+        pg = self.voter()
+        gone = h.GROUP1[0]
+        pg.evaluate("""([gone]) => window.__store.set('config/roster', {
+            added: { 'zed-newdoc': { name: 'Zed Newdoc' } }, groups: { 'zed-newdoc': '1' },
+            removed: { [gone]: true } })""", [h.slugify(gone)])
+        pg.wait_for_timeout(200)
+        pg.fill("#search", "Zed")
+        self.assertIn("Zed Newdoc", pg.inner_text("#namelist"))
+        pg.fill("#search", gone.split()[0])
+        self.assertIsNone(pg.query_selector(f'#namelist li[data-slug="{h.slugify(gone)}"]'))
+        h.pick_voter(pg, "Zed Newdoc")
+        pg.wait_for_selector(".tabs")
+
+    def test_removing_never_changes_a_motion_closed_before_freezing_existed(self):
+        """An old closed motion with no frozen categories gets a frozen copy
+        BEFORE the list changes, so its result stays exactly as it was."""
+        pg = self.admin()
+        h.seed_poll(pg, status="closed", vote_count=26)          # no lockedGroups
+        h.seed_ballots(pg, "p1", h.GROUP1[:24], choice="favour")
+        h.seed_ballots(pg, "p1", h.GROUP1[24:26], choice="against")
+        h.tab(pg, "results")
+        pg.wait_for_timeout(300)
+        before = pg.inner_text("#results-body")
+        self.assertIn("24 pts", before)
+        self.remove(pg, h.GROUP1[0])
+        self.add(pg, "Zed Newdoc", "1")
+        locked = h.get(pg, "polls/p1")["lockedGroups"]
+        self.assertEqual(locked[h.slugify(h.GROUP1[0])], "1")
+        self.assertNotIn("zed-newdoc", locked)
+        h.tab(pg, "results")
+        pg.wait_for_timeout(300)
+        self.assertEqual(pg.inner_text("#results-body"), before)
+
+    def test_removing_never_changes_a_frozen_closed_motion(self):
+        pg = self.admin()
+        h.seed_poll(pg, vote_count=1)
+        h.seed_ballots(pg, "p1", [h.GROUP1[0]], choice="favour")
+        pg.wait_for_timeout(250)
+        h.tab(pg, "motions")
+        pg.click('#motion-list button[data-act="close"]')
+        pg.wait_for_timeout(400)
+        h.tab(pg, "results")
+        pg.wait_for_timeout(300)
+        before = pg.inner_text("#results-body")
+        self.remove(pg, h.GROUP1[0])
+        h.tab(pg, "results")
+        pg.wait_for_timeout(300)
+        self.assertEqual(pg.inner_text("#results-body"), before)
+        self.assertIn("1 pts", before)
+
+    def test_a_removed_physicians_vote_on_the_open_motion_stops_counting(self):
+        pg = self.admin()
+        h.seed_poll(pg, vote_count=1)
+        h.seed_ballots(pg, "p1", [h.GROUP1[0]], choice="favour")
+        self.remove(pg, h.GROUP1[0])
+        h.tab(pg, "results")
+        pg.wait_for_timeout(300)
+        self.assertIn("0 pts", pg.inner_text("#results-body"))
+
 class TestSignIn(Base):
     """One sign-in is shared by every tab of the site, so the voter page must
     never replace a leadership session, otherwise the console in the next tab

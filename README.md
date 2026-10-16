@@ -53,8 +53,12 @@ Edit [`js/config.js`](js/config.js):
 - Passwords are not in this file: see "Sign-in" below.
 - (Quorum is automatic — 50% of eligible voters — nothing to configure.)
 
-Edit [`js/roster.js`](js/roster.js): move each name into **GROUP1 / GROUP2 / COURTESY**.
-(Everyone starts in GROUP1 = 1 point. Provisional / <8 shifts / secondary-site → GROUP2. Courtesy → COURTESY.)
+The starting list of physicians is in [`js/roster.js`](js/roster.js) (**GROUP1 / GROUP2 / COURTESY**).
+Day to day, leadership changes the list in the console instead, with no code change:
+**Physicians** tab → **Add a physician** (name and category), **Remove** on a row, or
+**Restore** under Removed. A category button changes someone's category. These changes
+are saved in Firebase and reach every phone straight away. Removing never deletes
+anything, and closed motions always keep their results.
 
 ### 3. Publish on GitHub Pages
 Pages is already enabled (`main` / root), so a `git push` to `main` deploys it.

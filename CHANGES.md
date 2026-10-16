@@ -4,6 +4,20 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Leadership can add, remove and restore physicians (Oct 16 2026)
+
+The Physicians tab now has **Add a physician** (name and category), **Remove** on each
+row, and a **Removed** list with **Restore**. Changes are saved in Firebase
+(`config/roster`) and reach every voter's name list straight away; no code change.
+
+- **Past results never change.** Closed motions already froze everyone's category when
+  they closed. Motions closed before that existed now get the same frozen copy just
+  before any change to the list, so their results stay exactly as they are.
+- **Removing hides, never deletes.** A removed physician leaves the name list and stops
+  counting toward quorum. A vote they already cast on the open motion stops counting
+  (the console warns first). Restore brings them back with the same category.
+- Adding a name that is already listed changes nothing; adding a removed name restores it.
+
 ## Security fixes: safe console, stricter ballots, no open rollback (Oct 16 2026)
 
 A security review found five things. All fixed; nothing changes for a voter except one
