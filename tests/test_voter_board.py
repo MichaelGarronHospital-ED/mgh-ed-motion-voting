@@ -145,6 +145,17 @@ class TestVoterBoard(Base):
         self.assertIn("Reason for the re-vote: Two ballots were cast under the wrong name.", text)
         self.assertIn("Re-opened once. Earlier count: Passed (21.5 to 6 points).", text)
 
+    def test_keyboard_focus_stays_on_the_tile_after_voting(self):
+        pg = self.voter()
+        seed_open(pg, ballots=[])
+        build_board(pg)
+        h.pick_voter(pg, h.GROUP1[1])
+        pg.focus('button[data-c="against"]')
+        pg.keyboard.press("Enter")
+        pg.wait_for_selector(".vote[aria-pressed='true']")
+        pg.wait_for_timeout(200)
+        self.assertEqual(pg.evaluate("document.activeElement.dataset.c"), "against")
+
     def test_vote_offline_is_not_shown_as_chosen(self):
         pg = self.voter()
         seed_open(pg, ballots=[])
@@ -351,6 +362,26 @@ class TestConsoleBoard(Base):
         entry = self.live(pg)["results"]["p1"]
         self.assertIsNotNone(entry["closedAt"])
         self.assertIsNotNone(entry["result"])
+
+    def test_reopen_of_the_latest_never_shows_the_banner(self):
+        """Re-open of the motion closed last: lastClosedId goes to the next latest
+        closed motion by the board's own rule (here one from an earlier day)."""
+        def seed(pg):
+            seed_closed_saved(pg, "y0", NOW - 2 * 86400000, text="Yesterday", order=0)
+            seed_closed_saved(pg, "x0", NOW - 60000, text="Today", order=1)
+        pg = self.console(seed, clock=True)
+        self.assertEqual(self.live(pg)["lastClosedId"], "x0")
+        h.tab(pg, "results")
+        pg.select_option("#results-selector select", "x0")
+        pg.wait_for_timeout(200)
+        pg.click("#r-open")
+        pg.fill("#reopen-reason", "Closed early by mistake.")
+        pg.click("#reopen-go")
+        pg.wait_for_function("() => window.__store.get('polls/x0').status === 'open'")
+        self.assertEqual(self.live(pg)["lastClosedId"], "y0")
+        pg.clock.fast_forward(15000)
+        pg.wait_for_timeout(300)
+        self.assertNotIn("out of date", pg.inner_text("#banners"))
 
     def test_late_close_never_clears_another_motions_open(self):
         pg = self.console(lambda pg: seed_open(pg, "x1", ballots=h.GROUP1[:3]))

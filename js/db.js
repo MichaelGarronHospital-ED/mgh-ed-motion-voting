@@ -767,12 +767,19 @@ export async function reopenMotion(pollId, reason) {
       .map((x) => (x.id !== pollId && x.status === "open" ? { ...x, status: "draft" } : x)));
     const ops = [[["open"], sim.open && sim.open.id === pollId ? sim.open : null]];
     if (cur.results && cur.results[pollId]) ops.push([["results", pollId], undefined]);
-    if (cur.lastClosedId === pollId) {
-      let last = null;
-      Object.entries(cur.results || {}).forEach(([id, e]) => {
-        if (id !== pollId && (last === null || (tsMillis(e.closedAt) || 0) > (tsMillis(cur.results[last].closedAt) || 0))) last = id;
-      });
+    // The latest closed motion, by the same rule the board is built with (it
+    // may be one no longer on the board, from an earlier day).
+    const last = sim.lastClosedId === undefined ? null : sim.lastClosedId;
+    if ((cur.lastClosedId === undefined ? null : cur.lastClosedId) !== last) {
       ops.push([["lastClosedId"], last]);
+      // Without meetings the board shows the latest day: when the motion that
+      // closed last re-opens, an earlier day's motions come back. Only entries
+      // the board lacks are added; entries already there are never touched.
+      if (!cur.meeting) {
+        Object.entries(sim.results || {}).forEach(([id, e]) => {
+          if (id !== pollId && !(cur.results && cur.results[id])) ops.push([["results", id], e]);
+        });
+      }
     }
     writeOps(tx, ops);
     return "reopened";

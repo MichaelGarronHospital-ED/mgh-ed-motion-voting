@@ -72,7 +72,8 @@ class TestConsoleListeners(Base):
 
 
 # Step 1: motions, the open motion's ballots, the roster and the settings.
-EXPECTED_CONSOLE = ["polls", "polls/p1/votes", "config/roster", "config/settings"]
+# Step 2: + the voters' board and past results.
+EXPECTED_CONSOLE = ["polls", "polls/p1/votes", "config/roster", "config/settings", "config/live", "config/history"]
 
 
 if __name__ == "__main__":

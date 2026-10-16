@@ -120,8 +120,17 @@ function render() {
   const conn = (boardFromCache || boardSlow) && board !== undefined
     ? `<p class="notice" role="status">${icon("alert", 20)}<span>No connection. Voting will work again when it reconnects. This screen may be out of date.</span></p>` : "";
   const body = voterTab === "vote" ? `<div class="card stack">${voteBody()}</div>` : resultsBody();
+  // A redraw keeps keyboard focus on the same control (a vote tile, an
+  // option, a tab or any button with an id), so voting by keyboard works.
+  const f = document.activeElement;
+  const key = f && app.contains(f) ? ["data-c", "data-pick", "data-vtab", "data-check", "data-ci", "id"].find((a) => f.hasAttribute(a)) : null;
+  const val = key ? f.getAttribute(key) : null;
   app.innerHTML = shell(conn + tabs + body);
   wireVoter();
+  if (key) {
+    const again = app.querySelector(`[${key}="${CSS.escape(val)}"]`);
+    if (again) again.focus();
+  }
 }
 
 function shell(inner) {

@@ -33,7 +33,11 @@ to about 6,700.
 step-1 page works the same with them). Until the first leadership sign-in creates the
 board, phones fall back to reading the open motion directly.
 
-Tests: 109 browser tests (29 new), 67 rules tests (15 new, including the real close,
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console tab (an open step-1 console does not keep the voters' board up to date).
+Voting with a keyboard keeps its place after each tap.
+
+Tests: 115 browser tests (31 new), 67 rules tests (15 new, including the real close,
 save, re-open, re-vote and history code writing the board in the emulator).
 
 ## Results are saved when a motion closes (voting upgrade step 1, Oct 2026)
