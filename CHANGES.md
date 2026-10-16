@@ -4,6 +4,34 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Meetings and agendas (voting upgrade step 4, Oct 2026)
+
+- **The Share tab is now Meeting.** Add a meeting (title and date), its chair and
+  notes; **Start meeting** and **End meeting** (ending closes any open motion and saves
+  its result first). Voters see the meeting's name, and its results under Results.
+  **Download this meeting (Excel)** has five sheets: Meeting, Motions, Ballots,
+  Attendance (who voted) and Changes; **Print this meeting** prints minutes without
+  names. A meeting can go to the Trash and from there be deleted permanently (its
+  motions and ballots too; the change history keeps a record of each result).
+- **Agendas:** motions are numbered 1, 2, 2a, 2a.1; **Up** and **Down** reorder them
+  (amendments move with their motion); **Add amendment** (two levels at most);
+  **Paste an agenda** with a preview; **Details** for mover, seconder and notes, with the
+  opening and closing times. Warnings before opening a motion whose amendment has not
+  been voted, or an amendment whose motion already was. Voters see "Motion 2a" and, for
+  an amendment, the wording of the motion it changes.
+- Motions made before meetings are listed under "Earlier motions" and can be moved
+  into a meeting (a result never changes when it moves).
+- A re-vote of a motion from a meeting that has ended goes to the open meeting.
+
+**Publish the rules before merging this page** (they add meetings, and let leadership
+delete change-history entries only after the retention period, never under 7 years).
+With the old rules this page says "needs a database update" and keeps Open and Close
+off; voting itself is unaffected. **Once a meeting exists, never roll back to an earlier
+page** (it would list motions out of order).
+
+Tests: 153 browser tests (22 new), 88 rules tests (16 new, including the real meeting
+code and calendar-year retention with Feb 29).
+
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)
 
 - **Settings → Voting rules:** points per vote for Full, Half and No vote (0 to 1), the

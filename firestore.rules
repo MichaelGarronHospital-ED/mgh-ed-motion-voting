@@ -206,10 +206,35 @@ service cloud.firestore {
         && (!('pollId' in d) || (d.pollId is string && d.pollId.size() <= 100))
         && (!('meetingId' in d) || (d.meetingId is string && d.meetingId.size() <= 100));
     }
+    // Seven years is a floor, whatever the settings document holds (or if it
+    // is missing): a page from before the settings rules could have stored less.
+    function retentionYears() {
+      return exists(/databases/$(database)/documents/config/settings)
+        ? get(/databases/$(database)/documents/config/settings).data.get('retentionYears', 7)
+        : 7;
+    }
+    function keepYears() { return retentionYears() is int && retentionYears() >= 7 ? retentionYears() : 7; }
+    // The same calendar date N years later (UTC); Feb 29 maps to Mar 1.
+    function anniversary(t, n) {
+      return (t.month() == 2 && t.day() == 29)
+        ? timestamp.date(t.year() + n, 3, 1)
+        : timestamp.date(t.year() + n, t.month(), t.day());
+    }
     match /log/{id} {
       allow read: if isLeader();
       allow create: if isLeader() && logOk(request.resource.data);
-      allow update, delete: if false;
+      allow update: if false;
+      // deletable only after N full calendar years: from the day after the Nth anniversary (R4)
+      allow delete: if isLeader() && resource.data.at is timestamp
+        && request.time >= anniversary(resource.data.at, keepYears()) + duration.value(1, 'd');
+    }
+
+    // ---- meetings (R4) ----------------------------------------------------------
+    function meetingPath(m) { return /databases/$(database)/documents/meetings/$(m); }
+    match /meetings/{m} {
+      allow read: if signedIn();
+      allow create, update: if isLeader();
+      allow delete: if isLeader() && resource.data.get('deleted', false) == true;   // Trash only
     }
 
     // ---- settings (R3): the voting rules, checked here as well as on screen ----

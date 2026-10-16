@@ -7,7 +7,7 @@
 //  Both are built from the motions alone (never from a laptop's selections or
 //  roster names), so two consoles always build the same board.
 // ============================================================================
-import { sortMotions, tsMillis, localDate } from "./count.js";
+import { sortMotions, tsMillis, localDate, agendaOrder } from "./count.js";
 
 const SIZE_CAP = 600000;   // characters of JSON; Firestore's limit is 1 MiB per document
 
@@ -38,17 +38,19 @@ function priorOutcome(p) {
   return { outcome: r.outcome, weight: { favour: r.weight.favour, against: r.weight.against },
     rule: { threshold: (r.rule && r.rule.threshold) || "majority", tieRule: (r.rule && r.rule.tieRule) || "tie" } };
 }
-export function openEntry(p) {
-  return {
-    id: p.id, number: n(p.number), text: p.text, kind: p.kind || "motion", threshold: p.threshold || "majority",
+export function openEntry(p, number, main) {
+  const e = {
+    id: p.id, number: n(number !== undefined ? number : p.number), text: p.text, kind: p.kind || "motion", threshold: p.threshold || "majority",
     rule: n(p.rule), revoteOf: n(p.revoteOf), revoteReason: n(p.revoteReason), round: p.round || 1,
   };
+  if (main) { e.amendsNumber = n(main.number); e.amendsText = String(main.text || "").slice(0, 2000); }
+  return e;
 }
-export function resultEntry(p, pos, closedAt) {
+export function resultEntry(p, pos, number) {
   return {
-    pos, number: n(p.number), text: p.text, kind: p.kind || "motion", threshold: p.threshold || "majority",
+    pos, number: n(number !== undefined ? number : p.number), text: p.text, kind: p.kind || "motion", threshold: p.threshold || "majority",
     result: p.status === "closed" && p.result ? p.result : null,
-    closedAt: closedAt !== undefined ? closedAt : n(p.closedAt),
+    closedAt: n(p.closedAt),
     revoteOf: n(p.revoteOf), revoteReason: n(p.revoteReason), supersededBy: n(p.supersededBy),
     reopenCount: p.reopenCount || 0, priorOutcome: priorOutcome(p),
   };
@@ -61,18 +63,61 @@ function closedMs(p, opts) {
   return tsMillis(p.closedAt);
 }
 
-// The board. Without meetings: results = the closed, visible motions that
-// closed on the same day as the latest one (older ones are in history).
+const visibleMeeting = (m) => m && !m.archived && !m.deleted;
+// The meeting voters see: the open one; else the one that ended last.
+// Archived and trashed meetings never qualify.
+export function boardMeeting(meetings) {
+  const ms = (meetings || []).filter(visibleMeeting);
+  const open = ms.find((m) => m.status === "open");
+  if (open) return open;
+  let best = null;
+  ms.filter((m) => m.status === "closed" && tsMillis(m.endedAt) !== null).forEach((m) => {
+    if (!best || tsMillis(m.endedAt) > tsMillis(best.endedAt)) best = m;
+  });
+  return best;
+}
+// Agenda numbers of every motion, per meeting.
+function numbersFor(polls) {
+  const byMeeting = {};
+  polls.forEach((p) => { if (p.meetingId) (byMeeting[p.meetingId] = byMeeting[p.meetingId] || []).push(p); });
+  const nums = {}, rows = {};
+  Object.values(byMeeting).forEach((list) => agendaOrder(list).forEach((r, i) => { nums[r.poll.id] = r.number; rows[r.poll.id] = i; }));
+  return { nums, rows };
+}
+
+// The board. With meetings: that meeting's closed motions, by agenda position.
+// Without any meeting (motions made before meetings existed): the closed
+// motions that closed on the same day as the latest one (older ones are in
+// history). opts.justClosed: a motion being closed right now (time: opts.now).
 export function buildBoard(polls, meetings, opts = {}) {
+  const ms = meetings || [];
+  const { nums, rows } = numbersFor(polls);
+  const byId = Object.fromEntries(polls.map((p) => [p.id, p]));
   const open = polls.find((p) => p.status === "open" && visible(p)) || null;
+  const m = boardMeeting(ms);
   const closed = polls.filter((p) => p.status === "closed" && visible(p) && closedMs(p, opts) !== null);
   let latest = null;
   closed.forEach((p) => { if (latest === null || closedMs(p, opts) > closedMs(latest, opts)) latest = p; });
-  const day = latest ? localDate(closedMs(latest, opts)) : null;
-  const onBoard = sortMotions(closed.filter((p) => localDate(closedMs(p, opts)) === day));
+  let onBoard;
+  if (m) {
+    onBoard = polls.filter((p) => p.status === "closed" && visible(p) && p.meetingId === m.id)
+      .sort((a, b) => (rows[a.id] ?? 0) - (rows[b.id] ?? 0));
+  } else {
+    const pool = closed.filter((p) => !ms.length || !p.meetingId);
+    let last = null;
+    pool.forEach((p) => { if (last === null || closedMs(p, opts) > closedMs(last, opts)) last = p; });
+    const day = last ? localDate(closedMs(last, opts)) : null;
+    onBoard = sortMotions(pool.filter((p) => localDate(closedMs(p, opts)) === day));
+  }
   const results = {};
-  onBoard.forEach((p, i) => { results[p.id] = resultEntry(p, i); });
-  const board = { v: 2, meeting: null, open: open ? openEntry(open) : null, results, lastClosedId: latest ? latest.id : null };
+  onBoard.forEach((p, i) => { results[p.id] = resultEntry(p, i, nums[p.id]); });
+  const main = open && open.amends && byId[open.amends] ? { number: nums[open.amends] ?? byId[open.amends].number, text: byId[open.amends].text } : null;
+  const board = {
+    v: 2,
+    meeting: m ? { id: m.id, title: m.title || "", date: m.date || "", status: m.status || "planned", checkIn: m.checkIn === true } : null,
+    open: open ? openEntry(open, nums[open.id], main) : null,
+    results, lastClosedId: latest ? latest.id : null,
+  };
   // Size guard: drop the earliest entries past the cap (they are in history).
   let ids = Object.keys(results).sort((a, b) => results[a].pos - results[b].pos);
   while (ids.length && JSON.stringify(board).length > SIZE_CAP) { delete results[ids.shift()]; }
@@ -84,6 +129,8 @@ export function buildBoard(polls, meetings, opts = {}) {
 // confirmed (no pending times), so the array never carries a placeholder.
 export function buildHistory(polls, meetings, board) {
   const onBoard = new Set(Object.keys((board && board.results) || {}));
+  const mById = Object.fromEntries((meetings || []).map((m) => [m.id, m]));
+  const { nums } = numbersFor(polls);
   const list = polls.filter((p) => p.status === "closed" && visible(p) && p.result && !onBoard.has(p.id));
   const t = (p) => tsMillis(p.closedAt) ?? tsMillis(p.createdAt) ?? 0;
   list.sort((a, b) => t(b) - t(a) || String(a.id).localeCompare(String(b.id)));
@@ -91,8 +138,10 @@ export function buildHistory(polls, meetings, board) {
   let size = 60, truncated = false;
   for (const p of list) {
     const e = {
-      id: p.id, meetingId: null, meetingTitle: null, meetingDate: localDate(t(p)) || null,
-      number: n(p.number), text: String(p.text || "").slice(0, 500), kind: p.kind || "motion",
+      id: p.id, meetingId: n(p.meetingId && mById[p.meetingId] ? p.meetingId : null),
+      meetingTitle: p.meetingId && mById[p.meetingId] ? mById[p.meetingId].title || "" : null,
+      meetingDate: (p.meetingId && mById[p.meetingId] && mById[p.meetingId].date) || localDate(t(p)) || null,
+      number: n(nums[p.id] !== undefined ? nums[p.id] : p.number), text: String(p.text || "").slice(0, 500), kind: p.kind || "motion",
       result: p.result, revoteOf: n(p.revoteOf), revoteReason: n(p.revoteReason), supersededBy: n(p.supersededBy),
       reopenCount: p.reopenCount || 0, priorOutcome: priorOutcome(p),
     };

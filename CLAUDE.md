@@ -64,7 +64,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   boards (pure).
 - `js/vote.js` → the voter page. The console is `js/admin.js` (sign-in, tabs, listeners)
   plus one module per tab: `admin-motions.js`, `admin-results.js` (Results and Voters),
-  `admin-roster.js` (Physicians), `records.js` (Excel and print), `admin-settings.js`
+  `admin-roster.js` (Physicians), `records.js` (Excel and print, all or one meeting),
+  `admin-meeting.js` (the Meeting tab), `admin-settings.js`
   (the Settings view: your name for the change history, the change history). They share state and
   redraw each other only through `admin-state.js`, so no module imports another.
   `js/util.js` → helpers shared by both pages.
@@ -117,6 +118,14 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Re-vote** is the normal way to contest a saved result: a draft copy linked both
   ways (`revoteOf`, `supersededBy`), with a reason voters see. Re-open is for "closed by
   mistake".
+- **Meetings** (`meetings/{id}`: title, date as local text YYYY-MM-DD, planned / open /
+  closed, chair, notes). Motions carry `meetingId`; agenda numbers (1, 2, 2a, 2a.1) come
+  from `order` and `amends` (`count.js agendaOrder`) and are saved as `number` when a
+  motion opens. The board shows the open meeting, else the one that ended last (never a
+  trashed or archived one). One meeting open at a time; End meeting closes the open
+  motion with its result first. "Delete meeting permanently" works only from the Trash:
+  motions first, the meeting last, so running it again finishes a half-done delete.
+  Motions made before meetings stay under "Earlier motions" and can be moved in.
 - **The console waits for its data (the load gate).** Nothing that saves a result, and no
   Open or Close, runs until roster, settings and motions have each arrived from the
   server. Every wait has a plain message for refused, offline and timeout (no bare

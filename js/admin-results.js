@@ -266,6 +266,7 @@ const ACTION_WORDS = {
   writein: "Write-in reviewed", meeting: "Meeting changed", attendance: "Attendance changed",
   "history-purge": "Old history deleted",
 };
+R.logAction = (a) => ACTION_WORDS[a] || a;
 export function logLine(e) {
   const ms = tsMillis(e.at);
   const when = ms === null ? "" : new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
