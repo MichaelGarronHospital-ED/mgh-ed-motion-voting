@@ -266,8 +266,15 @@ export async function endMeeting(id) {
   await meetingWrite(id, { status: "closed", endedAt: serverTimestamp() }, `Meeting ended: ${m.title || ""}`);
 }
 // Trash = hidden from the console's lists and never shown to voters; restorable.
+// A meeting with an open motion stays put: close the motion first.
+function refuseIfOpen(id) {
+  if (knownPolls.some((p) => p.meetingId === id && p.status === "open" && !p.deleted)) {
+    throw Object.assign(new Error("a motion is open"), { code: "failed-precondition", why: "open" });
+  }
+}
 export async function setMeetingDeleted(id, deleted) {
   const m = knownMeetings.find((x) => x.id === id) || {};
+  if (deleted) refuseIfOpen(id);
   await meetingWrite(id, { deleted }, `${deleted ? "Meeting moved to Trash" : "Meeting restored"}: ${m.title || ""}`);
 }
 // Delete a trashed meeting permanently: its motions first (each through
@@ -277,8 +284,9 @@ export async function setMeetingDeleted(id, deleted) {
 // retention period ends.
 export async function purgeMeeting(id) {
   const m = knownMeetings.find((x) => x.id === id) || {};
+  refuseIfOpen(id);
   for (const p of knownPolls.filter((x) => x.meetingId === id)) {
-    if (!p.deleted) await updateDoc(pollRef(p.id), { deleted: true });
+    if (!p.deleted) await trashPoll(p.id);       // the board and the change history hear of it
     await purgePoll(p.id);
   }
   const b = writeBatch(db);

@@ -121,3 +121,18 @@ describe("Delete history older than 7 years (the real page code)", () => {
     assert.ok(logs.some((e) => e.action === "history-purge"));
   });
 });
+
+describe("meeting delete with an open motion (the real page code)", () => {
+  it("is refused before anything is written", async () => {
+    await seed("polls/p1", { text: "Open", order: 0, status: "open", voteCount: 0, meetingId: "m1", archived: false, deleted: false });
+    const a = await app();
+    as(leader());
+    a.setKnownPolls([{ id: "p1", ...(await readRaw("polls/p1")) }]);
+    a.setKnownMeetings([{ id: "m1", ...(await readRaw("meetings/m1")) }]);
+    await assert.rejects(a.setMeetingDeleted("m1", true), (e) => e.why === "open");
+    await assert.rejects(a.purgeMeeting("m1"), (e) => e.why === "open");
+    assert.equal((await readRaw("meetings/m1")).deleted, false);
+    assert.ok(await readRaw("polls/p1"));
+    a.setKnownPolls([]); a.setKnownMeetings([]);
+  });
+});

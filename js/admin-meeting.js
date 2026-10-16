@@ -94,7 +94,10 @@ export function renderMeeting() {
   if (tb) tb.addEventListener("click", async () => {
     if (!confirm(`Move ${meetingLabel(m)} to Trash? It is hidden from voters and from your lists. You can restore it, or delete it permanently, from the Trash below.`)) return;
     try { await setMeetingDeleted(m.id, true); S.meetingId = null; toast("Meeting moved to Trash."); renderAll(); }
-    catch (err) { R.actionFailed(err, "Not allowed: the database refused the change."); }
+    catch (err) {
+      if (err && err.why === "open") toast("Close the open motion first.");
+      else R.actionFailed(err, "Not allowed: the database refused the change.");
+    }
   });
   renderMeetingTrash();
 }
@@ -116,7 +119,11 @@ function renderMeetingTrash() {
     if (!confirm(`Delete ${meetingLabel(m)} permanently? This deletes the meeting and its ${n} motion${n === 1 ? "" : "s"} with their ballots. The change history keeps a record of each result. This cannot be undone.`)) return;
     b.disabled = true;
     try { await purgeMeeting(m.id); toast("Meeting deleted permanently."); }
-    catch (e) { b.disabled = false; R.actionFailed(e, "Not allowed: only a meeting in the Trash can be deleted permanently."); }
+    catch (e) {
+      b.disabled = false;
+      if (e && e.why === "open") toast("Close the open motion first.");
+      else R.actionFailed(e, "Not allowed: only a meeting in the Trash can be deleted permanently.");
+    }
   }));
 }
 

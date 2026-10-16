@@ -31,7 +31,7 @@ With the old rules this page says "needs a database update" and keeps Open and C
 off; voting itself is unaffected. **Once a meeting exists, never roll back to an earlier
 page** (it would list motions out of order).
 
-Tests: 154 browser tests (23 new), 89 rules tests (17 new, including the real meeting
+Tests: 157 browser tests (25 new), 93 rules tests (18 new, including the real meeting
 code and calendar-year retention with Feb 29).
 
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)

@@ -164,6 +164,31 @@ class TestMeetings(Console):
         self.assertEqual(len(purges), 3)                       # two motions and the meeting
         self.assertTrue(any("TEST, please ignore" in p.get("text", "") for p in purges))
 
+    def test_meeting_with_an_open_motion_cannot_be_trashed_or_deleted(self):
+        def seed(pg):
+            seed_meeting(pg, status="closed", endedAt=h.ts(NOW - 1000))
+            seed_open(pg, ballots=[], meetingId="m1")
+        pg = self.console(seed)
+        h.tab(pg, "meeting")
+        pg.evaluate("window.confirm = () => true")
+        pg.click("#meeting-trash-btn")
+        pg.wait_for_selector("text=Close the open motion first.")
+        self.assertFalse(h.get(pg, "meetings/m1")["deleted"])
+        r = pg.evaluate("async () => { const m = await import('./js/db.js'); try { await m.purgeMeeting('m1'); return 'deleted'; } catch (e) { return e.why; } }")
+        self.assertEqual(r, "open")
+        self.assertIsNotNone(h.get(pg, "polls/p1"))
+
+    def test_meeting_purge_trashes_motions_with_board_and_log(self):
+        def seed(pg):
+            seed_meeting(pg, status="closed", endedAt=h.ts(NOW - 1000), deleted=True)
+            seed_closed_saved(pg, "c1", NOW - 60000, meetingId="m1")
+        pg = self.console(seed)
+        h.tab(pg, "meeting")
+        pg.evaluate("window.confirm = () => true")
+        pg.click("#meeting-trash [data-m-purge]")
+        pg.wait_for_function("() => window.__store.get('meetings/m1') === null")
+        self.assertIn("trash", [l["action"] for l in self.logs(pg)])
+
     def test_meeting_export_has_five_sheets_and_saved_results(self):
         def seed(pg):
             seed_meeting(pg, chair="Kyle Vojdani")
