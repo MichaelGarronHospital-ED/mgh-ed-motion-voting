@@ -3,6 +3,7 @@
 // name for the change history, and the change history itself.
 import {
   getLogPage, setLogName, classify, rulesNeedUpdate, DB_UPDATE_MSG, currentSettings, saveSettings, DEFAULT_RULE,
+  keepYears, purgeOldHistory,
 } from "./db.js";
 import { escapeHtml, toast } from "./util.js";
 import { $, R } from "./admin-state.js";
@@ -21,6 +22,14 @@ export function wireSettings() {
   $("history-load").addEventListener("click", () => loadHistory(false));
   $("history-more").addEventListener("click", () => loadHistory(true));
   $("rules-form").addEventListener("submit", (e) => { e.preventDefault(); saveRules(); });
+  $("history-purge").addEventListener("click", async () => {
+    const n = keepYears();
+    if (!confirm(`Delete change-history entries older than ${n} years? Entries from the last ${n} years are kept. This cannot be undone.`)) return;
+    $("history-purge").disabled = true;
+    try { const d = await purgeOldHistory(); toast(d ? `Deleted ${d} old entr${d === 1 ? "y" : "ies"}.` : `Nothing older than ${n} years.`); }
+    catch (e) { toast(classify(e) === "refused" ? ((await rulesNeedUpdate()) ? DB_UPDATE_MSG : "Not allowed: some entries are not old enough yet.") : "Not deleted: no connection. Try again."); }
+    finally { $("history-purge").disabled = false; }
+  });
   $("rules-form").addEventListener("input", () => { formDirty = true; });
   // Asked once per laptop, at the top of the console.
   if (!store.get(NAME_KEY) && !store.get(ASKED_KEY)) {
@@ -54,6 +63,7 @@ export function renderSettings(force) {
   $("tie-rule").value = st.tieRule;
   $("keep-years").value = st.retentionYears || 7;
   $("rules-err").classList.add("hide");
+  $("history-purge").textContent = `Delete history older than ${keepYears()} years`;
   formDirty = false;
 }
 R.renderSettings = renderSettings;

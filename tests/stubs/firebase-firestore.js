@@ -230,7 +230,10 @@ export function where(field, op, value) { return { __where: field, op, value }; 
 export function limit(n) { return { __limit: n }; }
 export function startAfter(v) { return { __startAfter: v }; }
 
-function tsMs(v) { return v && typeof v === "object" && ("__ts" in v || "seconds" in v) ? (v.__ts ?? v.seconds * 1000) : v; }
+function tsMs(v) {
+  if (v instanceof Date) return v.getTime();
+  return v && typeof v === "object" && ("__ts" in v || "seconds" in v) ? (v.__ts ?? v.seconds * 1000) : v;
+}
 function cmp(x, y) {
   x = tsMs(x); y = tsMs(y);
   if (x === undefined && typeof y === "number") x = 0;

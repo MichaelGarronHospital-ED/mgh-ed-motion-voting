@@ -1034,6 +1034,31 @@ export async function getLogFor(pollId) {
   const snap = await getDocs(query(logCol(), where("pollId", "==", pollId)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (tsMillis(b.at) || 0) - (tsMillis(a.at) || 0));
 }
+// How many years the change history is kept: the setting, never under 7.
+export function keepYears() {
+  const y = settings && Number.isInteger(settings.retentionYears) ? settings.retentionYears : 7;
+  return Math.max(7, y);
+}
+// "Delete history older than N years": entries from before the day before the
+// Nth anniversary of today (the rules check each one again, by calendar date),
+// then one "history-purge" entry saying how many went. Returns the number deleted.
+export async function purgeOldHistory() {
+  const n = keepYears();
+  const now = new Date();
+  const cutoff = new Date(Date.UTC(now.getUTCFullYear() - n, now.getUTCMonth(), now.getUTCDate()) - 2 * 86400000);
+  const snap = await getDocs(query(logCol(), where("at", "<", cutoff)));
+  let deleted = 0;
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const b = writeBatch(db);
+    snap.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
+    await b.commit();
+    deleted += Math.min(400, snap.docs.length - i);
+  }
+  const b = writeBatch(db);
+  writeLog(b, { action: "history-purge", text: `Deleted ${deleted} change-history entr${deleted === 1 ? "y" : "ies"} older than ${n} years` });
+  await b.commit();
+  return deleted;
+}
 // Change history of one meeting (its own entries and its motions'), newest first.
 export async function getLogForMeeting(meetingId) {
   const snap = await getDocs(query(logCol(), where("meetingId", "==", meetingId)));

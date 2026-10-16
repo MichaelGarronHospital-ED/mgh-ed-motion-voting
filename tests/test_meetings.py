@@ -240,6 +240,22 @@ class TestMeetings(Console):
         self.assertEqual(h.get(pg, "polls/" + h.get(pg, "polls/c0")["supersededBy"])["meetingId"], "m1")
 
 
+class TestHistoryPurge(Console):
+    def test_delete_history_older_than_7_years_keeps_newer_entries(self):
+        def seed(pg):
+            h.seed(pg, "log/old", {"at": h.ts(NOW - 8 * 366 * 86400000), "action": "close", "pollId": "x"})
+            h.seed(pg, "log/new", {"at": h.ts(NOW - 6 * 365 * 86400000), "action": "close", "pollId": "x"})
+        pg = self.console(seed)
+        pg.click("#open-settings")
+        self.assertEqual(pg.inner_text("#history-purge"), "Delete history older than 7 years")
+        pg.evaluate("window.confirm = () => true")
+        pg.click("#history-purge")
+        pg.wait_for_function("() => window.__store.get('log/old') === null")
+        self.assertIsNotNone(h.get(pg, "log/new"))
+        purge = self.logs(pg, "history-purge")
+        self.assertEqual(purge[0]["text"], "Deleted 1 change-history entry older than 7 years")
+
+
 class TestAgenda(Console):
     def agenda_numbers(self, pg):
         return pg.eval_on_selector_all("#motion-list .agenda-num", "els => els.map(e => e.textContent)")

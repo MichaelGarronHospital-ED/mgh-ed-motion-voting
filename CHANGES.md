@@ -22,6 +22,8 @@ Running log of what changed and why, newest first.
 - Motions made before meetings are listed under "Earlier motions" and can be moved
   into a meeting (a result never changes when it moves).
 - A re-vote of a motion from a meeting that has ended goes to the open meeting.
+- **Settings → Delete history older than 7 years** (or the longer period set there):
+  removes only entries past that period, and records that it did.
 
 **Publish the rules before merging this page** (they add meetings, and let leadership
 delete change-history entries only after the retention period, never under 7 years).
@@ -29,7 +31,7 @@ With the old rules this page says "needs a database update" and keeps Open and C
 off; voting itself is unaffected. **Once a meeting exists, never roll back to an earlier
 page** (it would list motions out of order).
 
-Tests: 153 browser tests (22 new), 88 rules tests (16 new, including the real meeting
+Tests: 154 browser tests (23 new), 89 rules tests (17 new, including the real meeting
 code and calendar-year retention with Feb 29).
 
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)

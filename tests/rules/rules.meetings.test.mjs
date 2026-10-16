@@ -107,3 +107,17 @@ describe("change-log retention", () => {
     await assertFails(deleteDoc(doc(ed(), "log/e1")));
   });
 });
+
+describe("Delete history older than 7 years (the real page code)", () => {
+  it("deletes only entries past the retention period and records it", async () => {
+    await seed("log/old", { at: Timestamp.fromMillis(Date.now() - 8 * 366 * 86400000), action: "close", pollId: "x" });
+    await seed("log/new", { at: Timestamp.fromMillis(Date.now() - 6 * 365 * 86400000), action: "close", pollId: "x" });
+    const a = await app();
+    as(leader());
+    assert.equal(await a.purgeOldHistory(), 1);
+    assert.equal(await readRaw("log/old"), null);
+    assert.ok(await readRaw("log/new"));
+    const logs = (await getDocs(collection(leader(), "log"))).docs.map((d) => d.data());
+    assert.ok(logs.some((e) => e.action === "history-purge"));
+  });
+});
