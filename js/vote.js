@@ -89,7 +89,7 @@ function render() {
 function shell(inner) {
   return `<header class="topbar"><span class="ed-badge" aria-hidden="true">ED</span><span class="brand">MGH Emergency Department</span></header>
     <h1 class="ed-title page-title">Motion Voting</h1>
-    <p class="lede">Tap to cast your vote. Live and anonymous to the group.</p>${inner}`;
+    <p class="lede">Tap to cast your vote. Results update live.</p>${inner}`;
 }
 
 // ---- ED password screen ------------------------------------------------------
