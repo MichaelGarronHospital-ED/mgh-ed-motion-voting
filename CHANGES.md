@@ -4,6 +4,48 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Security fixes: safe console, stricter ballots, no open rollback (Oct 16 2026)
+
+A security review found five things. All fixed; nothing changes for a voter except one
+line of wording.
+
+- **A crafted ballot could run code in the leadership console.** Voters' ballot fields
+  (choice, submission count, ids, write-in names) were put into the page as HTML. They
+  are now always shown as plain text. Both pages also carry a Content-Security-Policy,
+  so even a slip in future code cannot run injected script: scripts only from this site,
+  Firebase's SDK host and Google's sign-in helper (Safari loads it); connections only to
+  Firestore and Firebase sign-in. Checked in Chrome and Safari engines at the real site
+  address against real Firebase: no violations, and a wrong ED password still says
+  "That's not the ED password."
+- **Ballots could take any shape.** The rules only checked "signed in and motion open".
+  Now a voter's ballot must sit under its own name (one name, one ballot), use one of
+  the three real choices, have only the expected fields, keep every device id it already
+  had, be flagged exactly when two or more devices used that name, use the server's
+  clock, and arrive together with the +1 to the vote count. Changing your vote still
+  works. Leadership can still do everything. The tally also counts each name only once,
+  even if a second ballot for that name ever turns up.
+- **The rollback opened the database to everyone.** `firestore.rules.open` is removed.
+  To undo a bad rules publish: republish the previous version from Firebase console >
+  Firestore > Rules (history), or `git revert` and deploy again.
+- **"Live and anonymous to the group" was not true.** Names and choices are readable by
+  anyone with the ED password. The line now says "Tap to cast your vote. Results update
+  live."
+- **Stale docs:** the rules header no longer describes anonymous voters; the test steps
+  warn before touching the live database; "passcode" is now "Leadership password".
+
+What the rules still cannot stop: everyone shares the ED account, so anyone with the ED
+password can vote under any name (flagged for review, not blocked), and device ids are
+made up by the browser. Written down under HONEST LIMITS in `firestore.rules`.
+
+The rules must be published (`npx firebase-tools deploy --only firestore:rules`) for the
+ballot checks to take effect. The old and new page code both work with both old and new
+rules, so the order does not matter.
+
+Tests: 36/36 (new: a name counts once; crafted ballot fields show as text). Rules tests
+21/21 (new: duplicate ballot under another id, bad choice, extra or missing or wrongly
+typed fields, flag not matching the device list, device list shrinking, faked counts and
+times, a ballot without the count, and the real vote, change, re-tap and second device).
+
 ## iPhone Safari kept saying "wrong password" (Oct 16 2026)
 
 Some physicians' iPhone Safari refused the right ED password while other browsers took

@@ -89,7 +89,7 @@ function render() {
 function shell(inner) {
   return `<header class="topbar"><span class="ed-badge" aria-hidden="true">ED</span><span class="brand">MGH Emergency Department</span></header>
     <h1 class="ed-title page-title">Motion Voting</h1>
-    <p class="lede">Tap to cast your vote. Live and anonymous to the group.</p>${inner}`;
+    <p class="lede">Tap to cast your vote. Results update live.</p>${inner}`;
 }
 
 // ---- ED password screen ------------------------------------------------------
@@ -154,7 +154,7 @@ function renderNames(filter = "") {
   const f = filter.trim().toLowerCase();
   const list = ROSTER.filter((p) => p.name.toLowerCase().includes(f));
   el.innerHTML = list.length
-    ? list.map((p) => `<li data-slug="${p.slug}" tabindex="0" role="option" aria-selected="false">${escapeHtml(p.name)}</li>`).join("")
+    ? list.map((p) => `<li data-slug="${escapeHtml(p.slug)}" tabindex="0" role="option" aria-selected="false">${escapeHtml(p.name)}</li>`).join("")
     : `<li class="none" role="option" aria-disabled="true" aria-selected="false">No match. Use “My name isn't listed” below.</li>`;
 }
 function wirePicker() {
@@ -216,7 +216,7 @@ function voteBody() {
       <span class="ed-pill ed-pill-good"><span class="dot"></span>Voting open</span>
       <h2 class="motion-text">${escapeHtml(activePoll.text)}</h2>
       <div class="votes" role="group" aria-label="Your vote">${CHOICES.map(tile).join("")}</div>
-      <p class="ed-hint">${mine ? `You voted <strong>${labelOf(mine.choice)}</strong>. You can change it until voting closes.`
+      <p class="ed-hint">${mine ? `You voted <strong>${escapeHtml(labelOf(mine.choice))}</strong>. You can change it until voting closes.`
         : "You can change your vote until leadership closes the motion."}</p>`;
   }
   return head + `<div class="ed-empty">${icon("clock", 40)}

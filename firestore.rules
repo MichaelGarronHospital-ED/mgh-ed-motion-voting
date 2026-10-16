@@ -1,13 +1,20 @@
 rules_version = '2';
-// LOCKED RULES — require Firebase Auth. Publish these only AFTER you've:
-//   1. Enabled Anonymous + Email/Password sign-in (Firebase → Authentication)
-//   2. Created the leadership user (email below + password = your passcode)
-//   3. Deployed the latest site and confirmed voting + admin login work
-// If anything misbehaves, paste firestore.rules.open instead to revert.
+// MOTION VOTING RULES. The server-side access boundary for the whole tool.
 //
-//   • Voters sign in anonymously → may read, and create/update their ballots.
-//   • Leadership signs in as the email below → may manage motions, categories,
-//     adjust/remove votes. Update the email here if your leader email differs.
+//   • Only two shared Firebase accounts get in at all (emails below, same as
+//     js/config.js): ed@ (the ED password, every voter) and leadership@ (the
+//     Leadership password, the console). Anyone else reads and writes nothing.
+//   • A voter (the ED account) may read everything, and while a motion is open
+//     may cast or change a ballot of exactly the shape js/db.js castVote writes,
+//     and add exactly one to that motion's voteCount.
+//   • Leadership may do anything: manage motions and settings, remove ballots.
+//
+// Publish with:  npx firebase-tools deploy --only firestore:rules
+// Test first:    cd tests/rules && npm install && npm test   (Firestore emulator)
+// If a publish goes wrong, roll back by republishing the previous version:
+// Firebase console > Firestore > Rules shows the history of published rules,
+// or `git revert` the change here and deploy again. Never open the database to
+// everyone, not even for a minute: the ballots carry names.
 service cloud.firestore {
   match /databases/{database}/documents {
     // Signed in with one of the two shared passwords: the ED password (account
@@ -19,17 +26,64 @@ service cloud.firestore {
         && request.auth.token.email in ['ed@ed-motion-voting.app', 'leadership@ed-motion-voting.app'];
     }
     function isLeader() { return signedIn() && request.auth.token.email == 'leadership@ed-motion-voting.app'; }
-    function notTouchingWeightOverride() {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['weightOverride']);
-    }
+    function pollPath(poll) { return /databases/$(database)/documents/polls/$(poll); }
     function pollIsOpen(poll) {
-      return get(/databases/$(database)/documents/polls/$(poll)).data.status == 'open';
+      return get(pollPath(poll)).data.status == 'open';
     }
     // a voter's only allowed poll write: bump voteCount by exactly +1, while open
     function voterBumpsVoteCount(poll) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voteCount'])
         && request.resource.data.voteCount == resource.data.get('voteCount', 0) + 1
         && pollIsOpen(poll);
+    }
+
+    // ---- ballots: the exact shape js/db.js castVote writes ----------------
+    // A voter can write only these fields, with these types. The ballot lives
+    // under its own name (document id == slug), so one name is one ballot.
+    function isChoice(c) { return c in ['favour', 'against', 'abstain']; }
+    function isSessionId(s) { return s is string && s.size() > 0 && s.size() <= 100; }
+    // A new ballot: first tap of a name on this motion. Written in the same
+    // transaction as the +1 to the motion's voteCount, which is checked here
+    // so a ballot can never land without being counted.
+    function isNewBallot(poll, vote) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'slug', 'group', 'weight', 'isWriteIn', 'choice',
+                               'sessionIds', 'submissionCount', 'flagged', 'firstAt', 'lastAt'])
+        && d.keys().hasAll(['name', 'slug', 'group', 'weight', 'isWriteIn', 'choice',
+                            'sessionIds', 'submissionCount', 'flagged', 'firstAt', 'lastAt'])
+        && d.slug is string && d.slug == vote
+        && d.slug.size() <= 100 && d.slug.matches('[a-z0-9]+(-[a-z0-9]+)*')
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 200
+        && d.group is string && d.group.size() <= 20
+        && d.weight is number && d.weight >= 0 && d.weight <= 1
+        && d.isWriteIn is bool
+        && isChoice(d.choice)
+        && d.sessionIds is list && d.sessionIds.size() == 1 && isSessionId(d.sessionIds[0])
+        && d.submissionCount == 1
+        && d.flagged == false
+        && d.firstAt == request.time && d.lastAt == request.time
+        && getAfter(pollPath(poll)).data.get('voteCount', 0) == get(pollPath(poll)).data.get('voteCount', 0) + 1;
+    }
+    // A change to an existing ballot (a new choice, or the same name from
+    // another device). Name, slug, category and first-vote time stay as they
+    // were. Device ids only grow, by at most one new id, and keep every old
+    // one; "flagged" is true exactly when 2+ devices have used this name; the
+    // submission count goes up by one only when the choice actually changes.
+    function isBallotChange(vote) {
+      let d = request.resource.data;
+      let old = resource.data;
+      let oldIds = old.get('sessionIds', []);
+      let ids = d.sessionIds;
+      return d.diff(old).affectedKeys().hasOnly(['choice', 'submissionCount', 'sessionIds', 'flagged', 'lastAt'])
+        && d.slug == vote
+        && isChoice(d.choice)
+        && ids is list && ids.hasAll(oldIds)
+        && (ids.size() == oldIds.size() || ids.size() == oldIds.size() + 1)
+        && ids.toSet().size() == ids.size()
+        && isSessionId(ids[ids.size() - 1])
+        && d.flagged == (ids.size() > 1)
+        && d.submissionCount == old.get('submissionCount', 1) + (d.choice != old.get('choice', '') ? 1 : 0)
+        && d.lastAt == request.time;
     }
 
     match /polls/{poll} {
@@ -41,10 +95,10 @@ service cloud.firestore {
       match /votes/{vote} {
         allow read: if signedIn();
         // a voter may only cast/change a ballot while the motion is OPEN, and
-        // may not set the leadership-only weight override; leadership can do
-        // anything (incl. delete and post-close cleanup).
-        allow create: if isLeader() || (signedIn() && pollIsOpen(poll));
-        allow update: if isLeader() || (signedIn() && pollIsOpen(poll) && notTouchingWeightOverride());
+        // only in the shape above; leadership can do anything (incl. delete
+        // and post-close cleanup).
+        allow create: if isLeader() || (signedIn() && pollIsOpen(poll) && isNewBallot(poll, vote));
+        allow update: if isLeader() || (signedIn() && pollIsOpen(poll) && isBallotChange(vote));
         allow delete: if isLeader();
       }
     }
@@ -57,24 +111,38 @@ service cloud.firestore {
 }
 
 // ---------------------------------------------------------------------------
-//  HONEST LIMITS — true today, and deliberate. Pinned here so a change is a
+//  HONEST LIMITS. True today, and deliberate. Pinned here so a change is a
 //  decision, not an accident.
 //
-//  • Voters are ANONYMOUS, so the rules cannot tell one voter from another.
-//    Any signed-in voter can create or overwrite the ballot at any slug while a
-//    motion is open — i.e. vote under someone else's name, or change their vote.
-//    This is the documented trade-off in CLAUDE.md ("duplicate votes are
-//    flagged, not blocked"): the app detects it (same name from 2+ devices, one
-//    device under 2+ names) and surfaces it to leadership for review, rather
-//    than blocking a legitimate vote change. It holds because voting happens in
-//    a room full of colleagues, not because the rules prevent it.
-//    To actually prevent it: stamp `uid: request.auth.uid` on create and require
-//    it to match on update. Cost: a voter who clears site data or switches
-//    device can no longer change their own vote.
+//  • Every voter signs in as the SAME account (ed@, the ED password), so the
+//    rules cannot tell one voter from another. Anyone with the ED password can
+//    cast or change the ballot under ANY name while a motion is open, i.e. vote
+//    as someone else. The old fix "stamp request.auth.uid on the ballot" no
+//    longer works: every voter has the same uid. Preventing it would need a
+//    per-person secret (a PIN or a personal sign-in). This is the documented
+//    trade-off in CLAUDE.md ("duplicate votes are flagged, not blocked"): the
+//    app flags the same name from 2+ devices and one device under 2+ names for
+//    leadership review. It holds because voting happens in a room of
+//    colleagues, not because the rules prevent it.
 //
-//  • `weightOverride` is guarded above but no code writes it. Kept as a guard
-//    so a future leadership-only weight field can't be set by a voter.
+//  • What the ballot rules DO stop: a second ballot for one name under another
+//    document id (the id must equal the slug), a choice other than favour /
+//    against / abstain, extra or wrongly typed fields, a ballot that skips the
+//    voteCount +1, clearing the device list or the "Needs review" flag by
+//    hand, and back-dated times.
 //
-//  • The leadership password IS the admin passcode (see js/config.js), so the
-//    strength of that passcode is the strength of every write rule here.
+//  • What they do NOT stop: the device ids are made up by the browser, so a
+//    voter who clears site data looks like a new device, and a deliberate one
+//    can invent ids. The name, category, weight and write-in mark on a new
+//    ballot are the voter's own claim; the tally ignores the stored category
+//    and weight (it weighs by slug from roster.js and leadership's settings),
+//    but the name shown in the Voters tab is not checked against the slug.
+//    A voter can also bump an open motion's voteCount by one on its own
+//    (it only drives the edit lock and the purge warning, not any result).
+//
+//  • Everyone with the ED password can read every ballot, names and choices
+//    included. Voting is not secret from the group.
+//
+//  • The Leadership password is the password of the leadership@ account, so
+//    its strength is the strength of every leadership rule here.
 // ---------------------------------------------------------------------------

@@ -30,9 +30,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   On Alvin's Mac the test tools live outside iCloud in `~/.venvs/mgh-ed-tools`:
   `~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -v`.
 - **Database rules tests:** `cd tests/rules && npm install && npm test` (Firestore emulator;
-  needs Java). 12 tests: only ed@ and leadership@ get in, voters vote only while a motion
-  is open and add exactly one to its count, only leadership manages. Run after any change
-  to `firestore.rules`.
+  needs Java). 21 tests: only ed@ and leadership@ get in, voters vote only while a motion
+  is open, add exactly one to its count, and write only the exact ballot shape
+  `castVote` writes; only leadership manages. Run after any change to `firestore.rules`.
 - **Deploy the site:** push to `main`; GitHub Pages is live about a minute later.
 - **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
   `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
@@ -53,7 +53,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.
 - `js/xlsx.js` → dependency-free .xlsx writer behind the console's Export menu
   (identical copy in the hiring tool; keep the two the same).
-- `firestore.rules` (locked-down, auth-gated) / `firestore.rules.open` (rollback).
+- `firestore.rules` (locked-down, auth-gated). To roll back a bad publish, republish the
+  previous version from Firebase console > Firestore > Rules (history), or `git revert`
+  and deploy again. Never open the database to everyone.
 - `tests/` → headless behaviour tests (dev-only, never shipped). See its README.
 - `CHANGES.md` → what changed and why, newest first.
 
@@ -65,13 +67,21 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **All asset paths are relative** — never hardcode `/mgh-ed-motion-voting/`, so
   the app keeps working wherever it's served.
 - **Firestore rules are the source of truth for access.** If you change data
-  shape in `db.js`, re-check `firestore.rules`. Rollback path is
-  `firestore.rules.open`.
+  shape in `db.js`, change `firestore.rules` and its tests with it: the rules
+  accept only the exact ballot shape `castVote` writes, so a new ballot field is
+  refused until the rules allow it. Roll back by republishing the previous rules
+  version (Firebase console history) or `git revert`, never by opening the database.
+- **Everything stored is shown as text.** Ballot fields are typed by voters, so any
+  value put into `innerHTML` goes through `escapeHtml` (js/util.js). Both pages
+  also carry a Content-Security-Policy `<meta>`: a new script host or Firebase
+  service has to be added there, and inline scripts and `onclick=` handlers are blocked.
 - Duplicate votes are **flagged, not blocked** (a genuine vote change must still
   work); write-ins land at 0 weight with a *NEW* tag until leadership assigns one.
-  The rules *cannot* enforce one-ballot-per-person — voters are anonymous, so any
-  voter can write any name's ballot. That is the accepted trade-off; the limits
-  are spelled out under **HONEST LIMITS** at the bottom of `firestore.rules`.
+  The rules *cannot* enforce one-ballot-per-person: every voter signs in as the
+  same ED account, so anyone with the ED password can write any name's ballot.
+  That is the accepted trade-off; the limits are spelled out under **HONEST
+  LIMITS** at the bottom of `firestore.rules`. Voting is not secret: everyone with
+  the ED password can read names and choices, so never call it anonymous.
 - **Never show a verdict before that motion's ballots have arrived.** An empty
   tally scores as "NO QUORUM", so painting it early announces a wrong outcome on
   a shared screen. Both results views and the CSV export gate on a `loaded` flag

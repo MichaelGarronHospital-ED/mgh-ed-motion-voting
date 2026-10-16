@@ -4,8 +4,8 @@ Serves the repo over localhost and swaps the Firebase CDN modules for the
 in-memory stubs in `stubs/`, so the real app code in `js/` runs unmodified
 against a fake Firestore. No Firebase project, no credentials, no network.
 
-Why localhost rather than file://: the app uses crypto.subtle (the admin
-passcode hash), which only exists in a secure context; 127.0.0.1 counts as one.
+Why localhost rather than file://: ES modules and the stubbed CDN imports need
+a real http origin; 127.0.0.1 is one.
 """
 import contextlib
 import functools
@@ -88,9 +88,9 @@ def unlock_admin(page, read=None, then=None):
     """Unlock the console and, in the SAME tick, read a selector's text (or run
     `then`), i.e. observe the very first paint, before any snapshot arrives.
 
-    The passcode gate is bypassed via the auth watcher rather than by typing a
-    code: the plaintext passcode is deliberately not in the repo (config.js
-    stores only its hash), and these tests are about behaviour, not the gate.
+    The Leadership password screen is bypassed via the auth watcher rather than
+    by typing a password: the password is not in the repo (it lives only in
+    Firebase Auth), and these tests are about behaviour, not the gate.
     """
     body = then or (f"return document.querySelector('{read}').innerText;"
                     if read else "return null;")

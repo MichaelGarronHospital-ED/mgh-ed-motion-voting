@@ -60,13 +60,16 @@ driven from two pages at once — tests seed the store directly instead (see the
 ## Scope — what these do NOT cover
 
 - **`../firestore.rules`.** These tests stub Firestore, so they say nothing
-  about the server-side rules. The rules are the real access boundary, and the
-  limits they deliberately do *not* enforce are written down at the bottom of
-  that file. Testing them needs the Firestore emulator (Java + `firebase-tools`),
-  as the hiring tool does (repo `mgh-ed-hiring`, folder `tests/`).
-- **The passcode gate.** `harness.open_admin` bypasses it through the auth
-  watcher, because the plaintext passcode is deliberately not in the repo —
-  `js/config.js` holds only its hash.
+  about the server-side rules. The rules have their own tests in `rules/`, run
+  against the Firestore emulator (needs Java): `cd rules && npm install && npm test`.
+  The limits the rules deliberately do *not* enforce are written down at the
+  bottom of `../firestore.rules`.
+- **The real password check.** `harness.open_admin` gets past the Leadership
+  password screen through the auth watcher, and the stub accepts any ED password.
+  The passwords are not in the repo at all: each is the password of a Firebase
+  Auth account, checked by Firebase.
+- **The Content-Security-Policy against real Firebase.** The stubs stand in for
+  Firebase, so the hosts it really talks to are not exercised here.
 - **Real-time behaviour between two live browsers.** The stub is per-page.
 
 ## Keeping them honest
