@@ -22,7 +22,7 @@ Running log of what changed and why, newest first.
 
 No new database rules. Phones do not read the projector's settings.
 
-Tests: 167 browser tests (13 new). Rules: no change; 100 rules tests (11 new rows checking the projector can read what it needs).
+Tests: 170 browser tests (13 new). Rules: no change; 104 rules tests (11 new rows checking the projector can read what it needs).
 
 ## Meetings and agendas (voting upgrade step 4, Oct 2026)
 
