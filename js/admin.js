@@ -167,22 +167,22 @@ function motionRow(p) {
   if (editingId === p.id) {
     return `<div class="poll-item editing">
       <label class="ed-label">Motion wording
-        <textarea class="ed-field" data-edit="${p.id}" rows="3">${escapeHtml(p.text)}</textarea>
+        <textarea class="ed-field" data-edit="${escapeHtml(p.id)}" rows="3">${escapeHtml(p.text)}</textarea>
       </label>
-      <div class="row"><button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="save" data-id="${p.id}">Save</button>
-        <button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="cancel" data-id="${p.id}">Cancel</button></div></div>`;
+      <div class="row"><button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="save" data-id="${escapeHtml(p.id)}">Save</button>
+        <button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="cancel" data-id="${escapeHtml(p.id)}">Cancel</button></div></div>`;
   }
   return `<div class="poll-item">
     <div class="text"><div class="meta">${statusPill(p.status)}${locked ? `<span class="locknote">${icon("lock", 16)}Locked: voting started</span>` : ""}</div>
       <p>${escapeHtml(p.text)}</p></div>
     <div class="row">
       ${p.status !== "open"
-        ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="open" data-id="${p.id}">Open</button>`
-        : `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="close" data-id="${p.id}">Close</button>`}
-      ${p.status === "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="goto-results" data-id="${p.id}">Live results</button>` : ""}
-      ${!locked ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="edit" data-id="${p.id}">Edit</button>` : ""}
-      ${p.status !== "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="archive" data-id="${p.id}">Archive</button>` : ""}
-      ${canDelete ? `<button type="button" class="ed-btn btn-quiet btn-sm" data-act="del" data-id="${p.id}">Delete</button>` : ""}
+        ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="open" data-id="${escapeHtml(p.id)}">Open</button>`
+        : `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="close" data-id="${escapeHtml(p.id)}">Close</button>`}
+      ${p.status === "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="goto-results" data-id="${escapeHtml(p.id)}">Live results</button>` : ""}
+      ${!locked ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="edit" data-id="${escapeHtml(p.id)}">Edit</button>` : ""}
+      ${p.status !== "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="archive" data-id="${escapeHtml(p.id)}">Archive</button>` : ""}
+      ${canDelete ? `<button type="button" class="ed-btn btn-quiet btn-sm" data-act="del" data-id="${escapeHtml(p.id)}">Delete</button>` : ""}
     </div>
   </div>`;
 }
@@ -191,7 +191,7 @@ function archivedRow(p) {
   return `<div class="poll-item">
     <div class="text"><div class="meta"><span class="ed-pill ed-pill-quiet">Archived</span></div><p>${escapeHtml(p.text)}</p></div>
     <div class="row">
-      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="unarchive" data-id="${p.id}">Unarchive</button>
+      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="unarchive" data-id="${escapeHtml(p.id)}">Unarchive</button>
     </div>
   </div>`;
 }
@@ -199,8 +199,8 @@ function trashedRow(p) {
   return `<div class="poll-item">
     <div class="text"><div class="meta"><span class="ed-pill ed-pill-quiet">In trash</span></div><p>${escapeHtml(p.text)}</p></div>
     <div class="row">
-      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="restore" data-id="${p.id}">Restore</button>
-      <button type="button" class="ed-btn ed-btn-danger btn-sm" data-act="purge" data-id="${p.id}">Delete permanently</button>
+      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="restore" data-id="${escapeHtml(p.id)}">Restore</button>
+      <button type="button" class="ed-btn ed-btn-danger btn-sm" data-act="purge" data-id="${escapeHtml(p.id)}">Delete permanently</button>
     </div>
   </div>`;
 }
@@ -262,9 +262,9 @@ function motionSelectorHTML() {
   if (!choosable.length) return "";
   const opts = [`<option value="">Current motion (auto)</option>`].concat(
     choosable.map((p) => {
-      const tag = p.archived ? "Archived" : STATUS_WORD[p.status] || p.status;
+      const tag = p.archived ? "Archived" : STATUS_WORD[p.status] || escapeHtml(p.status);
       const short = p.text.length > 60 ? p.text.slice(0, 60) + "…" : p.text;
-      return `<option value="${p.id}" ${p.id === selectedPollId ? "selected" : ""}>${tag} · ${escapeHtml(short)}</option>`;
+      return `<option value="${escapeHtml(p.id)}" ${p.id === selectedPollId ? "selected" : ""}>${tag} · ${escapeHtml(short)}</option>`;
     })).join("");
   return `<label class="ed-label">View motion
     <select class="ed-field motion-select">${opts}</select></label>`;
@@ -366,12 +366,13 @@ function renderVoters() {
 }
 function paintVoters(poll, votes) {
   // Detect one device (session) used to vote under MORE THAN ONE name.
-  const sessionToSlugs = {};
-  votes.forEach((v) => (v.sessionIds || []).forEach((s) => {
-    (sessionToSlugs[s] = sessionToSlugs[s] || new Set()).add(v.slug);
+  const sessionToSlugs = new Map();   // a Map, so a stored id like "__proto__" is just a key
+  votes.forEach((v) => (Array.isArray(v.sessionIds) ? v.sessionIds : []).forEach((s) => {
+    if (!sessionToSlugs.has(s)) sessionToSlugs.set(s, new Set());
+    sessionToSlugs.get(s).add(v.slug);
   }));
   const sharedDevice = new Set();
-  Object.values(sessionToSlugs).forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
+  sessionToSlugs.forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
   // One hint line; what the flags mean sits in the "What the flags mean" fold.
@@ -387,9 +388,9 @@ function paintVoters(poll, votes) {
       <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
       <td class="cat">${g}</td>
       <td class="num">${fmt(ew)}</td>
-      <td class="choice">${labelOf(v.choice)}</td>
-      <td class="num subs">${(v.flagged || shared) ? (v.submissionCount || 1) : ""}</td>
-      <td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${v.id}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>
+      <td class="choice">${escapeHtml(labelOf(v.choice))}</td>
+      <td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>
+      <td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${escapeHtml(v.id)}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>
     </tr>`;
   }).join("");
   $("voters-table").innerHTML =
@@ -457,7 +458,7 @@ function renderRosterTab() {
   const list = roster.filter((p) => p.name.toLowerCase().includes(f)).sort((a, b) => a.name.localeCompare(b.name));
   const rows = list.map((p) => {
     // The category picker is a segmented control: one track, the current one raised.
-    const btn = (g, l) => `<button type="button" data-setgrp="${g}" data-slug="${p.slug}" aria-pressed="${p.group === g}">${l}</button>`;
+    const btn = (g, l) => `<button type="button" data-setgrp="${g}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${p.group === g}">${l}</button>`;
     return `<tr>
       <td class="who">${escapeHtml(p.name)}${p.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
       <td class="cat">${uiCat(p.group)}</td>
