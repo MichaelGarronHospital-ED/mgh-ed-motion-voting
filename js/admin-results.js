@@ -1,7 +1,7 @@
 // Leadership console: the Results and Voters tabs, and the one-motion CSV.
 import {
   onVotesFor, clearVote, weightForVote, groupForVote, resultOf, outcomeWords, outcomeKind, clockTime,
-  getRecentLog, classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions,
+  classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar } from "./util.js";
 import { $, S, R, STATUS_WORD, statusPill, groupLabel, download } from "./admin-state.js";
@@ -9,7 +9,6 @@ import { tsMillis } from "./count.js";
 
 export function wireResults() {
   $("export").addEventListener("click", exportCsv);
-  $("history-load").addEventListener("click", loadHistory);
 }
 
 // Which motion the Results/Voters tabs show: an explicit selection, else the
@@ -42,20 +41,36 @@ function wireMotionSelect(scope) {
   if (s) s.addEventListener("change", () => { S.selectedPollId = s.value || null; renderResults(); renderVoters(); });
 }
 
+// Ballots for the motion on screen. The open motion: the live listener.
+// A closed motion: read once and kept (closed ballots cannot change), and only
+// when something on screen needs them (the Voters tab, or a result not saved).
 let displayUnsub = null, displayId = null, displayVotes = [], displayLoaded = false;
-function ensureDisplay() {
+const closedCache = new Map();     // "id@closedAt" -> ballots
+const closedLoading = new Set();
+const cacheKey = (p) => `${p.id}@${tsMillis(p.closedAt)}`;
+function ensureDisplay(needVotes = true) {
   const poll = displayPoll();
-  if (!poll) {
-    if (displayUnsub) { displayUnsub(); displayUnsub = null; }
-    displayId = null; displayVotes = []; displayLoaded = false;
-    return null;
-  }
+  const stopListener = () => { if (displayUnsub) { displayUnsub(); displayUnsub = null; } displayId = null; displayLoaded = false; };
+  if (!poll) { stopListener(); displayVotes = []; return null; }
   if (S.activePoll && poll.id === S.activePoll.id) {
-    if (displayUnsub) { displayUnsub(); displayUnsub = null; displayId = null; displayLoaded = false; }
+    stopListener();
     return { poll, votes: S.activeVotes, loaded: S.activeLoaded };   // reuse the live subscription
   }
-  if (poll.id !== displayId) {                          // a closed poll: subscribe once
-    if (displayUnsub) displayUnsub();
+  if (poll.status === "closed") {
+    stopListener();
+    const key = cacheKey(poll);
+    if (closedCache.has(key)) return { poll, votes: closedCache.get(key), loaded: true };
+    if (needVotes && !closedLoading.has(key)) {
+      closedLoading.add(key);
+      getVotesFor(poll.id).then((vs) => {
+        closedCache.set(key, vs); R.collectWriteins(vs); renderResults(); renderVoters();
+      }).catch((e) => { console.warn(e); toast("Could not load the ballots. Check your connection and try again."); })
+        .finally(() => closedLoading.delete(key));
+    }
+    return { poll, votes: [], loaded: false };
+  }
+  if (poll.id !== displayId) {                          // a draft (or an archived open motion): listen
+    stopListener();
     displayId = poll.id; displayVotes = []; displayLoaded = false;
     displayUnsub = onVotesFor(poll.id, (vs) => { displayVotes = vs; displayLoaded = true; R.collectWriteins(vs); renderResults(); renderVoters(); });
   }
@@ -68,12 +83,15 @@ export function renderResults() {
   sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
   wireMotionSelect(sel);
   const el = $("results-body");
-  const d = ensureDisplay();
+  const shown = displayPoll();
+  const d = ensureDisplay(!(shown && shown.status === "closed" && shown.result));
   if (!d) { el.innerHTML = `<p class="ed-hint">No motion to show. Open one, or choose a motion above.</p>`; return; }
-  // Keep a half-typed reason when the card redraws.
-  const typed = $("reopen-reason") ? $("reopen-reason").value : "";
+  // Keep a half-typed reason (and an open History fold) when the card redraws.
+  const keep = ["reopen-reason", "revote-reason"].map((id) => [id, $(id) ? $(id).value : ""]);
+  const histOpen = $("motion-history") && $("motion-history").open;
   paintResults(el, d.poll, d.votes, d.loaded);
-  if ($("reopen-reason") && typed) $("reopen-reason").value = typed;
+  keep.forEach(([id, v]) => { if ($(id) && v) $(id).value = v; });
+  if (histOpen && $("motion-history")) { $("motion-history").open = true; loadMotionHistory(d.poll.id); }
 }
 // "Passed, 21.5 to 6 points, quorum 29 of 24."
 export function resultLine(r) {
@@ -102,13 +120,17 @@ function paintResults(el, poll, votes, loaded) {
   const pendingOpen = poll.status === "open" && (poll._pending || poll.openedAt === null);
   let savedLine = "";
   if (saved) {
-    savedLine = `<p class="saved-line">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}. It can't be changed. If it was closed by mistake, use Re-open.</span></p>`;
+    savedLine = `<p class="saved-line">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}. It can't be changed. If it was closed by mistake, use Re-open. To vote again from the start, use Re-vote.</span></p>`;
     if (saved.quorumNote) savedLine += `<p class="notice">${icon("warn", 20)}<span>Quorum may have been counted too low when this closed (a write-in given a vote may have been left out). Shown as recorded.</span></p>`;
   } else if (poll.status === "closed") {
     savedLine = S.saving.has(poll.id)
       ? `<p class="saved-line">${icon("clock", 18)}<span>Saving the result...</span></p>`
       : `<div class="saved-line warn">${icon("alert", 18)}<span>Result not saved yet.</span><button type="button" class="ed-btn ed-btn-tinted btn-sm" id="r-save" ${ready ? "" : "disabled"}>Save result now</button></div>`;
   }
+  const replacedBy = poll.supersededBy ? S.polls.find((x) => x.id === poll.supersededBy) : null;
+  let links = "";
+  if (poll.supersededBy) links += `<p class="saved-line">${icon("alert", 18)}<span><span class="ed-pill ed-pill-quiet">Replaced by a re-vote</span> ${replacedBy ? `The re-vote is "${escapeHtml(replacedBy.text.slice(0, 80))}" (${escapeHtml(STATUS_WORD[replacedBy.status] || replacedBy.status)}).` : "The re-vote was deleted."}</span></p>`;
+  if (poll.revoteOf) links += `<p class="ed-hint"><span class="ed-pill ed-pill-info">Re-vote</span> ${S.polls.some((x) => x.id === poll.revoteOf) ? "Re-vote of an earlier motion." : "Re-vote of a motion that was later deleted."} Reason: ${escapeHtml(poll.revoteReason || "")}</p>`;
   const prior = (poll.priorResults || []);
   const priorLine = prior.length ? `<p class="ed-hint">Re-opened ${prior.length === 1 ? "once" : prior.length + " times"}. Earlier count: ${escapeHtml(outcomeWords(prior[prior.length - 1], "voter"))} (${fmt(prior[prior.length - 1].weight.favour)} to ${fmt(prior[prior.length - 1].weight.against)} points).</p>` : "";
   let actions;
@@ -116,8 +138,14 @@ function paintResults(el, poll, votes, loaded) {
     actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-close" ${ready && !pendingOpen ? "" : "disabled"}>Close voting</button>`;
   } else if (poll.status === "draft") {
     actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" ${ready ? "" : "disabled"}>Open voting</button>`;
+  } else if (poll.supersededBy) {
+    actions = `<p class="ed-hint">Re-open the re-vote instead.</p>`;
   } else {
-    actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" aria-expanded="${S.reopenFor === poll.id}" aria-controls="reopen-form" ${ready ? "" : "disabled"}>Re-open voting</button>`;
+    actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" aria-expanded="${S.reopenFor === poll.id}" aria-controls="reopen-form" ${ready ? "" : "disabled"}>Re-open voting</button>`
+      + (saved ? `<button type="button" class="ed-btn ed-btn-tinted" id="r-revote" aria-expanded="${S.revoteFor === poll.id}" aria-controls="revote-form" ${ready ? "" : "disabled"}>Re-vote</button>` : "");
+  }
+  if (S.revoteReady && S.revoteReady === poll.supersededBy && replacedBy && replacedBy.status === "draft") {
+    actions += `<button type="button" class="ed-btn ed-btn-filled" id="revote-open" ${ready ? "" : "disabled"}>Open the re-vote now</button>`;
   }
   const form = poll.status === "closed" && S.reopenFor === poll.id ? `
     <form class="card-inset stack-sm" id="reopen-form">
@@ -130,6 +158,17 @@ function paintResults(el, poll, votes, loaded) {
       <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm" id="reopen-go">Re-open</button>
         <button type="button" class="ed-btn ed-btn-plain btn-sm" id="reopen-cancel">Cancel</button></div>
     </form>` : "";
+  const revoteForm = poll.status === "closed" && saved && !poll.supersededBy && S.revoteFor === poll.id ? `
+    <form class="card-inset stack-sm" id="revote-form">
+      <p><strong>Start a clean re-vote?</strong> The original result stays on record, marked "Replaced by a re-vote". Everyone votes again from the start.</p>
+      <label class="ed-label" for="revote-reason">Reason (voters see this)
+        <textarea class="ed-field" id="revote-reason" rows="2" maxlength="1000" aria-required="true"></textarea>
+      </label>
+      <p class="ed-hint">Kept with the record for at least 7 years. Do not include health or other private details.</p>
+      <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm" id="revote-go">Start the re-vote</button>
+        <button type="button" class="ed-btn ed-btn-plain btn-sm" id="revote-cancel">Cancel</button></div>
+    </form>` : "";
+  const history = poll.status !== "draft" ? `<details class="about" id="motion-history"><summary>History</summary><ul class="plain-list" id="motion-history-list"></ul></details>` : "";
   el.innerHTML = `${top}
     ${verdictHTML(outcomeKind(r), escapeHtml(outcomeWords(r, "console")))}
     ${bars(r)}
@@ -140,14 +179,44 @@ function paintResults(el, poll, votes, loaded) {
       ${!quorumMet ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
     </div>
     <p class="ed-hint">${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"} · ${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"} · ${r.flags} flagged. ${ruleHint(r.rule)}</p>
-    ${savedLine}${priorLine}
-    <div class="row">${actions}</div>${form}`;
+    ${savedLine}${links}${priorLine}
+    <div class="row">${actions}</div>${form}${revoteForm}${history}`;
   const c = $("r-close"), o = $("r-open"), sv = $("r-save");
   if (c) c.addEventListener("click", () => R.closeFlow(poll.id));
-  if (sv) sv.addEventListener("click", () => { R.saveFlow(poll.id); });
+  if (sv) sv.addEventListener("click", () => { R.saveFlow(poll.id).then(() => R.fixBoard()); });
+  const rv = $("r-revote");
+  if (rv) rv.addEventListener("click", () => {
+    S.revoteFor = S.revoteFor === poll.id ? null : poll.id; S.reopenFor = null;
+    renderResults();
+    if ($("revote-reason")) $("revote-reason").focus();
+  });
+  const ro = $("revote-open");
+  if (ro) ro.addEventListener("click", async () => {
+    const id = S.revoteReady;
+    S.revoteReady = null;
+    S.selectedPollId = id;
+    await R.openFlow(id);
+    renderResults(); renderVoters();
+  });
+  const rf = $("revote-form");
+  if (rf) {
+    $("revote-cancel").addEventListener("click", () => { S.revoteFor = null; renderResults(); });
+    rf.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const reason = $("revote-reason").value.trim();
+      if (reason.length < 3) { toast("Type the reason first."); $("revote-reason").focus(); return; }
+      $("revote-go").disabled = true;
+      const id = await R.revoteFlow(poll.id, reason);
+      if (id) S.revoteFor = null;
+      else if ($("revote-go")) $("revote-go").disabled = false;
+      renderResults();
+    });
+  }
+  const hist = $("motion-history");
+  if (hist) hist.addEventListener("toggle", () => { if (hist.open) loadMotionHistory(poll.id); });
   if (o) o.addEventListener("click", () => {
     if (poll.status === "draft") { R.openFlow(poll.id); return; }
-    S.reopenFor = S.reopenFor === poll.id ? null : poll.id;
+    S.reopenFor = S.reopenFor === poll.id ? null : poll.id; S.revoteFor = null;
     renderResults();
     if ($("reopen-reason")) $("reopen-reason").focus();
   });
@@ -206,15 +275,24 @@ export function logLine(e) {
   if (e.before && e.before.outcome) s += ` Earlier count: ${resultLine(e.before)}.`;
   return s;
 }
-async function loadHistory() {
-  const box = $("history-list");
+// This motion's change history: one read of its entries, on demand, kept.
+const motionLog = new Map();
+async function loadMotionHistory(id) {
+  const box = $("motion-history-list");
+  if (!box) return;
+  const show = (list) => {
+    box.innerHTML = list.length ? list.map((e) => `<li>${escapeHtml(logLine(e))}</li>`).join("") : `<li class="ed-muted">No changes recorded for this motion.</li>`;
+  };
+  if (motionLog.has(id)) { show(motionLog.get(id)); return; }
   box.innerHTML = `<li class="ed-muted">Loading...</li>`;
   try {
-    const list = await getRecentLog(50);
-    box.innerHTML = list.length ? list.map((e) => `<li>${escapeHtml(logLine(e))}</li>`).join("") : `<li class="ed-muted">No changes recorded yet.</li>`;
+    const list = await getLogFor(id);
+    motionLog.set(id, list);
+    setTimeout(() => motionLog.delete(id), 30000);   // read again later, not on every redraw
+    if ($("motion-history-list")) show(list);
   } catch (e) {
-    const why = classify(e) === "refused" && (await rulesNeedUpdate()) ? DB_UPDATE_MSG : "Could not load the change history. Check your connection and try again.";
-    box.innerHTML = `<li class="ed-muted">${escapeHtml(why)}</li>`;
+    const why = classify(e) === "refused" && (await rulesNeedUpdate()) ? DB_UPDATE_MSG : "Could not load the history. Check your connection and try again.";
+    if ($("motion-history-list")) $("motion-history-list").innerHTML = `<li class="ed-muted">${escapeHtml(why)}</li>`;
   }
 }
 
@@ -230,7 +308,7 @@ export function renderVoters() {
   const sel = $("voters-selector");
   sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
   wireMotionSelect(sel);
-  const d = ensureDisplay();
+  const d = ensureDisplay(true);
   if (!d) {
     $("voters-table").innerHTML = "";
     $("voters-note").textContent = "No motion to show. Choose one above.";
@@ -282,7 +360,7 @@ function paintVoters(poll, votes) {
 }
 
 function exportCsv() {
-  const d = ensureDisplay();
+  const d = ensureDisplay(true);
   if (!d) { toast("No motion selected."); return; }
   // Exporting before the ballots land would write a confident, empty, wrong
   // result to a file someone then circulates.

@@ -16,6 +16,8 @@ rules_version = '2';
 //     close times are the server's (no back-dating).
 //   • The change log (log/) is readable and writable by leadership only, and
 //     an entry can never be edited.
+//   • The voters' board (config/live), past results (config/history) and the
+//     other config documents: everyone signed in reads them; only leadership writes.
 //
 // Publish with:  npx firebase-tools deploy --only firestore:rules
 // Test first:    cd tests/rules && npm install && npm test   (Firestore emulator)
@@ -132,9 +134,17 @@ service cloud.firestore {
         && timeOk(a, b, 'openedAt')
         && newLog(a.get('lastLog', ''), poll, ['reopen']);
     }
+    // A re-vote or run-off links the original to its replacement (R2): only
+    // supersededBy and lastLog change, with a "revote" or "runoff" log entry
+    // about the original made in the same write. Offered only once a result is saved.
+    function isRevoteLink(poll, ch) {
+      return ch.hasOnly(metaKeys().concat(['supersededBy', 'lastLog']))
+        && request.resource.data.supersededBy is string
+        && newLog(request.resource.data.lastLog, poll, ['revote', 'runoff']);
+    }
     function lockedPollUpdate(poll) {          // a saved result exists
       let ch = request.resource.data.diff(resource.data).affectedKeys();
-      return ch.hasOnly(metaKeys()) || isReopen(poll, ch);
+      return ch.hasOnly(metaKeys()) || isReopen(poll, ch) || isRevoteLink(poll, ch);
     }
     function unlockedPollUpdate(poll) {        // draft, open, or closed with no result yet
       let b = resource.data;

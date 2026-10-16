@@ -4,6 +4,38 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Phones read results from one small board; re-vote (voting upgrade step 2, Oct 2026)
+
+**The big one: the free daily read limit.** Each phone used to read every ballot of
+every closed motion again after each close. A meeting of 8 motions could pass the
+50,000 free reads a day, and then voting would stop until the next day. Now phones
+listen to two small documents only (the board and the name list) and never read
+ballots. Our estimate for a 40-person, 8-motion meeting goes from about 150,000 reads
+to about 6,700.
+
+- **Voters:** the Results tab shows the latest results from the board; "Show earlier
+  results" reads past results once. "You voted In favour" comes from what the phone sent.
+  If a result is slow to save (a laptop went to sleep), the phone counts it once itself
+  after 30 seconds and says so. Plain messages when the connection drops, when a vote is
+  not sent, or when the ED sign-in has ended.
+- **Leadership:** **Re-vote** on a saved result starts a clean copy (everyone votes
+  again; the original stays on record, marked "Replaced by a re-vote"; voters see the
+  reason). Each Results card has a **History** fold. **Settings** (top right) holds the
+  change history and "Your name for the change history" (asked once per laptop).
+- The board is updated inside each action. If it ever looks out of date, the console
+  says "The voters' screen is out of date" with **Fix it**; it never rewrites it on its own.
+- Closing now fails straight away when offline ("Not closed: no connection. Voting is
+  still open. Try again") instead of waiting, so a late close can never land after a
+  re-open.
+- Archive, unarchive, trash and restore are now in the change history too.
+
+**Publish the rules before merging this page** (they add the re-vote link only; the
+step-1 page works the same with them). Until the first leadership sign-in creates the
+board, phones fall back to reading the open motion directly.
+
+Tests: 108 browser tests (29 new), 64 rules tests (13 new, including the real close,
+save, re-open, re-vote and history code writing the board in the emulator).
+
 ## Results are saved when a motion closes (voting upgrade step 1, Oct 2026)
 
 Until now a result was worked out again from the ballots every time someone looked,

@@ -75,6 +75,7 @@ class TestRosterAndQuorum(Base):
         h.seed_poll(pg, status="closed", vote_count=len(h.COURTESY))
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('[data-vtab="results"]')
+        pg.click("#earlier-load")      # no voters' board yet: earlier results, counted once
         pg.wait_for_timeout(300)
         # Every courtesy member voting still cannot carry a motion.
         self.assertEqual(h.outcomes(pg.inner_text("#app")), ["No quorum"])
@@ -228,12 +229,13 @@ class TestResultsAreNeverWrong(Base):
         h.seed_poll(pg, status="closed", vote_count=26)
         h.pick_voter(pg, h.GROUP1[0])
         pg.wait_for_selector('[data-vtab="results"]')
-        # click and read in the same tick, before the snapshot callback runs
+        pg.click('[data-vtab="results"]')
+        # click and read in the same tick, before any read comes back
         first = pg.evaluate("""() => {
-            document.querySelector('[data-vtab="results"]').click();
+            document.querySelector('#earlier-load').click();
             return document.querySelector('#app').innerText; }""")
         self.assertEqual(h.outcomes(first), [], "a verdict was shown before the count")
-        self.assertIn("Counting votes", first)
+        self.assertIn("Loading earlier results", first)
         pg.wait_for_timeout(400)
         self.assertEqual(h.outcomes(pg.inner_text("#app")), ["Passed"])
 
@@ -264,8 +266,10 @@ class TestResultsAreNeverWrong(Base):
         h.seed_poll(pg, status="closed", vote_count=26)
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('[data-vtab="results"]')
+        pg.click("#earlier-load")      # no voters' board yet: earlier results, counted once
         pg.wait_for_timeout(300)
         self.assertEqual(h.outcomes(pg.inner_text("#app")), [])
+        self.assertIn("Counting votes", pg.inner_text("#app"))
         pg.evaluate("window.__store.release('polls/p1/votes')")
         pg.wait_for_timeout(300)
         self.assertEqual(h.outcomes(pg.inner_text("#app")), ["Passed"])

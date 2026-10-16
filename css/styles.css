@@ -270,6 +270,11 @@ details.about > p { margin-top:2px; }
 .plain-list li { padding:6px 0; border-bottom:1px solid var(--ed-line-soft); overflow-wrap:anywhere; }
 .plain-list li:last-child { border-bottom:none; }
 
+/* ---- voter: results sections ------------------------------------------------ */
+.section-title { font:700 var(--ed-h3)/1.3 var(--ed-font-display); margin:8px 0 10px; }
+.group-title { font:600 var(--ed-text-sm)/1.3 var(--ed-font); color:var(--ed-ink-2); margin:12px 0 8px; }
+.card .row > .ed-pill { align-self:center; }
+
 .boot-note { color:var(--ed-ink-2); font-size:var(--ed-text-sm); text-align:center; margin:24px 0; }
 
 /* ---- toast ----------------------------------------------------------------- */

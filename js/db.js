@@ -5,7 +5,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getFirestore, collection, doc, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, limit, runTransaction, serverTimestamp, getDocs, increment,
-  writeBatch, deleteField, getDocFromServer, getDocsFromServer,
+  writeBatch, deleteField, getDocFromServer, getDocsFromServer, FieldPath, where, getDoc, startAfter,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
@@ -13,8 +13,9 @@ import {
 import { firebaseConfig, LEADER_EMAIL, ED_EMAIL } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js";
 import {
-  tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime,
+  tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis,
 } from "./count.js";
+import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -52,6 +53,8 @@ const pollRef = (id) => doc(db, "polls", id);
 const votesCol = (id) => collection(db, "polls", id, "votes");
 const logCol = () => collection(db, "log");
 const rosterRef = () => doc(db, "config", "roster");
+const liveRef = () => doc(db, "config", "live");
+const historyRef = () => doc(db, "config", "history");
 
 // ---- errors ------------------------------------------------------------------
 // Every Firestore error is one of: "refused" (the rules said no, or the sign-in
@@ -69,6 +72,7 @@ export function withTimeout(p, ms) {
   return Promise.race([p, timer]).finally(() => clearTimeout(t));
 }
 export const DB_UPDATE_MSG = "This page needs a database update that has not been published yet. Voting still works; Open and Close do not.";
+const notFound = (what) => Object.assign(new Error(what + " not found"), { code: "not-found" });
 // After a refusal: are the live rules older than this page? The change log is
 // readable by leadership from the step-1 rules on, so a refused read of it
 // means the rules this page needs are not published yet. One read.
@@ -206,6 +210,104 @@ function grantedWriteins() {
 // polls: the console's in-memory list (no re-read of the collection).
 let knownPolls = [];
 export function setKnownPolls(list) { knownPolls = list; }
+
+// ---- the voters' board (config/live) and past results (config/history) ------
+// Every leadership action that changes what voters see patches the board in
+// its own batch or transaction, by field path, touching only what changed
+// (see board.js boardPatch). Only healBoard writes a whole board.
+let live;          // undefined: not known yet; null: confirmed missing; else the board
+let history;       // the same for config/history
+export function currentLive() { return live; }
+// Forget what this laptop remembers of the board and history (tests, and after a reset).
+export function forgetBoard() { live = undefined; history = undefined; }
+export function currentHistory() { return history; }
+export function onLive(cb, opts = {}) {
+  return onSnapshot(liveRef(), { includeMetadataChanges: !!opts.meta }, (snap) => {
+    if (!(snap.metadata && snap.metadata.fromCache && !snap.exists())) live = snap.exists() ? snap.data() : null;
+    if (cb) cb(snap.exists() ? snap.data() : null, snap);
+  }, (e) => { if (opts.onError) opts.onError(e); else console.error(e); });
+}
+export function onHistoryDoc(cb, opts = {}) {
+  return onSnapshot(historyRef(), { includeMetadataChanges: !!opts.meta }, (snap) => {
+    if (!(snap.metadata && snap.metadata.fromCache && !snap.exists())) history = snap.exists() ? snap.data() : null;
+    if (cb) cb(history, snap);
+  }, (e) => { if (opts.onError) opts.onError(e); else console.error(e); });
+}
+// The motions as they will be once these changes land ({ id: fields }).
+function simulate(changes) {
+  return knownPolls.map((p) => (changes[p.id] ? { ...p, ...changes[p.id] } : p)).filter((p) => !(changes[p.id] && changes[p.id]._gone));
+}
+// The board built from the motions (no meetings yet).
+export function builtBoard(polls, opts) { return buildBoard(polls || knownPolls, [], opts); }
+// Add the board patch for these changes to a batch or transaction. cur: the
+// board as last read (the snapshot, or the transaction's own read).
+function patchBoard(target, cur, next, timeFor) {
+  if (cur === null) throw notFound("board");     // confirmed missing: build it, then try again
+  if (!cur) return false;                        // not known yet (nothing to patch against)
+  const ops = boardPatch(cur, next, timeFor);
+  if (!ops.length) return false;
+  const args = [];
+  ops.forEach(([path, v]) => { args.push(new FieldPath(...path), v === undefined ? deleteField() : v); });
+  args.push("changedAt", serverTimestamp());
+  target.update(liveRef(), ...args);
+  return true;
+}
+// Is the board missing (so a field-path patch would fail with not-found)?
+// Then build it first, and run the action once more.
+async function withBoard(fn) {
+  try { return await fn(); }
+  catch (e) {
+    if (String(e && e.code).replace(/^firestore\//, "") !== "not-found" || e.notBoard) throw e;
+    live = null;          // what this laptop remembered is gone
+    await healBoard({ force: true });
+    return fn();
+  }
+}
+let lastHeal = 0;
+// Rebuild the board and history from the motions and write them, only if they
+// differ from what is stored, never while this laptop has writes pending, and
+// at most once every 30 seconds (unless forced: the board is missing).
+// Returns "wrote", "same", "pending" or "wait".
+export async function healBoard(opts = {}) {
+  if (opts.pending) return "pending";
+  if (!opts.force && Date.now() - lastHeal < 30000) return "wait";
+  lastHeal = Date.now();
+  const board = buildBoard(knownPolls, []);
+  let wrote = false;
+  if (!live || !sameBoard(board, live)) {
+    await setDoc(liveRef(), { ...board, changedAt: serverTimestamp() });
+    live = board;
+    wrote = true;
+  }
+  if (await writeHistory(board)) wrote = true;
+  return wrote ? "wrote" : "same";
+}
+// Write past results if they differ from what is stored. Called only once the
+// motions snapshot has no pending writes, so every copied time is real.
+export async function writeHistory(board) {
+  const h = buildHistory(knownPolls, [], board || buildBoard(knownPolls, []));
+  if (history && sameBoard(h, history)) return false;
+  await setDoc(historyRef(), { ...h, changedAt: serverTimestamp() });
+  history = h;
+  return true;
+}
+// Does the stored board (or history) match what the motions say?
+export function boardIsCurrent() { return live !== undefined && sameBoard(buildBoard(knownPolls, []), live); }
+export function historyIsCurrent() {
+  if (history === undefined) return true;
+  return sameBoard(buildHistory(knownPolls, [], buildBoard(knownPolls, [])), history);
+}
+// Make sure the board exists before Open and Close are offered (every later
+// change to it is a field-path patch, which needs the document), and repair it
+// once if it is out of date. This is the console-load heal.
+export async function ensureBoard() {
+  const s = await getDocFromServer(liveRef());
+  live = s.exists() ? s.data() : null;
+  const h = await getDocFromServer(historyRef());
+  history = h.exists() ? h.data() : null;
+  // Missing: build it now. Present: repair it once if it differs (on load only).
+  await healBoard({ force: !live });
+}
 async function freezeClosedMotions() {
   const ops = knownPolls.filter((p) => p.status === "closed" && !p.lockedGroups && !p.result)
     .map(async (p) => updateDoc(pollRef(p.id), { lockedGroups: snapshotGroupsFor(await getVotesFor(p.id)) }));
@@ -281,6 +383,36 @@ export function countCtx() {
 // The result of a motion from its ballots, counted the way it will be saved.
 export function resultOf(poll, votes) { return computeResult(poll, votes, countCtx()); }
 
+// ---- the voter page's reads ------------------------------------------------------
+// Fallback while config/live does not exist yet (before the first leadership
+// sign-in after the upgrade): the open motion only (0 or 1 document).
+export function onOpenPolls(cb, onError) {
+  return onSnapshot(query(pollsCol(), where("status", "==", "open")), (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted));
+  }, (e) => { if (onError) onError(e); else console.error(e); });
+}
+// "Show earlier results": one read of config/history (null if it does not exist yet).
+export async function getHistoryOnce() {
+  const s = await getDoc(historyRef());
+  return s.exists() ? s.data() : null;
+}
+// Fallback for earlier results while config/history does not exist: the closed
+// motions, read once.
+export async function getClosedPollsOnce() {
+  const snap = await getDocs(query(pollsCol(), where("status", "==", "closed")));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted);
+}
+// Count a closed motion once from its ballots (a result that is late, or an
+// old motion without one): the motion (its rule and frozen categories) and its
+// ballots from the server, counted exactly as the console saves it.
+export async function countOnce(pollId, pollData) {
+  const p = pollData || (await getDoc(pollRef(pollId))).data();
+  if (!p) return null;
+  if (p.status === "closed" && p.result) return p.result;
+  const votes = await getVotesFromServer(pollId);
+  return computeResult({ id: pollId, ...p }, votes, countCtx());
+}
+
 // ---- voter action ----------------------------------------------------------
 // Stores ONE row per name per poll (clean tally), but tracks every submission
 // so leadership can flag duplicates. Re-voting from the SAME device = changing
@@ -342,8 +474,7 @@ function resultSummary(r) {
 
 // ---- admin actions ---------------------------------------------------------
 export async function addPoll(text) {
-  const existing = await getDocs(pollsCol());
-  const order = existing.size;
+  const order = knownPolls.reduce((m, p) => Math.max(m, Number(p.order) || 0), -1) + 1;
   const ref = doc(pollsCol());
   await setDoc(ref, {
     text: text.trim(), order, status: "draft", voteCount: 0, archived: false, deleted: false,
@@ -352,22 +483,34 @@ export async function addPoll(text) {
   return ref.id;
 }
 
-export async function updatePoll(pollId, patch) {
-  await updateDoc(pollRef(pollId), patch);
+// A change to a motion's own fields, with the board patch it needs (for
+// example new wording of the open motion) and, if given, a log entry.
+async function updateWithBoard(pollId, patch, log) {
+  return withBoard(async () => {
+    const b = writeBatch(db);
+    b.update(pollRef(pollId), patch);
+    if (log) writeLog(b, log);
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: patch }), []));
+    await b.commit();
+  });
 }
+export async function updatePoll(pollId, patch) {
+  await updateWithBoard(pollId, patch, null);
+}
+const textOf = (id) => (knownPolls.find((x) => x.id === id) || {}).text;
 
 // Archive = keep the motion + its votes for reference, but remove it from the
 // active list and from voters' view. Reversible via unarchive.
 export async function setArchived(pollId, archived) {
-  await updateDoc(pollRef(pollId), { archived });
+  await updateWithBoard(pollId, { archived }, { action: archived ? "archive" : "unarchive", pollId, text: textOf(pollId) });
 }
 
 // Soft delete: moves a motion to the Trash (recoverable). Restore undoes it.
 export async function trashPoll(pollId) {
-  await updateDoc(pollRef(pollId), { deleted: true });
+  await updateWithBoard(pollId, { deleted: true }, { action: "trash", pollId, text: textOf(pollId) });
 }
 export async function restorePoll(pollId) {
-  await updateDoc(pollRef(pollId), { deleted: false });
+  await updateWithBoard(pollId, { deleted: false }, { action: "restore", pollId, text: textOf(pollId) });
 }
 // Permanent delete (from the Trash). One batch writes a "purge" log entry that
 // keeps the saved result, and deletes the motion; its ballots go after it (the
@@ -434,12 +577,15 @@ function newWriteins(votes, pollId) {
 // A closed motion is re-opened with reopenMotion (it needs a reason).
 export async function openPoll(pollId) {
   const p = knownPolls.find((x) => x.id === pollId) || {};
-  const b = writeBatch(db);
   const patch = { status: "open", archived: false, openedAt: serverTimestamp() };
   if (!p.rule) patch.rule = ruleFromSettings(settings, p.threshold);
-  b.update(pollRef(pollId), patch);
-  writeLog(b, { action: "open", pollId, text: p.text });
-  await b.commit();
+  await withBoard(async () => {
+    const b = writeBatch(db);
+    b.update(pollRef(pollId), patch);
+    writeLog(b, { action: "open", pollId, text: p.text });
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), []));
+    await b.commit();
+  });
 }
 
 // Close, step 1: freeze the motion. From this moment the rules refuse every
@@ -447,20 +593,34 @@ export async function openPoll(pollId) {
 // opening this close is for, so a close that waited offline can never land on
 // a motion that was re-opened since. lockedGroups: today's categories plus
 // every slug in the open motion's live ballot list.
-// Step 1 of the upgrade has no voters' board yet, so this is a plain batch.
+// A transaction that reads only the board (voters never write it, so no
+// contention with their votes): it clears `open` only if the open motion is
+// this one, and leaves the board alone if it already shows this motion closed
+// by another laptop. A transaction fails at once offline instead of queuing.
 export async function closeMotion(pollId, seen) {
   const p = knownPolls.find((x) => x.id === pollId) || {};
   // Already closed (by another laptop): stop here. The rules refuse a second
   // close too, so a close that waited offline cannot land on a closed motion.
   if (p.status === "closed") throw Object.assign(new Error("already closed"), { code: "failed-precondition", why: "closed" });
-  const b = writeBatch(db);
-  b.update(pollRef(pollId), {
-    status: "closed", closedAt: serverTimestamp(),
-    closeOfOpenedAt: seen && seen.openedAt !== undefined ? seen.openedAt : (p.openedAt === undefined ? null : p.openedAt),
-    lockedGroups: snapshotGroupsFor(seen && seen.votes),
-  });
-  writeLog(b, { action: "close", pollId, text: p.text });
-  await b.commit();
+  const lockedGroups = snapshotGroupsFor(seen && seen.votes);
+  return withBoard(() => runTransaction(db, async (tx) => {
+    const ls = await tx.get(liveRef());
+    if (!ls.exists()) throw notFound("board");
+    const cur = ls.data();
+    tx.update(pollRef(pollId), {
+      status: "closed", closedAt: serverTimestamp(),
+      closeOfOpenedAt: seen && seen.openedAt !== undefined ? seen.openedAt : (p.openedAt === undefined ? null : p.openedAt),
+      lockedGroups,
+    });
+    writeLog(tx, { action: "close", pollId, text: p.text });
+    const isOpenHere = cur.open && cur.open.id === pollId;
+    const shownClosed = cur.results && cur.results[pollId] && !isOpenHere;
+    if (!shownClosed) {
+      const next = buildBoard(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), [], { justClosed: pollId, now: Date.now() });
+      if (!isOpenHere) next.open = cur.open === undefined ? null : cur.open;   // never clear another motion's open
+      patchBoard(tx, cur, next, (id) => (id === pollId ? serverTimestamp() : undefined));
+    }
+  }));
 }
 
 // Close, step 2: count what the server froze and save it once. The ballots are
@@ -483,6 +643,7 @@ export async function saveResult(pollId, opts = {}) {
 function commitResult(pollId, votes, b0, opts) {
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(pollRef(pollId));
+    const ls = await tx.get(liveRef());
     if (!snap.exists()) return "skipped";
     const p = snap.data();
     if (p.status !== "closed" || p.result || !sameTime(p.closedAt, b0.closedAt)) return "skipped";
@@ -500,6 +661,10 @@ function commitResult(pollId, votes, b0, opts) {
     if (opts.quorumNote) result.quorumNote = opts.quorumNote;
     patch.result = result;
     tx.update(pollRef(pollId), patch);
+    // The board shows it: fill in its result there too (only that one field).
+    if (ls.exists() && ls.data().results && ls.data().results[pollId]) {
+      tx.update(liveRef(), new FieldPath("results", pollId, "result"), result, "changedAt", serverTimestamp());
+    }
     const wi = newWriteins(votes, pollId);
     if (Object.keys(wi).length) tx.set(rosterRef(), { writeins: wi }, { merge: true });
     if (opts.log) writeLog(tx, opts.log);
@@ -556,23 +721,66 @@ export async function saveMissingResults(polls) {
 export async function reopenMotion(pollId, reason) {
   const cur = await getDocFromServer(pollRef(pollId));
   if (cur.exists() && cur.data().status === "closed" && !cur.data().result) await saveResult(pollId);
-  return runTransaction(db, async (tx) => {
+  return withBoard(() => runTransaction(db, async (tx) => {
     const snap = await tx.get(pollRef(pollId));
-    if (!snap.exists()) throw Object.assign(new Error("gone"), { code: "not-found" });
+    const ls = await tx.get(liveRef());
+    if (!snap.exists()) throw Object.assign(new Error("gone"), { code: "not-found", notBoard: true });
+    if (!ls.exists()) throw notFound("board");
     const p = snap.data();
     if (p.status !== "closed") return "skipped";
     if (p.supersededBy) throw Object.assign(new Error("replaced"), { code: "failed-precondition", why: "replaced" });
     if (!p.result) throw Object.assign(new Error("not saved"), { code: "failed-precondition", why: "unsaved" });
     const logId = writeLog(tx, { action: "reopen", pollId, text: p.text, reason,
       before: { ...resultSummary(p.result), lockedGroups: p.lockedGroups || {} }, after: null });
+    const priorResults = [...(p.priorResults || []), p.result];
     tx.update(pollRef(pollId), {
       status: "open", archived: false, openedAt: serverTimestamp(),
       result: deleteField(), lockedGroups: deleteField(),
-      priorResults: [...(p.priorResults || []), p.result],
-      reopenCount: (p.reopenCount || 0) + 1, lastLog: logId,
+      priorResults, reopenCount: (p.reopenCount || 0) + 1, lastLog: logId,
     });
+    const sim = simulate({ [pollId]: { ...p, status: "open", archived: false, result: undefined, lockedGroups: undefined, priorResults, reopenCount: (p.reopenCount || 0) + 1 } });
+    patchBoard(tx, ls.data(), buildBoard(sim, []));
     return "reopened";
+  }));
+}
+
+// A clean re-vote of a closed motion with a saved result (the normal way to
+// contest one). One batch: a draft copy right after the original (same
+// wording, editable before opening), linked both ways; a "revote" log entry;
+// the board marks the original "Replaced by a re-vote". Returns the new id.
+export async function revoteMotion(pollId, reason) {
+  const p = knownPolls.find((x) => x.id === pollId);
+  if (!p || p.status !== "closed" || !p.result) throw Object.assign(new Error("not saved"), { code: "failed-precondition", why: "unsaved" });
+  if (p.supersededBy) throw Object.assign(new Error("replaced"), { code: "failed-precondition", why: "replaced" });
+  const ref = doc(pollsCol());
+  const copy = {
+    text: p.text, order: (Number(p.order) || 0) + 0.5, status: "draft", voteCount: 0, archived: false, deleted: false,
+    createdAt: serverTimestamp(), revoteOf: pollId, round: (p.round || 1) + 1, revoteReason: String(reason).slice(0, 1000),
+  };
+  ["threshold", "amends", "meetingId", "kind", "options", "optionIds", "seats", "style"].forEach((k) => { if (p[k] !== undefined) copy[k] = p[k]; });
+  await withBoard(async () => {
+    const b = writeBatch(db);
+    b.set(ref, copy);
+    const logId = writeLog(b, { action: "revote", pollId, text: p.text, reason, before: resultSummary(p.result), after: { newPollId: ref.id } });
+    b.update(pollRef(pollId), { supersededBy: ref.id, lastLog: logId });
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: { supersededBy: ref.id } }), []));
+    await b.commit();
   });
+  return ref.id;
+}
+
+// Change history of one motion (one read of its entries, on demand), newest first.
+export async function getLogFor(pollId) {
+  const snap = await getDocs(query(logCol(), where("pollId", "==", pollId)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (tsMillis(b.at) || 0) - (tsMillis(a.at) || 0));
+}
+// The latest entries, newest first; `after` (an entry from the last page) for "Show more".
+export async function getLogPage(n = 50, after = null) {
+  const mods = [orderBy("at", "desc")];
+  if (after && after._snap) mods.push(startAfter(after._snap));
+  mods.push(limit(n));
+  const snap = await getDocs(query(logCol(), ...mods));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data(), _snap: d }));
 }
 
 // Is a result saved for this motion (on the server)?

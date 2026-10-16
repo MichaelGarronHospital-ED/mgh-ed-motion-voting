@@ -142,7 +142,7 @@ export async function motionAction(act, id) {
 
 // Run a save; toast on success, or say in plain words why it failed.
 async function guard(promise, okText, refusedText = "Not allowed: the database refused this change.") {
-  try { await promise; toast(okText); return true; }
+  try { await promise; toast(okText); R.historyChanged(); return true; }
   catch (e) { await R.actionFailed(e, refusedText); return false; }
 }
 

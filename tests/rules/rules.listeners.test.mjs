@@ -7,10 +7,14 @@
 //  Step 1 (saved results): console: polls, ballots, config/roster,
 //  config/settings (may be missing), log. Voter page: polls, ballots,
 //  config/roster.
+//  Step 2 (voters' board): console adds config/live and config/history. The
+//  voter page reads config/live, config/roster, config/history (on a tap), and
+//  as fallbacks: the open motions (where status == open), the closed motions
+//  once, one motion and its ballots (a late result counted once).
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, collection, getDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { doc, collection, getDoc, getDocs, query, orderBy, limit, where } from "firebase/firestore";
 import { setUp, tearDown, testEnv, ed, leader, seed, past, ballotFor } from "./helpers.mjs";
 
 before(setUp);
@@ -30,15 +34,22 @@ const SOURCES = {
     ["config/roster", (db) => getDoc(doc(db, "config/roster"))],
     ["config/settings (missing is fine)", (db) => getDoc(doc(db, "config/settings"))],
     ["the change log, newest first", (db) => getDocs(query(collection(db, "log"), orderBy("at", "desc"), limit(50)))],
+    ["one motion's change log", (db) => getDocs(query(collection(db, "log"), where("pollId", "==", "p1")))],
+    ["config/live (may be missing)", (db) => getDoc(doc(db, "config/live"))],
+    ["config/history (may be missing)", (db) => getDoc(doc(db, "config/history"))],
   ],
   voter: [
-    ["polls (ordered)", (db) => getDocs(query(collection(db, "polls"), orderBy("order")))],
-    ["the open motion's ballots", (db) => getDocs(collection(db, "polls/p1/votes"))],
+    ["config/live", (db) => getDoc(doc(db, "config/live"))],
     ["config/roster", (db) => getDoc(doc(db, "config/roster"))],
+    ["config/history (on a tap)", (db) => getDoc(doc(db, "config/history"))],
+    ["the open motions (fallback)", (db) => getDocs(query(collection(db, "polls"), where("status", "==", "open")))],
+    ["the closed motions (fallback for earlier results)", (db) => getDocs(query(collection(db, "polls"), where("status", "==", "closed")))],
+    ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
+    ["its ballots (a late result)", (db) => getDocs(collection(db, "polls/p1/votes"))],
   ],
 };
 
-describe("step 1 pages read only what the rules allow", () => {
+describe("step 2 pages read only what the rules allow", () => {
   for (const [name, read] of SOURCES.console) {
     it(`console (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }

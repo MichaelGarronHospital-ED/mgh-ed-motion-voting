@@ -59,11 +59,13 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   Leadership's changes live in Firestore `config/roster` (`groups`, `added`, `removed`);
   `currentRoster()` in db.js is the list in use (roster.js + added − removed).
 - `js/db.js` → Firestore + Auth wiring and who is in which category. `js/count.js` → the
-  counting itself (pure, no Firebase; re-exported by db.js). `js/board.js` → the voters'
-  board helpers (pure).
+  counting itself (pure, no Firebase; re-exported by db.js). `js/board.js` → builds the
+  voters' board and past results from the motions, and the field-path patch between two
+  boards (pure).
 - `js/vote.js` → the voter page. The console is `js/admin.js` (sign-in, tabs, listeners)
   plus one module per tab: `admin-motions.js`, `admin-results.js` (Results and Voters),
-  `admin-roster.js` (Physicians), `records.js` (Excel and print). They share state and
+  `admin-roster.js` (Physicians), `records.js` (Excel and print), `admin-settings.js`
+  (the Settings view: your name for the change history, the change history). They share state and
   redraw each other only through `admin-state.js`, so no module imports another.
   `js/util.js` → helpers shared by both pages.
 - `js/xlsx.js` → dependency-free .xlsx writer behind the console's Export menu
@@ -92,6 +94,20 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   motion are locked (no Remove), and a motion is deleted only from the Trash.
 - **Change log (`log/`)**: open, close, catch-up, re-open and permanent delete write an
   entry in the same batch or transaction. Leadership only; never edited.
+- **Phones read two small documents, never ballots.** `config/live` (the board: what
+  is open and this meeting's results) and `config/roster`; past results are one read of
+  `config/history` on a tap. "You voted" comes from the phone's own record
+  (`ed_receipts`). Both documents are built from the motions alone (`board.js`), patched
+  by field path inside every action that changes them (`boardPatch`), and written whole
+  only by `healBoard` (on console load, "Save result now", and "Fix it"; never while
+  writes are pending; at most every 30 s). A console never rewrites the board on its
+  own: if it is out of date for 10 s it shows "Fix it". Never put a server time inside an
+  array (Firestore refuses it): `results` is a map keyed by motion id. Until
+  `config/live` exists, phones fall back to the open motion and a one-time read of closed
+  motions; remove that fallback in a later cleanup once the documents exist live.
+- **Re-vote** is the normal way to contest a saved result: a draft copy linked both
+  ways (`revoteOf`, `supersededBy`), with a reason voters see. Re-open is for "closed by
+  mistake".
 - **The console waits for its data (the load gate).** Nothing that saves a result, and no
   Open or Close, runs until roster, settings and motions have each arrived from the
   server. Every wait has a plain message for refused, offline and timeout (no bare
