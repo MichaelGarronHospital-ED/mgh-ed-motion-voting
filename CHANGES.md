@@ -27,7 +27,7 @@ Running log of what changed and why, newest first.
 **Publish the rules before merging this page** (they add the settings checks; the
 step-2 page never writes settings).
 
-Tests: 131 browser tests (23 new), 72 rules tests (8 new).
+Tests: 132 browser tests (23 new), 75 rules tests (8 new).
 
 ## Phones read results from one small board; re-vote (voting upgrade step 2, Oct 2026)
 
