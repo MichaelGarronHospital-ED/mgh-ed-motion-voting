@@ -101,8 +101,9 @@ function gateHTML() {
     <h1>Motion Voting</h1>
     <p class="ed-muted">Enter the ED password to vote.</p>
     <form id="edgate" class="gate-form" autocomplete="on">
+      <input class="pw-user" type="text" name="username" autocomplete="username" value="ED password" tabindex="-1" aria-hidden="true" />
       <label class="ed-label" for="edpw">ED password
-        <input class="ed-field" id="edpw" type="password" autocomplete="current-password" required />
+        <input class="ed-field" id="edpw" name="password" type="password" autocomplete="current-password" required />
       </label>
       <p id="ederr" class="ed-error err hide" role="alert"></p>
       <button id="edgo" class="ed-btn ed-btn-filled" type="submit">Continue</button>
@@ -115,10 +116,11 @@ function wireGate() {
   pw.focus();
   f.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!pw.value) return;
+    const typed = pw.value.trim();   // the passwords never start or end with a space
+    if (!typed) return;
     const btn = document.getElementById("edgo");
     btn.disabled = true; err.classList.add("hide");
-    try { await voterSignIn(pw.value); }        // watchMember re-renders on success
+    try { await voterSignIn(typed); }           // watchMember re-renders on success
     catch (ex) {
       btn.disabled = false;
       const msg = isWrongPassword(ex) ? "That's not the ED password." : "Couldn't sign in. Check your connection and try again.";

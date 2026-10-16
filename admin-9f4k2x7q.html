@@ -18,8 +18,9 @@
       <h1>Leadership console</h1>
       <p class="ed-muted">Enter the Leadership password to manage motions and see results.</p>
       <form id="gate-form" class="gate-form">
+        <input class="pw-user" type="text" name="username" autocomplete="username" value="Leadership password" tabindex="-1" aria-hidden="true" />
         <label class="ed-label" for="pass">Leadership password
-          <input class="ed-field" id="pass" type="password" autocomplete="current-password" />
+          <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" />
         </label>
         <p id="gate-err" class="ed-error err hide" role="alert">Incorrect password.</p>
         <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
