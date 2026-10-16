@@ -270,6 +270,8 @@ details.about > p { margin-top:2px; }
 .plain-list li { padding:6px 0; border-bottom:1px solid var(--ed-line-soft); overflow-wrap:anywhere; }
 .plain-list li:last-child { border-bottom:none; }
 
+.boot-note { color:var(--ed-ink-2); font-size:var(--ed-text-sm); text-align:center; margin:24px 0; }
+
 /* ---- toast ----------------------------------------------------------------- */
 .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:50; width:max-content; max-width:calc(100vw - 32px); }
 

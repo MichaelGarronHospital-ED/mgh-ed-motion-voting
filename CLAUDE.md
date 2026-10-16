@@ -37,7 +37,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   against the emulator, with Firebase swapped for the npm SDK (never the live project).
   `rules.listeners` checks every source each page reads is readable under these rules.
   Run after any change to `firestore.rules`.
-- **Deploy the site:** push to `main`; GitHub Pages is live about a minute later.
+- **Deploy the site:** push to `main`; GitHub Pages is live about a minute later. Rules
+  first, then the page. Bump `version.txt` and `js/version.js` together with every
+  update (open consoles then say "A newer version is available. Reload."). Pages are
+  cached up to 10 minutes: check a deploy in a private window, or wait 10 minutes.
 - **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
   `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
   account on MGHEmergencyDepartmentAdministration@tehn.ca (second Owner: dralvinyang@gmail.com,

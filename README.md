@@ -130,6 +130,8 @@ or updates both and verifies them.
 Firebase console → Firestore Database → **Rules** lists every published version, so
 pick the one before and publish it again. Or `git revert` the change here and deploy
 again (below). Never open the database to everyone as a fix: the ballots carry names.
+**Close any open motion before rolling the page back**, then roll back one step at a time:
+the page first (`git revert -m 1 <merge>`), then its rules.
 
 ### Publishing the rules from the command line
 
@@ -143,5 +145,14 @@ npx firebase-tools deploy --only firestore:rules
 
 `--only firestore:rules` publishes the rules and nothing else. Never publish during a
 live meeting. Run `cd tests/rules && npm install && npm test` first (Firestore emulator).
-The page code and the rules work in pairs: deploy the rules right after the page
-change they belong to reaches `main` (see `CHANGES.md`).
+The page code and the rules work in pairs: **publish the rules first**, then merge the
+page change they belong to (see `CHANGES.md`). The previous page keeps working with
+the new rules, so nothing breaks in between.
+
+### After an update
+
+- Close and reopen every console and projector tab after an update reaches the site.
+  An open console also says "A newer version is available. Reload."
+- Browsers keep the site's files for up to 10 minutes, so for a short time a page can
+  mix old and new files and stay on "Starting..." or blank: reload it. To check a new
+  version straight away, use a private window, or wait 10 minutes.
