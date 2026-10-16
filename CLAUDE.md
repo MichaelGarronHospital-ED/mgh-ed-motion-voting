@@ -27,6 +27,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Run locally:** `python3 -m http.server 8000`, then open http://localhost:8000
   (it talks to the live Firebase project, so don't open or close real motions).
 - **Tests:** `cd tests && python3 -m unittest -v` (needs Playwright; see `tests/README.md`).
+  `MV_BASE_URL=<site address>` runs them against another copy of the site (for example
+  the live one after a deploy, `-p "test_smoke.py"`), still with Firebase stubbed.
   On Alvin's Mac the test tools live outside iCloud in `~/.venvs/mgh-ed-tools`:
   `~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -v`.
 - **Database rules tests:** `cd tests/rules && npm install && npm test` (Firestore emulator;
@@ -51,8 +53,14 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - `js/roster.js` → the starting roster and GROUP1 / GROUP2 / COURTESY weight assignments.
   Leadership's changes live in Firestore `config/roster` (`groups`, `added`, `removed`);
   `currentRoster()` in db.js is the list in use (roster.js + added − removed).
-- `js/db.js` → Firestore + Auth wiring, tally/quorum logic.
-- `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.
+- `js/db.js` → Firestore + Auth wiring and who is in which category. `js/count.js` → the
+  counting itself (pure, no Firebase; re-exported by db.js). `js/board.js` → the voters'
+  board helpers (pure).
+- `js/vote.js` → the voter page. The console is `js/admin.js` (sign-in, tabs, listeners)
+  plus one module per tab: `admin-motions.js`, `admin-results.js` (Results and Voters),
+  `admin-roster.js` (Physicians), `records.js` (Excel and print). They share state and
+  redraw each other only through `admin-state.js`, so no module imports another.
+  `js/util.js` → helpers shared by both pages.
 - `js/xlsx.js` → dependency-free .xlsx writer behind the console's Export menu
   (identical copy in the hiring tool; keep the two the same).
 - `firestore.rules` (locked-down, auth-gated). To roll back a bad publish, republish the

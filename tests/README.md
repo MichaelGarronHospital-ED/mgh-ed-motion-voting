@@ -49,13 +49,44 @@ details are deliberate, because both are where bugs hide:
   replaces each top-level field. The roster overrides in `config/roster` rely on
   the difference.
 
-`window.__store` is a test-only hook on the stub (`dump`, `get`, `set`, `del`,
-`stall`, `release`). `stall(prefix)` holds a path's snapshots back so the
-"subscribed but no data yet" state can be pinned instead of raced.
+The stub keeps two copies, like the real SDK: the server's and the page's local
+view (server plus writes not yet confirmed). A `serverTimestamp()` reads as null
+until its write commits, and is refused inside an array, as in real Firestore.
+Listeners get `metadata.fromCache` and `metadata.hasPendingWrites`; transactions
+read from the server and fail at once when offline; batches wait for the
+connection. `where`, `orderBy`, `limit`, `startAfter`, `writeBatch`,
+`deleteField`, `FieldPath`, `getDocFromServer` and `getDocsFromServer` work.
+
+`window.__store` is a test-only hook on the stub:
+
+| Hook | What it does |
+|---|---|
+| `dump()`, `get(path)`, `local(path)` | read the server copy (or the page's local view) |
+| `set(path, data)`, `del(path)` | write straight to the server, as another device would |
+| `stall(prefix)`, `release(prefix)` | hold back snapshots AND one-time reads under a path, to pin the "no data yet" state |
+| `order([prefixes])` | deliver first snapshots of those paths in that order |
+| `fail(prefix, code, kinds)` | make listeners, reads and writes under a path fail (e.g. `permission-denied`) |
+| `offline(true/false)` | cache-only snapshots; server reads and transactions fail; writes wait |
+| `reads(prefix)`, `writes(prefix)`, `resetCounts()` | how many documents the page read or wrote |
+| `ts(ms)` | a stored server time, for seeding |
+
+`test_stub.py` pins these behaviours. `base.py` holds the shared test base.
 
 Each browser page owns its own store, so leadership and voter state cannot be
 driven from two pages at once — tests seed the store directly instead (see the
 `seed_*` helpers in `harness.py`).
+
+## Running against the live site
+
+`MV_BASE_URL=https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting` makes the
+harness load pages from that address instead of this folder. Firebase is still routed
+to the stubs, so nothing real is read or written. `test_smoke.py` is the short set to
+run after a deploy:
+
+```bash
+MV_BASE_URL=https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting \
+  ~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -p "test_smoke.py" -v
+```
 
 ## Scope — what these do NOT cover
 

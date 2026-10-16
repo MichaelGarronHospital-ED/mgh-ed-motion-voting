@@ -4,6 +4,25 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Console code split into parts; better test tools (voting upgrade step 0, Oct 2026)
+
+Nothing changes for voters or leadership. This prepares the bigger voting upgrade
+(saved results, meetings, projector screen and the rest), so each later change is
+small and easy to check.
+
+- The leadership console's code (one large file) is now one file per tab:
+  `admin.js` (sign-in, tabs), `admin-motions.js`, `admin-results.js`, `admin-roster.js`,
+  `records.js`, sharing state through `admin-state.js`. The counting moved to
+  `count.js`; `board.js` is new and holds the helpers the voters' board will use.
+- The test copy of Firebase now behaves more like the real one: server times appear
+  only once a save is confirmed, saves can wait while offline, and a test can make a
+  read or a save be refused, hold it back, or count how many documents a page read.
+- The tests can run against the live site (with Firebase still replaced by the test
+  copy, so no real data is touched): set `MV_BASE_URL`.
+
+Tests: the 42 existing browser tests and 21 rules tests pass unchanged; 10 new
+(the test copy of Firebase, and a short live smoke set). Rules: unchanged.
+
 ## Leadership can add, remove and restore physicians (Oct 16 2026)
 
 The Physicians tab now has **Add a physician** (name and category), **Remove** on each

@@ -10,6 +10,7 @@ a real http origin; 127.0.0.1 is one.
 import contextlib
 import functools
 import http.server
+import os
 import pathlib
 import re
 import socketserver
@@ -30,11 +31,28 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+class _Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    # A page loads many module files at once; one thread per request so none
+    # is dropped.
+    daemon_threads = True
+    request_queue_size = 64
+
+
+# Set MV_BASE_URL to run the tests against another copy of the site, for
+# example the LIVE one after a deploy:
+#   MV_BASE_URL=https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting
+# Firebase is still routed to the stubs (see wire), so no real data is touched.
+BASE_URL = os.environ.get("MV_BASE_URL", "").rstrip("/")
+
+
 @contextlib.contextmanager
 def serve():
-    """Serve the repo root on an ephemeral localhost port."""
+    """Serve the repo root on an ephemeral localhost port (or use MV_BASE_URL)."""
+    if BASE_URL:
+        yield BASE_URL
+        return
     handler = functools.partial(_Quiet, directory=str(REPO))
-    with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+    with _Server(("127.0.0.1", 0), handler) as httpd:
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         try:
             yield f"http://127.0.0.1:{httpd.server_address[1]}"
@@ -154,6 +172,33 @@ def seed_ballots(page, pid, names, choice="favour", group="1", weight=1):
         "([p, rows]) => rows.forEach(r => window.__store.set('polls/' + p + '/votes/' + r.slug, r))",
         [pid, rows],
     )
+
+
+def seed(page, path, data):
+    """Write one document straight into the stub's server copy."""
+    page.evaluate("([p, d]) => window.__store.set(p, d)", [path, data])
+
+
+def ts(ms):
+    """A stored server time as the stub makes them (milliseconds since 1970)."""
+    ms = int(ms)
+    return {"__ts": ms, "seconds": ms // 1000, "nanoseconds": (ms % 1000) * 1000000}
+
+
+def seed_roster(page, groups=None, added=None, removed=None, **extra):
+    data = {"groups": groups or {}, "added": added or {}, "removed": removed or {}}
+    data.update(extra)
+    seed(page, "config/roster", data)
+
+
+def reads(page, prefix=""):
+    """Documents the page has read so far under a path (snapshots and reads)."""
+    return page.evaluate("p => window.__store.reads(p)", prefix)
+
+
+def writes(page, prefix=""):
+    """Documents the page has written so far under a path."""
+    return page.evaluate("p => window.__store.writes(p)", prefix)
 
 
 def store(page):
