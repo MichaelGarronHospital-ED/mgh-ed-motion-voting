@@ -81,8 +81,17 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.
   Quorum = 50% of eligible voters, computed automatically. These are `LEGACY_RULE` in
-  `count.js`. Each motion keeps a copy of the rules it opened with (`rule`), and any
-  motion without one is counted with `LEGACY_RULE`, never with later settings.
+  `count.js` and the defaults. Leadership can change them in **Settings** (points per
+  vote 0 to 1, quorum %, default pass rule "more in favour" or "two-thirds of points cast",
+  tie wording, how long the change history is kept: at least 7 years); saved in
+  `config/settings`, checked by the rules (R3). Each motion keeps a copy of the rules it
+  opened with (`rule`), and any motion without one is counted with `LEGACY_RULE`, never
+  with later settings. A draft follows today's settings with its own pass rule.
+- **No proxy votes** (Alvin's decision, Oct 2026): nothing in the data, rules or screens.
+- **Write-ins** are kept in `config/roster.writeins` (gathered at close and catch-up), so
+  the Physicians tab's "Write-ins to review" card survives a reload. "Update the list by
+  pasting" previews every change (`count.js parseRoster`) and removes nobody unless
+  ticked. Every roster change writes a `roster`, `roster-bulk` or `writein` log entry.
 - **Results are saved once, at close, and never change** (`polls/{id}.result`). Close
   has two steps: `closeMotion` freezes the motion (the rules then refuse every ballot
   write), then `saveResult` counts the ballots read from the server and saves inside a

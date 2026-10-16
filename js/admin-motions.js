@@ -1,6 +1,6 @@
 // Leadership console: the Motions tab (add, open, close, edit, archive, trash).
 import {
-  addPoll, updatePoll, trashPoll, restorePoll, purgePoll, setArchived,
+  addPoll, updatePoll, trashPoll, restorePoll, purgePoll, setArchived, currentSettings,
 } from "./db.js";
 import { escapeHtml, toast, icon } from "./util.js";
 import { $, S, R, collapsibleCard, statusPill } from "./admin-state.js";
@@ -14,11 +14,27 @@ export function wireMotions() {
   $("add-motion").addEventListener("click", async () => {
     const text = $("new-motion").value.trim();
     if (text.length < 3) { toast("Type the motion first."); return; }
-    await addPoll(text);
-    $("new-motion").value = "";
-    toast("Motion added");
+    try {
+      await addPoll(text, $("new-threshold").value);
+      $("new-motion").value = "";
+      toast("Motion added");
+    } catch (e) { R.actionFailed(e, "Not allowed: the database refused the new motion."); }
   });
+  syncDefaultThreshold();
 }
+// The Add form's pass rule starts at the default from Settings.
+let thresholdTouched = false;
+export function syncDefaultThreshold() {
+  const sel = $("new-threshold");
+  if (!sel.dataset.wired) { sel.dataset.wired = "1"; sel.addEventListener("change", () => { thresholdTouched = true; }); }
+  if (!thresholdTouched) sel.value = (currentSettings() && currentSettings().threshold) || "majority";
+}
+R.syncDefaultThreshold = syncDefaultThreshold;
+const THRESH_SELECT = (id, v) => `<label class="ed-label">Pass rule
+        <select class="ed-field" data-thresh="${id}">
+          <option value="majority" ${v !== "twoThirds" ? "selected" : ""}>More points in favour than against</option>
+          <option value="twoThirds" ${v === "twoThirds" ? "selected" : ""}>At least two-thirds of the points cast</option>
+        </select></label>`;
 
 export function renderMotions() {
   const el = $("motion-list");
@@ -58,11 +74,12 @@ function motionRow(p) {
       <label class="ed-label">Motion wording
         <textarea class="ed-field" data-edit="${escapeHtml(p.id)}" rows="3">${escapeHtml(p.text)}</textarea>
       </label>
+      ${p.status === "draft" ? THRESH_SELECT(escapeHtml(p.id), p.threshold) : ""}
       <div class="row"><button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="save" data-id="${escapeHtml(p.id)}">Save</button>
         <button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="cancel" data-id="${escapeHtml(p.id)}">Cancel</button></div></div>`;
   }
   return `<div class="poll-item">
-    <div class="text"><div class="meta">${statusPill(p.status)}${locked ? `<span class="locknote">${icon("lock", 16)}${p.result ? "Result saved" : "Locked: voting started"}</span>` : ""}</div>
+    <div class="text"><div class="meta">${statusPill(p.status)}${(p.threshold || (p.rule && p.rule.threshold)) === "twoThirds" ? '<span class="ed-pill ed-pill-quiet">Two-thirds</span>' : ""}${locked ? `<span class="locknote">${icon("lock", 16)}${p.result ? "Result saved" : "Locked: voting started"}</span>` : ""}</div>
       <p>${escapeHtml(p.text)}</p></div>
     <div class="row">
       ${p.status === "draft"
@@ -124,7 +141,10 @@ export async function motionAction(act, id) {
     const ta = document.querySelector(`textarea[data-edit="${id}"]`);
     const text = ta.value.trim();
     if (text.length < 3) { toast("Motion text too short."); return; }
-    if (await guard(updatePoll(id, { text }), "Motion updated.", "Not allowed: voting has started, so the wording is locked.")) editingId = null;
+    const patch = { text };
+    const th = document.querySelector(`select[data-thresh="${id}"]`);
+    if (th && poll.status === "draft") patch.threshold = th.value;
+    if (await guard(updatePoll(id, patch), "Motion updated.", "Not allowed: voting has started, so the wording is locked.")) editingId = null;
   } else if (act === "del") {
     if (confirm("Move this motion to Trash? It's hidden from voters but you can restore it from the Trash section below.")) {
       await guard(trashPoll(id), "Moved to Trash.");

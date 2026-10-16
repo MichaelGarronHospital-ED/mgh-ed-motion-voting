@@ -197,3 +197,79 @@ export function sortMotions(polls, meetings) {
     || num(tsMillis(a.closedAt)) - num(tsMillis(b.closedAt))
     || num(tsMillis(a.createdAt)) - num(tsMillis(b.createdAt)));
 }
+
+// ---- pasting the physician list (voting upgrade, step 3) -----------------------
+// Category words people use: Full / Full vote / 1 / Group 1; Half / Half vote /
+// 2 / Group 2; No vote / Courtesy / 0.
+const CAT_WORDS = {
+  "full": "1", "full vote": "1", "1": "1", "group 1": "1", "group1": "1",
+  "half": "2", "half vote": "2", "2": "2", "group 2": "2", "group2": "2", "0.5": "2",
+  "no vote": "courtesy", "courtesy": "courtesy", "0": "courtesy", "none": "courtesy",
+};
+export function categoryWord(w) {
+  const k = String(w || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return Object.prototype.hasOwnProperty.call(CAT_WORDS, k) ? CAT_WORDS[k] : null;
+}
+const slugOf = (name) => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+// "Reynolds, Megan" becomes "Megan Reynolds".
+function tidyName(n) {
+  let s = String(n || "").replace(/\s+/g, " ").trim();
+  const m = /^([^,]+),\s*(.+)$/.exec(s);
+  if (m) s = `${m[2].trim()} ${m[1].trim()}`;
+  return s;
+}
+// Same surname, and one first name starts the other (Meg / Megan): likely one person.
+function looksAlike(a, b) {
+  const pa = a.toLowerCase().split(" "), pb = b.toLowerCase().split(" ");
+  if (pa.length < 2 || pb.length < 2 || pa[pa.length - 1] !== pb[pb.length - 1]) return false;
+  const fa = pa[0], fb = pb[0];
+  return fa !== fb && fa.length >= 3 && fb.length >= 3 && (fa.startsWith(fb.slice(0, 3)) || fb.startsWith(fa.slice(0, 3)));
+}
+
+// Read a pasted list (from Excel: two columns; or lines "Name, category") and
+// compare it with the list in use. roster: [{ name, slug, group }] (today's
+// list, removed people left out). same: { pastedSlug: existingSlug | "new" }
+// answers to "same person?". Returns the preview:
+//   added [{name, slug, group}], changed [{name, slug, from, to}], unchanged [names],
+//   missing [{name, slug}] (in the list but not pasted), problems [{line, text, kind, ...}].
+export function parseRoster(text, roster, same = {}) {
+  const lines = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const out = { added: [], changed: [], unchanged: [], missing: [], problems: [], tooMany: lines.length > 300 };
+  const bySlug = {};
+  roster.forEach((p) => { bySlug[p.slug] = p; });
+  const seen = {};
+  lines.slice(0, 300).forEach((line, i) => {
+    let name, cat = null, catText = "";
+    if (line.includes("\t")) {
+      const cols = line.split("\t").map((c) => c.trim()).filter(Boolean);
+      name = cols[0] || ""; catText = cols[1] || "";
+    } else {
+      const parts = line.split(",").map((c) => c.trim());
+      if (parts.length > 1 && categoryWord(parts[parts.length - 1])) { catText = parts.pop(); }
+      name = parts.join(", ");
+    }
+    if (catText) {
+      cat = categoryWord(catText);
+      if (!cat) { out.problems.push({ line: i + 1, text: line, kind: "unclear", msg: "Line not understood" }); return; }
+    }
+    name = tidyName(name);
+    const slug = slugOf(name);
+    if (!slug || !/[a-z]/i.test(name) || name.length < 3) { out.problems.push({ line: i + 1, text: line, kind: "unclear", msg: "Line not understood" }); return; }
+    if (seen[slug]) { out.problems.push({ line: i + 1, text: line, kind: "twice", msg: `Listed twice: ${name}` }); return; }
+    seen[slug] = true;
+    let target = bySlug[slug];
+    if (!target && same[slug] && same[slug] !== "new" && bySlug[same[slug]]) { target = bySlug[same[slug]]; seen[target.slug] = true; }
+    if (target) {
+      seen[target.slug] = true;
+      if (cat && cat !== target.group) out.changed.push({ name: target.name, slug: target.slug, from: target.group, to: cat });
+      else out.unchanged.push(target.name);
+      return;
+    }
+    const alike = same[slug] === "new" ? null : roster.find((p) => looksAlike(p.name, name));
+    if (alike) { out.problems.push({ line: i + 1, text: line, kind: "alike", msg: `Looks like ${alike.name}: same person?`, slug, other: alike.slug, name }); return; }
+    if (!cat) { out.problems.push({ line: i + 1, text: line, kind: "nocat", msg: `No category for a new name: ${name}` }); return; }
+    out.added.push({ name, slug, group: cat });
+  });
+  roster.forEach((p) => { if (!seen[p.slug]) out.missing.push({ name: p.name, slug: p.slug }); });
+  return out;
+}

@@ -6,7 +6,7 @@
 import { ORG_NAME } from "./config.js";
 import {
   weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
-  resultOf, outcomeWords, sortMotions,
+  resultOf, outcomeWords, sortMotions, currentRule, liveEligible, quorumNeededFor, weightIn,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, toast } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
@@ -53,19 +53,21 @@ function recordTables(recs) {
       labelOf(v.choice), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""]));
   });
   const rosterRows = [["Name", "Category", "Points per vote"]];
-  [...roster].sort((a, b) => a.name.localeCompare(b.name)).forEach((p) => rosterRows.push([p.name, catLabel(p.group), p.weight]));
+  const rule = currentRule();
+  [...roster].sort((a, b) => a.name.localeCompare(b.name)).forEach((p) => rosterRows.push([p.name, catLabel(p.group), weightIn(rule, p.group)]));
+  const eligibleNow = liveEligible(rule), quorumNow = quorumNeededFor(eligibleNow, rule.quorumPercent);
   const live = recs.filter((r) => !r.poll.deleted);
   const summary = [["Item", "Value"],
     ["Exported", new Date().toLocaleString()],
     ["Tool", ORG_NAME],
     ["Motions", live.length],
     ["In trash", recs.length - live.length],
-    ["Eligible voters (today)", eligibleCount(null)],
-    ["Quorum (today)", quorumThreshold(null)],
+    ["Eligible voters (today)", eligibleNow],
+    ["Quorum (today)", quorumNow],
     ["Full vote", roster.filter((p) => p.group === "1").length],
     ["Half vote", roster.filter((p) => p.group === "2").length],
     ["No vote", roster.filter((p) => p.group === "courtesy").length],
-    ["Pass rule", "Weighted In favour must exceed weighted Against; abstentions count toward quorum only. Quorum is half of eligible voters, rounded up; closed motions keep the eligibility they closed with."]];
+    ["Pass rule", `Today's default for new motions: ${rule.threshold === "twoThirds" ? "at least two-thirds of the weighted votes for or against" : "weighted In favour must exceed weighted Against"}; abstentions count toward quorum only. Quorum is ${rule.quorumPercent}% of eligible voters, rounded up. Each motion is counted with the rules it opened with, and closed motions keep their saved results.`]];
   return { summary, motions, ballots, roster: rosterRows };
 }
 
@@ -101,7 +103,7 @@ async function printAll() {
       </tbody></table></section>`;
   }).join("");
   showPrint(`<h1>${escapeHtml(ORG_NAME)}: results</h1>
-    <p class="pr-sub">Printed ${escapeHtml(new Date().toLocaleString())} &middot; eligible voters today ${eligibleCount(null)}, quorum ${quorumThreshold(null)}</p>
+    <p class="pr-sub">Printed ${escapeHtml(new Date().toLocaleString())} &middot; eligible voters today ${liveEligible(currentRule())}, quorum ${quorumNeededFor(liveEligible(currentRule()), currentRule().quorumPercent)}</p>
     ${blocks || "<p>No motions yet.</p>"}
     <p class="pr-sub">${escapeHtml(t.summary[t.summary.length - 1][1])} Named ballots are in the Excel export.</p>`);
 }

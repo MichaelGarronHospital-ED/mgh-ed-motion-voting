@@ -105,6 +105,19 @@ the record.
    not been published yet (see below), and Open and Close stay off until they are.
 7. Afterward, **Export** for the record.
 
+## Changing the rules or the list (no code needed)
+
+- **Settings** (top right of the console) → **Voting rules**: points per vote for each
+  category, quorum percent, the default pass rule for new motions, how a tie is shown,
+  and how long the change history is kept (7 years at least). A change applies only to
+  motions opened afterwards; closed motions keep their results.
+- **Physicians** tab → **Write-ins to review**: people who typed their own name. Add them
+  with a category, or mark "Not a physician" (their votes stay at 0 points).
+- **Physicians** tab → **Update the list by pasting**: paste the voting sheet from Excel
+  (name and category columns), check the preview, then **Apply changes**. Nobody is removed
+  unless you tick the box.
+- There are no proxy votes.
+
 ## Notes
 - **Duplicate detection:** one row per name. If the same name votes from two
   different devices it's **flagged for review** (highlighted in the Voters tab) —

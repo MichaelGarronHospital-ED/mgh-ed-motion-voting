@@ -97,6 +97,12 @@
         <label class="ed-label" for="new-motion">One at a time
           <textarea class="ed-field" id="new-motion" rows="3" placeholder="For example: Motion to approve the proposed summer schedule as circulated."></textarea>
         </label>
+        <label class="ed-label" for="new-threshold">Pass rule
+          <select class="ed-field" id="new-threshold">
+            <option value="majority">More points in favour than against</option>
+            <option value="twoThirds">At least two-thirds of the points cast</option>
+          </select>
+        </label>
         <div><button id="add-motion" type="button" class="ed-btn ed-btn-filled">Add motion</button></div>
       </div>
       <div id="motion-list"></div>
@@ -136,11 +142,21 @@
           <button id="export-roster" type="button" class="ed-btn ed-btn-tinted btn-sm">Export CSV</button>
         </div>
         <p class="ed-hint" id="roster-counts"></p>
-        <ul class="keylist">
-          <li><strong>Full vote</strong> <span class="ed-muted">(Group 1, 1 point):</span> active staff, 8 or more shifts a month</li>
-          <li><strong>Half vote</strong> <span class="ed-muted">(Group 2, ½ point):</span> active under 8 shifts, provisional active, active secondary site</li>
-          <li><strong>No vote</strong> <span class="ed-muted">(Courtesy, 0):</span> recorded but not counted</li>
-        </ul>
+        <ul class="keylist" id="keylist"></ul>
+      </div>
+      <div class="card stack hide" id="writeins-card"></div>
+      <div class="card stack">
+        <details class="about" id="paste-fold">
+          <summary>Update the list by pasting</summary>
+          <div class="stack-sm">
+            <p class="ed-hint">Paste two columns from Excel (name, category), or one line per person: "Name, category". "Reynolds, Megan" is read as Megan Reynolds. Categories: Full, Half, or No vote (also 1, 2, 0, Group 1, Group 2, Courtesy). Up to 300 lines. Nothing changes until you choose Apply.</p>
+            <label class="ed-label" for="paste-text">The list
+              <textarea class="ed-field" id="paste-text" rows="6"></textarea>
+            </label>
+            <div><button type="button" id="paste-preview" class="ed-btn ed-btn-tinted btn-sm">Preview</button></div>
+            <div id="paste-result" class="stack-sm"></div>
+          </div>
+        </details>
       </div>
       <div class="card stack">
         <h2>Add a physician</h2>
@@ -172,6 +188,48 @@
     </section>
     <!-- SETTINGS (header button) -->
     <section id="tab-settings" class="hide">
+      <div class="card stack">
+        <h2>Voting rules</h2>
+        <p class="ed-hint">Apply to motions opened from now on. Closed motions keep their results; the open motion keeps the rules it opened with.</p>
+        <form id="rules-form" class="stack" novalidate>
+          <fieldset class="plain-fieldset stack-sm">
+            <legend class="field-label">Points per vote (0 to 1, in steps of 0.05)</legend>
+            <div class="rules-grid">
+              <label class="ed-label" for="w-1">Full vote
+                <input class="ed-field" id="w-1" type="number" min="0" max="1" step="0.05" inputmode="decimal" />
+              </label>
+              <label class="ed-label" for="w-2">Half vote
+                <input class="ed-field" id="w-2" type="number" min="0" max="1" step="0.05" inputmode="decimal" />
+              </label>
+              <label class="ed-label" for="w-c">No vote
+                <input class="ed-field" id="w-c" type="number" min="0" max="1" step="0.05" inputmode="decimal" />
+              </label>
+            </div>
+          </fieldset>
+          <label class="ed-label" for="q-pct">Quorum: percent of eligible voters (rounded up)
+            <input class="ed-field narrow" id="q-pct" type="number" min="1" max="100" step="1" inputmode="numeric" />
+          </label>
+          <p class="ed-hint">Eligible means points per vote above 0.</p>
+          <label class="ed-label" for="threshold">Default pass rule for new motions
+            <select class="ed-field" id="threshold">
+              <option value="majority">More points in favour than against</option>
+              <option value="twoThirds">At least two-thirds of the points cast (abstentions not counted)</option>
+            </select>
+          </label>
+          <label class="ed-label" for="tie-rule">A tie shows as
+            <select class="ed-field" id="tie-rule">
+              <option value="tie">Tie</option>
+              <option value="fails">Tie: does not pass</option>
+            </select>
+          </label>
+          <label class="ed-label" for="keep-years">Keep the change history at least (years)
+            <input class="ed-field narrow" id="keep-years" type="number" min="7" max="50" step="1" inputmode="numeric" />
+          </label>
+          <p class="ed-hint">7 is the lowest allowed. Counted in calendar years: an entry from Nov 20, 2026 can be deleted from Nov 21, 2033.</p>
+          <p id="rules-err" class="ed-error hide" role="alert"></p>
+          <div><button type="submit" id="settings-save" class="ed-btn ed-btn-filled">Save voting rules</button></div>
+        </form>
+      </div>
       <div class="card stack">
         <h2>Your name for the change history</h2>
         <form id="name-form" class="stack-sm">

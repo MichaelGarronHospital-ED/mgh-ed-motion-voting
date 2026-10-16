@@ -212,9 +212,24 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ---- settings (R3): the voting rules, checked here as well as on screen ----
+    // Points 0 to 1, quorum a whole percent from 1 to 100, known pass and tie
+    // rules, change history kept at least 7 years, the server's time.
+    function settingsOk(s) {
+      return s.keys().hasOnly(['v', 'weights', 'quorumPercent', 'threshold', 'tieRule',
+                               'checkIn', 'retentionYears', 'updatedAt'])
+        && s.weights is map && s.weights.keys().hasOnly(['1', '2', 'courtesy']) && s.weights.keys().hasAll(['1', '2', 'courtesy'])
+        && s.weights['1'] is number && s.weights['1'] >= 0 && s.weights['1'] <= 1
+        && s.weights['2'] is number && s.weights['2'] >= 0 && s.weights['2'] <= 1
+        && s.weights['courtesy'] is number && s.weights['courtesy'] >= 0 && s.weights['courtesy'] <= 1
+        && s.quorumPercent is int && s.quorumPercent >= 1 && s.quorumPercent <= 100
+        && s.threshold in ['majority', 'twoThirds'] && s.tieRule in ['tie', 'fails']
+        && s.checkIn is bool && s.retentionYears is int && s.retentionYears >= 7 && s.retentionYears <= 50
+        && s.updatedAt == request.time;
+    }
     match /config/{doc} {
       allow read: if signedIn();
-      allow write: if isLeader();
+      allow write: if isLeader() && (doc != 'settings' || settingsOk(request.resource.data));
     }
   }
 }
