@@ -62,6 +62,7 @@ export function renderSettings(force) {
   $("threshold").value = st.threshold;
   $("tie-rule").value = st.tieRule;
   $("keep-years").value = st.retentionYears || 7;
+  $("check-in").checked = st.checkIn !== false;
   $("rules-err").classList.add("hide");
   $("history-purge").textContent = `Delete history older than ${keepYears()} years`;
   formDirty = false;
@@ -78,7 +79,7 @@ function readRules() {
   if (!Number.isInteger(q) || q < 1 || q > 100) problems.push("Quorum must be a whole number from 1 to 100.");
   const keep = num("keep-years");
   if (!Number.isInteger(keep) || keep < 7 || keep > 50) problems.push("Keep the change history at least 7 years (whole years, up to 50).");
-  return { problems, value: { weights: w, quorumPercent: q, threshold: $("threshold").value, tieRule: $("tie-rule").value, retentionYears: keep } };
+  return { problems, value: { weights: w, quorumPercent: q, threshold: $("threshold").value, tieRule: $("tie-rule").value, retentionYears: keep, checkIn: $("check-in").checked } };
 }
 async function saveRules() {
   const { problems, value } = readRules();

@@ -413,3 +413,22 @@ export function parseAgenda(text) {
 // Today's local date as YYYY-MM-DD (meeting dates are local text, so time
 // zones never shift them).
 export function todayLocal() { return localDate(Date.now()); }
+
+// ---- vote receipts (voting upgrade, step 7) ------------------------------------------
+// A short code made from the motion, the name, what was recorded and how many
+// times it was changed. The phone keeps the code it got; leadership sees the
+// same code next to that ballot, worked out from the stored ballot, so nothing
+// extra is stored. If they differ, the vote under that name was changed by
+// someone else (or something went wrong). It shows what was recorded under a
+// name; it does not prove who tapped, and it is not secret.
+const RECEIPT_ABC = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";   // no 0, O, 1 or I
+export function receiptCode(pollId, slug, choice, picks, submissionCount) {
+  const what = choice === "pick" ? `pick:${(picks || []).join(",")}` : String(choice);
+  const s = `${pollId}|${slug}|${what}|${submissionCount || 1}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  let out = "";
+  for (let i = 0; i < 5; i++) { out += RECEIPT_ABC[h & 31]; h >>>= 5; }
+  return out;
+}
+export function ballotReceipt(pollId, v) { return receiptCode(pollId, v.slug, v.choice, v.picks, v.submissionCount); }

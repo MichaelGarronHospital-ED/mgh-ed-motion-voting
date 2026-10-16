@@ -4,6 +4,34 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Check-in, remote, vote receipts (voting upgrade step 7, Oct 2026)
+
+- **Check-in:** while a meeting is open, phones ask once "Where are you joining from?
+  In the room / Remote" (or Skip). It is never needed to vote, and can be changed later.
+  Settings has "Check-in at meetings"; each meeting has "Ask phones to check in".
+- **Meeting tab → Attendance:** how many checked in (in the room, remote), the list,
+  **Add someone** (for example "Present, did not use a phone") and **Remove** for a
+  mistake (both in the change history). The projector shows "Checked in: 31 (in the room
+  25, remote 6)" before voting starts. The Voters tab shows "Remote" next to those names.
+- **Vote receipts:** after each vote a phone shows "Recorded: In favour. Receipt 7F3KQ.
+  12:04." The Voters tab, the CSV and the meeting's Excel show the same code for that
+  ballot (worked out from the stored ballot; nothing extra is saved). After a motion
+  closes, a voter can tap **Check my recorded vote**: "It matches this phone's receipt",
+  or "It does not match. Please tell leadership."
+- The meeting's Excel now has check-ins in the Meeting and Attendance sheets (people who
+  voted without checking in are listed as "Voted, did not check in"), and remote and
+  receipt columns in Ballots.
+- **No proxy votes** (Alvin's decision): nothing about proxies was built.
+- What these mean: a check-in or a receipt records what someone said or what was recorded
+  under a name. Everyone shares the ED password, so neither proves who tapped.
+
+**Publish the rules before merging this page** (they allow a phone's check-in only while
+the meeting is open, under its own name, with nothing else). With the old rules the
+console's Attendance card says "needs a database update" and phones say "Check-in is
+not available yet."; votes are not affected.
+
+Tests: 194 browser tests (11 new), 119 rules tests (10 new).
+
 ## Questions and elections (voting upgrade step 6, Oct 2026)
 
 - **Add a motion → Type:** Motion, **Question** or **Election**. A question has 2 to 20

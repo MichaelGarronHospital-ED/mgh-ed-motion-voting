@@ -254,10 +254,26 @@ service cloud.firestore {
 
     // ---- meetings (R4) ----------------------------------------------------------
     function meetingPath(m) { return /databases/$(database)/documents/meetings/$(m); }
+    // A phone's check-in (R7): only while the meeting is open, under its own
+    // name, in the room or remote, the server's time, nothing else.
+    function checkInOk(slug) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'slug', 'mode', 'sessionId', 'at'])
+        && d.keys().hasAll(['name', 'slug', 'mode', 'sessionId', 'at'])
+        && d.slug == slug && d.slug.size() <= 100 && d.slug.matches('[a-z0-9]+(-[a-z0-9]+)*')
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 200
+        && d.mode in ['room', 'remote'] && isSessionId(d.sessionId) && d.at == request.time;
+    }
     match /meetings/{m} {
       allow read: if signedIn();
       allow create, update: if isLeader();
       allow delete: if isLeader() && resource.data.get('deleted', false) == true;   // Trash only
+      match /attendance/{slug} {
+        allow read: if signedIn();
+        allow create, update: if isLeader()
+          || (signedIn() && get(meetingPath(m)).data.get('status', '') == 'open' && checkInOk(slug));
+        allow delete: if isLeader();
+      }
     }
 
     // ---- settings (R3): the voting rules, checked here as well as on screen ----
@@ -323,4 +339,10 @@ service cloud.firestore {
 //    they cannot check the arithmetic the console did.
 //
 //  • The change log's "by" is a name typed on the console laptop, not checked.
+//
+//  • A check-in (in the room or remote) is a claim made with the shared ED
+//    password, like a ballot: it records what someone said, not who they are.
+//
+//  • A vote receipt shows what was recorded under a name; it does not prove
+//    who tapped, and it is not secret.
 // ---------------------------------------------------------------------------

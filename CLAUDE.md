@@ -138,6 +138,14 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   `seats` with points; a tie only when an option outside the winners equals the last
   winner; 0 points never wins; "more than half" (one pick) can end in a run-off of the
   top two (`runoffMotion`, logged as "runoff"). Options lock once voting starts.
+- **Attendance, remote and receipts are claims, not proof** (everyone shares the ED
+  password). A check-in (`meetings/{m}/attendance/{slug}`: in the room or remote) is one
+  optional tap while the meeting is open (R7) and never needed to vote; leadership can
+  add or remove someone. A vote receipt (`count.js receiptCode`: the motion, the name,
+  what was recorded and how many times it changed) shows what was recorded under a
+  name, not who tapped; leadership sees the same code from the stored ballot, so nothing
+  extra is stored. There are no proxy votes. Say these limits plainly; HONEST LIMITS in
+  `firestore.rules` lists them.
 - **The projector never shows the for and against split** unless leadership ticks "Show
   the live count", and never a verdict before the result is saved (or counted once after
   30 s). Its timer never closes a vote.

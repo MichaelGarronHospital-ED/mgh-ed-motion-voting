@@ -10,7 +10,8 @@ import { ORG_NAME } from "./config.js";
 import {
   onLive, onOpenPolls, castVote, getSessionId, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson,
   watchMember, voterSignIn, leaderSignOut, isWrongPassword, classify, withTimeout, getHistoryOnce,
-  getClosedPollsOnce, countOnce, outcomeWords, outcomeKind, localDate, tsMillis,
+  getClosedPollsOnce, countOnce, outcomeWords, outcomeKind, localDate, tsMillis, checkIn, getOwnBallot,
+  receiptCode, ballotReceipt, clockTime,
 } from "./db.js";
 import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js";
 
@@ -32,9 +33,9 @@ const stale = new Map();        // motion id -> { timer, state, result } for a l
 
 // What this phone sent (kept on the phone, last 50 motions): pollId -> { slug, choice, at }.
 function receipts() { try { return JSON.parse(localStorage.getItem("ed_receipts") || "{}"); } catch (e) { return {}; } }
-function keepReceipt(pollId, slug, choice, picks) {
+function keepReceipt(pollId, slug, choice, picks, count) {
   const r = receipts();
-  r[pollId] = { slug, choice, at: Date.now() };
+  r[pollId] = { slug, choice, at: Date.now(), code: receiptCode(pollId, slug, choice, picks, count) };
   if (picks) r[pollId].picks = picks;
   const ids = Object.keys(r).sort((a, b) => r[b].at - r[a].at).slice(0, 50);
   const out = {}; ids.forEach((id) => { out[id] = r[id]; });
@@ -261,6 +262,7 @@ function voteBody() {
     ${bound ? `<button type="button" id="switch-voter" class="ed-btn ed-btn-plain linkbtn">Switch voter</button>`
             : `<button type="button" id="change-name" class="ed-btn ed-btn-plain linkbtn">Not you?</button>`}</div>`;
   if (board === undefined && !boardSlow) return head + `<p class="ed-hint">Connecting...</p>`;
+  const ci = checkInHTML();
   if (board === undefined) return head + `<p class="notice">${icon("alert", 20)}<span>No connection. Voting will work again when it reconnects.</span></p>`;
   const open = openMotion();
   if (open) {
@@ -268,10 +270,10 @@ function voteBody() {
     // peek at how another person voted.
     const r = receipts()[open.id];
     const mine = deviceBound() === me.slug && r && r.slug === me.slug ? r : null;
-    if (open.kind === "choice") return head + choiceBallot(open, mine);
+    if (open.kind === "choice") return head + ci + choiceBallot(open, mine) + receiptLine(open, mine);
     const tile = ([c, l, ic]) => `<button type="button" class="vote" data-c="${c}" aria-pressed="${!!(mine && mine.choice === c)}">${icon(ic, 26)}${l}</button>`;
     const revote = open.revoteOf ? `<p class="ed-hint"><span class="ed-pill ed-pill-info">Re-vote</span> Reason: ${escapeHtml(open.revoteReason || "")}</p>` : "";
-    return head + `
+    return head + ci + `
       <span class="ed-pill ed-pill-good"><span class="dot"></span>Voting open</span>
       ${open.number ? `<p class="motion-num">Motion ${escapeHtml(open.number)}</p>` : ""}
       <h2 class="motion-text">${escapeHtml(open.text)}</h2>${revote}
@@ -280,11 +282,60 @@ function voteBody() {
       <div class="votes" role="group" aria-label="Your vote">${CHOICES.map(tile).join("")}</div>
       ${voteMsg ? `<p class="ed-error err" role="alert">${icon("alert", 18)}<span>${escapeHtml(voteMsg)}</span></p>` : ""}
       <p class="ed-hint">${mine ? `You voted <strong>${escapeHtml(labelOf(mine.choice))}</strong>. You can change it until voting closes.`
-        : "You can change your vote until leadership closes the motion."}</p>`;
+        : "You can change your vote until leadership closes the motion."}</p>${receiptLine(open, mine)}`;
   }
-  return head + `<div class="ed-empty">${icon("clock", 40)}
+  return head + ci + `<div class="ed-empty">${icon("clock", 40)}
     <strong>No motion open right now</strong>
     <span>Closed motions appear under Results.</span></div>`;
+}
+
+// "Recorded: In favour. Receipt 7F3KQ. 12:04."
+function receiptLine(open, mine) {
+  if (!mine || !mine.code) return "";
+  const what = mine.choice === "pick" ? "your picks" : labelOf(mine.choice);
+  return `<p class="ed-hint receipt-line">Recorded: ${escapeHtml(what)}. Receipt <span class="receipt-code">${escapeHtml(mine.code)}</span>. ${escapeHtml(clockTime(mine.at))}.</p>`;
+}
+
+// ---- check-in (only while the meeting is open and check-in is on) -----------
+// One tap, never needed to vote. Kept on the phone: meetingId -> { slug, mode }.
+let checkInMsg = "", checkInAgain = false;
+function checkIns() { try { return JSON.parse(localStorage.getItem("ed_checkin") || "{}"); } catch (e) { return {}; } }
+function keepCheckIn(mid, rec) {
+  const c = checkIns(); c[mid] = rec;
+  try { localStorage.setItem("ed_checkin", JSON.stringify(c)); } catch (e) { /* private mode */ }
+}
+function checkInHTML() {
+  const m = board && board.meeting;
+  if (!m || m.status !== "open" || !m.checkIn) return "";
+  const rec = checkIns()[m.id];
+  if (rec && rec.slug === me.slug && !checkInAgain) {
+    if (rec.mode === "skip") return "";
+    return `<p class="ed-hint checked-in">Checked in: ${rec.mode === "remote" ? "remote" : "in the room"}. <button type="button" id="ci-change" class="ed-btn ed-btn-plain linkbtn">Change</button></p>`;
+  }
+  return `<div class="card-inset stack-sm checkin-card" role="group" aria-labelledby="ci-title">
+    <p id="ci-title"><strong>Checking in to ${escapeHtml(m.title)}.</strong> Where are you joining from?</p>
+    <div class="row"><button type="button" class="ed-btn ed-btn-filled btn-sm" data-ci="room">In the room</button>
+      <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-ci="remote">Remote</button>
+      <button type="button" class="ed-btn ed-btn-plain btn-sm" data-ci="skip">Skip</button></div>
+    ${checkInMsg ? `<p class="ed-error err" role="alert">${icon("alert", 18)}<span>${escapeHtml(checkInMsg)}</span></p>` : ""}
+  </div>`;
+}
+async function doCheckIn(mode) {
+  const m = board && board.meeting;
+  if (!m) return;
+  checkInMsg = "";
+  if (mode === "skip") { keepCheckIn(m.id, { slug: me.slug, mode: "skip" }); checkInAgain = false; render(); return; }
+  try {
+    await withTimeout(checkIn(m.id, me, mode, sessionId), 10000);
+    keepCheckIn(m.id, { slug: me.slug, mode });
+    checkInAgain = false;
+    toast(mode === "remote" ? "Checked in: remote." : "Checked in: in the room.");
+  } catch (e) {
+    console.warn(e);
+    if (classify(e) === "refused") checkInMsg = board && board.meeting && board.meeting.status === "open" ? "Check-in is not available yet." : "Check-in is closed.";
+    else checkInMsg = "Not sent: no connection. Try again.";
+  }
+  render();
 }
 
 // A question or election: one tile per option, plus Abstain. Picking 1: a tap
@@ -346,9 +397,36 @@ function resultCard(id, e) {
   const extra = [];
   if (e.revoteOf) extra.push(`<p class="ed-hint">Reason for the re-vote: ${escapeHtml(e.revoteReason || "")}</p>`);
   if (e.supersededBy) extra.push(`<p class="ed-hint">${board && board.results && board.results[e.supersededBy] ? `<a href="#r-${escapeHtml(e.supersededBy)}">See the re-vote result.</a>` : "See the re-vote result when it closes."}</p>`);
+  const rc = me && receipts()[id];
+  if (rc && rc.code && rc.slug === me.slug) {
+    const what = rc.choice === "pick" ? "your picks" : labelOf(rc.choice);
+    extra.push(`<div class="stack-sm receipt-box"><p class="ed-hint">Your receipt: <span class="receipt-code">${escapeHtml(rc.code)}</span> (${escapeHtml(what)})</p>
+      ${checks.has(id) ? `<p class="${checks.get(id).ok ? "ed-hint" : "notice"}" role="status">${checks.get(id).ok ? "" : icon("alert", 18)}<span>${escapeHtml(checks.get(id).text)}</span></p>`
+        : `<div><button type="button" class="ed-btn ed-btn-tinted btn-sm" data-check="${escapeHtml(id)}">Check my recorded vote</button></div>`}
+      <p class="ed-hint">This shows what was recorded under your name. It does not prove who tapped.</p></div>`);
+  }
   if (e.reopenCount && e.priorOutcome) extra.push(`<p class="ed-hint">Re-opened ${e.reopenCount === 1 ? "once" : e.reopenCount + " times"}. Earlier count: ${escapeHtml(outcomeWords(e.priorOutcome, "voter"))} (${fmt(e.priorOutcome.weight.favour)} to ${fmt(e.priorOutcome.weight.against)} points).</p>`);
   return `<div class="card stack" id="r-${escapeHtml(id)}">${top}${body}${note}${extra.join("")}</div>`;
 }
+// "Check my recorded vote": one read of this name's ballot, compared with the
+// phone's receipt.
+const checks = new Map();   // motion id -> { ok, text }
+async function checkMyVote(id) {
+  const rc = receipts()[id];
+  try {
+    const v = await withTimeout(getOwnBallot(id, me.slug), 10000);
+    if (!v) checks.set(id, { ok: false, text: "No vote is recorded under your name. Please tell leadership." });
+    else if (ballotReceipt(id, v) === rc.code) {
+      const what = v.choice === "pick" ? "your picks" : labelOf(v.choice);
+      checks.set(id, { ok: true, text: `Recorded under your name: ${what}. It matches this phone's receipt.` });
+    } else checks.set(id, { ok: false, text: "It does not match this phone's receipt. Please tell leadership." });
+  } catch (e) {
+    checks.set(id, { ok: false, text: classify(e) === "refused" ? "Could not check right now. Please tell leadership." : "No connection. Try again." });
+    setTimeout(() => { checks.delete(id); render(); }, 4000);
+  }
+  render();
+}
+
 // A board entry still without a result 30 seconds after THIS phone received it
 // (the phone's own timer: phone clocks can be minutes off) is counted once from
 // its ballots, the same way the console saves it.
@@ -459,6 +537,9 @@ function wireVoter() {
   });
   const el = document.getElementById("earlier-load");
   if (el) el.addEventListener("click", loadEarlier);
+  document.querySelectorAll("button[data-ci]").forEach((b) => b.addEventListener("click", () => doCheckIn(b.dataset.ci)));
+  const cc = document.getElementById("ci-change"); if (cc) cc.addEventListener("click", () => { checkInAgain = true; render(); });
+  document.querySelectorAll("button[data-check]").forEach((b) => b.addEventListener("click", () => { b.disabled = true; checkMyVote(b.dataset.check); }));
 }
 async function submit(choice, picks) {
   const open = openMotion();
@@ -468,10 +549,10 @@ async function submit(choice, picks) {
     // resolve the voter's CURRENT category/weight at submit time (reflects any
     // leadership edits); write-ins keep their 0-weight snapshot.
     const rp = me.isWriteIn ? { group: me.group, weight: me.weight } : resolvedPerson(me.slug);
-    await withTimeout(castVote({ pollId: open.id, name: me.name, slug: me.slug, group: rp.group,
+    const count = await withTimeout(castVote({ pollId: open.id, name: me.name, slug: me.slug, group: rp.group,
       weight: rp.weight, isWriteIn: me.isWriteIn, choice, sessionId, picks }), 15000);
     localStorage.setItem("ed_bound", me.slug);   // lock this device to this person
-    keepReceipt(open.id, me.slug, choice, picks);
+    keepReceipt(open.id, me.slug, choice, picks, count);
     if (picks) picking = { pollId: open.id, picks: new Set(picks) };
     toast(choice === "pick" ? "Vote recorded." : "Vote recorded: " + labelOf(choice));
   } catch (e) {

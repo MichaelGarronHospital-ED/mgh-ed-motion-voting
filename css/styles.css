@@ -316,6 +316,11 @@ input.narrow-date { max-width:200px; }
 .screen .choice-bars { font-size:clamp(16px, 1.8vw, 28px); }
 .kind-seg { width:max-content; }
 
+/* ---- attendance and receipts (voting upgrade step 7) ------------------------- */
+td.receipt code, .receipt-code { font:600 var(--ed-text-sm)/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.06em; }
+@media (max-width:640px) { #voters-table td.receipt { grid-column:3; grid-row:2; text-align:right; color:var(--ed-ink-2); } }
+.checkin-card { border:1.5px solid var(--ed-accent); }
+
 /* ---- voter: results sections ------------------------------------------------ */
 .section-title { font:700 var(--ed-h3)/1.3 var(--ed-font-display); margin:8px 0 10px; }
 .group-title { font:600 var(--ed-text-sm)/1.3 var(--ed-font); color:var(--ed-ink-2); margin:12px 0 8px; }

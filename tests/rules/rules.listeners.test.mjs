@@ -18,6 +18,9 @@
 //  leadership sign-in) reads config/live, config/screen, config/roster, the
 //  open motion's ballots, and one motion with its ballots (a late result).
 //  Step 6 (questions and elections): no new source.
+//  Step 7 (attendance and receipts): the console and the projector read a
+//  meeting's attendance; the voter page reads its own ballot once ("Check my
+//  recorded vote").
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -46,6 +49,7 @@ const SOURCES = {
     ["config/history (may be missing)", (db) => getDoc(doc(db, "config/history"))],
     ["meetings", (db) => getDocs(collection(db, "meetings"))],
     ["config/screen (may be missing)", (db) => getDoc(doc(db, "config/screen"))],
+    ["a meeting's attendance", (db) => getDocs(collection(db, "meetings/m1/attendance"))],
     ["one meeting's change log", (db) => getDocs(query(collection(db, "log"), where("meetingId", "==", "m1")))],
   ],
   voter: [
@@ -56,6 +60,7 @@ const SOURCES = {
     ["the closed motions (fallback for earlier results)", (db) => getDocs(query(collection(db, "polls"), where("status", "==", "closed")))],
     ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
     ["its ballots (a late result)", (db) => getDocs(collection(db, "polls/p1/votes"))],
+    ["its own ballot (Check my recorded vote)", (db) => getDoc(doc(db, "polls/p1/votes/ash"))],
   ],
   projector: [
     ["config/live", (db) => getDoc(doc(db, "config/live"))],
@@ -63,10 +68,11 @@ const SOURCES = {
     ["config/roster", (db) => getDoc(doc(db, "config/roster"))],
     ["the open motion's ballots", (db) => getDocs(collection(db, "polls/p1/votes"))],
     ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
+    ["the meeting's attendance", (db) => getDocs(collection(db, "meetings/m1/attendance"))],
   ],
 };
 
-describe("step 6 pages read only what the rules allow", () => {
+describe("step 7 pages read only what the rules allow", () => {
   for (const [name, read] of SOURCES.console) {
     it(`console (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }
