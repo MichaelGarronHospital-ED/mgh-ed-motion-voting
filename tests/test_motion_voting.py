@@ -108,6 +108,25 @@ class TestRosterAndQuorum(Base):
         self.assertIn(f"{h.fmt(len(h.GROUP2) / 2)} pts", body)
         self.assertIn(f"{len(h.GROUP2)} votes", body)
 
+    def test_a_name_counts_once_even_with_a_second_ballot_under_another_id(self):
+        # REGRESSION: the tally used to add every ballot document, so a second
+        # document carrying the same slug counted that person twice.
+        pg = self.admin()
+        name = h.GROUP1[0]
+        h.seed_poll(pg, status="closed", vote_count=2)
+        h.seed_ballots(pg, "p1", [name], choice="favour")
+        pg.evaluate(
+            "([s, n]) => window.__store.set('polls/p1/votes/dup-' + s, {name:n, slug:s,"
+            " choice:'against', group:'1', weight:1, flagged:false, submissionCount:1})",
+            [h.slugify(name), name])
+        h.tab(pg, "results")
+        pg.wait_for_timeout(300)
+        body = pg.inner_text("#results-body")
+        self.assertIn("1 pts · 1 vote", body)       # In favour: the ballot under its own slug wins
+        self.assertIn("0 pts · 0 votes", body)      # Against: the duplicate is not counted
+        self.assertIn("1 ballot ·", body)
+        self.assertIn(f"1 of {h.QUORUM}", body)
+
 
 class TestCastingAVote(Base):
     """What happens when a physician taps a choice."""
@@ -474,6 +493,29 @@ class TestVoterReview(Base):
         h.tab(pg, "voters")
         pg.wait_for_timeout(250)
         self.assertIn("Shared device", pg.inner_text("#voters-table"))
+
+
+class TestBallotFieldsAreNotCode(Base):
+    """Ballot fields are typed by voters, so the console must show them as
+    text, never run them (the page's Content-Security-Policy is the backstop)."""
+
+    def test_crafted_ballot_fields_are_shown_as_text(self):
+        pg = self.admin()
+        h.seed_poll(pg, vote_count=1)
+        evil = '<img src=x data-evil=1>'
+        ballot = {"name": "Pat Q", "slug": 'x" data-evil="1', "choice": evil,
+                  "group": "writein", "weight": 0, "isWriteIn": True, "flagged": True,
+                  "submissionCount": evil, "sessionIds": ["a", "b"]}
+        pg.evaluate("b => window.__store.set('polls/p1/votes/x', b)", ballot)
+        pg.wait_for_timeout(250)
+        h.tab(pg, "voters")
+        pg.wait_for_timeout(250)
+        self.assertIn(evil, pg.inner_text("#voters-table"))   # shown as text
+        h.tab(pg, "roster")
+        pg.fill("#roster-filter", "Pat Q")
+        pg.wait_for_timeout(150)
+        self.assertIn("Pat Q", pg.inner_text("#roster-table"))
+        self.assertEqual(pg.evaluate("document.querySelectorAll('[data-evil]').length"), 0)
 
 
 if __name__ == "__main__":
