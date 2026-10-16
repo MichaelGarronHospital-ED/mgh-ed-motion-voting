@@ -95,6 +95,12 @@ def open_voter(page, base):
         page.wait_for_selector("#search, #app .tabs")
 
 
+def open_screen(page, base):
+    """Load the projector screen (meeting screen)."""
+    page.goto(f"{base}/screen.html")
+    page.wait_for_function("() => window.__store !== undefined")
+
+
 def load_admin(page, base):
     """Load the admin page but leave it locked, so the store can be seeded
     before the console boots and subscribes."""

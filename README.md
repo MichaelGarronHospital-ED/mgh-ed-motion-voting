@@ -92,8 +92,13 @@ the record.
    **Paste an agenda** (one per line; lines starting "Amendment" become amendments).
    Use **Up** and **Down** to reorder; **Add amendment** on a motion; **Details** for the
    mover, seconder and notes (editable any time, even after the vote).
-2. **At the start:** Meeting tab → **Start meeting**. Screen-share the QR code (same tab).
-   Voters see the meeting's name and its results.
+2. **At the start:** Meeting tab → **Start meeting**. On the computer connected to the
+   projector, open **Open the projector screen** (Meeting tab): it shows the QR code,
+   then turnout and quorum while a vote is open, and the result after. Under
+   **Projector** you can hide the QR code, show the live count (off by default), and run
+   a 1, 2 or 5 minute timer (it never closes the vote). Voters see the meeting's name
+   and its results. If the console itself is projected, tick **Hide the live count on
+   this screen** (Results tab).
 3. For each motion: **Open** → let people vote → watch the quorum meter fill → **Close**.
    Closing shows "Saving the result..." for a moment: keep the page open until it says
    **Result saved** (on an iPad or iPhone especially).

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Only this site's own files and Firebase may run or connect. Blocks any
+       script that gets injected into the page. Keep in step with js/db.js. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://ed-motion-voting-99b96.firebaseapp.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Motion Voting · Meeting screen</title>
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/ed-ui.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="screen-page">
+  <main id="screen" class="screen"></main>
+  <script type="module" src="js/screen.js"></script>
+</body>
+</html>

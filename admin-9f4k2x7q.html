@@ -91,6 +91,23 @@
       </div>
       <p class="ed-hint" id="roster-summary"></p>
       </div>
+      <div class="card stack" id="projector-card">
+        <h2>Projector</h2>
+        <p class="ed-hint">A screen for the room: the QR code, turnout and quorum while voting is open, and the result after. Open it on the computer connected to the projector; it uses that browser's sign-in (the ED password if it has none).</p>
+        <div><a class="ed-btn ed-btn-tinted btn-sm" id="open-screen" href="screen.html" target="_blank" rel="noopener">Open the projector screen</a></div>
+        <label class="check"><input type="checkbox" id="screen-qr" checked /> Show the QR code</label>
+        <label class="check"><input type="checkbox" id="screen-tally" /> Show the live count of votes for and against</label>
+        <div class="stack-sm">
+          <span class="field-label" id="timer-label">Timer for the open motion</span>
+          <div class="row" role="group" aria-labelledby="timer-label">
+            <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-timer="60">1 min</button>
+            <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-timer="120">2 min</button>
+            <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-timer="300">5 min</button>
+            <button type="button" class="ed-btn btn-quiet btn-sm" data-timer="0">Stop</button>
+          </div>
+          <p class="ed-hint">The timer never closes the vote: you do.</p>
+        </div>
+      </div>
       <div class="card stack" id="meeting-records">
         <h2>Records of this meeting</h2>
         <p class="ed-hint">Every motion with its saved result, the named ballots, who voted, and the change history.</p>
@@ -137,6 +154,10 @@
     <section id="tab-results" class="hide">
       <div class="card stack hide" id="catchup-card"></div>
       <div class="card" id="results-selector"></div>
+      <div class="card stack-sm">
+        <label class="check"><input type="checkbox" id="hide-live" /> Hide the live count on this screen</label>
+        <p class="ed-hint">For when this console is shown on the projector. Anyone with the ED password can still see ballots. This only keeps the count off the big screen.</p>
+      </div>
       <div class="card stack" id="results-body"></div>
     </section>
 

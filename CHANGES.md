@@ -4,6 +4,26 @@ Running log of what changed and why, newest first.
 
 ---
 
+## A meeting screen for the projector (voting upgrade step 5, Oct 2026)
+
+- **New page `screen.html`**, opened from the Meeting tab ("Open the projector screen").
+  Before a vote: the meeting's name and a large QR code ("Scan to vote. You need the ED
+  password."). While a motion is open: its number and wording, how many eligible
+  voters have voted, quorum progress ("7 more needed"), and an optional timer. After it
+  closes: the saved result, with the time it closed.
+- **It never shows how the vote is going** (for and against) unless leadership ticks
+  "Show the live count", and never a verdict before the result is saved.
+- **It never signs anyone out:** it uses the browser's existing sign-in; signed out, it
+  asks for the ED password only (never the Leadership one), so a shared room computer
+  never holds the Leadership password.
+- Console **Projector** card: show or hide the QR code, show the live count, timer 1, 2
+  or 5 minutes, Stop. The timer never closes the vote. Results tab: **Hide the live count
+  on this screen** for when the console itself is projected (this laptop only).
+
+No new database rules. Phones do not read the projector's settings.
+
+Tests: 167 browser tests (13 new). Rules: no change; 100 rules tests (11 new rows checking the projector can read what it needs).
+
 ## Meetings and agendas (voting upgrade step 4, Oct 2026)
 
 - **The Share tab is now Meeting.** Add a meeting (title and date), its chair and

@@ -306,6 +306,37 @@ input.narrow-date { max-width:200px; }
 .group-title { font:600 var(--ed-text-sm)/1.3 var(--ed-font); color:var(--ed-ink-2); margin:12px 0 8px; }
 .card .row > .ed-pill { align-self:center; }
 
+/* ---- meeting screen (projector; voting upgrade step 5) ------------------------ */
+.screen-page { min-height:100vh; }
+.screen { max-width:1400px; margin:0 auto; padding:clamp(16px, 3vw, 48px); position:relative; }
+.screen-head { display:flex; align-items:center; gap:12px; font:600 clamp(16px, 1.6vw, 26px)/1.3 var(--ed-font); color:var(--ed-ink-2); margin-bottom:clamp(12px, 2vw, 32px); }
+.screen-main { display:flex; flex-direction:column; gap:clamp(12px, 1.6vw, 24px); max-width:1100px; }
+.screen-main .ed-pill { font-size:clamp(14px, 1.3vw, 20px); padding:6px 14px; }
+.screen-motion { font:700 clamp(26px, 3.4vw, 56px)/1.2 var(--ed-font-display); overflow-wrap:anywhere; margin:0; }
+.screen-sub { font-size:clamp(16px, 1.6vw, 26px); color:var(--ed-ink-2); }
+.screen-big { font:600 clamp(20px, 2.4vw, 40px)/1.3 var(--ed-font); }
+.screen-count { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; font-size:clamp(18px, 2vw, 32px); }
+.screen-num { font:700 clamp(56px, 8vw, 140px)/1 var(--ed-font-display); font-variant-numeric:tabular-nums; }
+.screen-quorum { background:var(--ed-surface); border-radius:var(--ed-r-lg); padding:clamp(14px, 1.6vw, 24px); display:flex; flex-direction:column; gap:12px; font-size:clamp(16px, 1.8vw, 30px); }
+.screen-quorum.met strong { color:var(--ed-green); }
+.screen-quorum.short strong { color:var(--ed-amber); }
+.screen-quorum .bar, .screen .bar { height:clamp(12px, 1.2vw, 20px); }
+.screen-timer { font:700 clamp(28px, 4vw, 64px)/1 var(--ed-font-display); font-variant-numeric:tabular-nums; }
+.screen-timer.soon { color:var(--ed-amber); }
+.screen-timer.done { font-size:clamp(20px, 2.4vw, 40px); color:var(--ed-amber); }
+.screen-verdict .verdict { font-size:clamp(32px, 4.4vw, 72px); }
+.screen-verdict .verdict .i { width:clamp(32px, 4vw, 64px); height:clamp(32px, 4vw, 64px); }
+.screen-tally { font-size:clamp(16px, 1.8vw, 28px); }
+.screen-waiting { align-items:center; text-align:center; margin:0 auto; }
+.screen-qr { width:min(60vh, 80vw); height:auto; image-rendering:pixelated; background:#fff; padding:16px; border-radius:var(--ed-r-lg); }
+.screen-link { font:600 clamp(16px, 1.8vw, 28px)/1.3 var(--ed-font); overflow-wrap:anywhere; }
+.screen-qr-small { position:absolute; top:clamp(16px, 3vw, 48px); right:clamp(16px, 3vw, 48px); display:flex; flex-direction:column; align-items:center; gap:6px; font-size:14px; color:var(--ed-ink-2); }
+.screen-qr-small img { width:clamp(90px, 10vw, 160px); height:auto; image-rendering:pixelated; background:#fff; padding:8px; border-radius:var(--ed-r-md); }
+.screen-note { display:flex; gap:8px; align-items:center; font-size:14px; color:var(--ed-ink); background:var(--ed-amber-tint); border-radius:var(--ed-r-md); padding:8px 12px; margin-bottom:12px; width:max-content; max-width:100%; }
+.screen-wait { font-size:clamp(18px, 2vw, 32px); color:var(--ed-ink-2); }
+@media (min-width:641px) { .screen-main { margin-right:clamp(120px, 13vw, 200px); } .screen-waiting { margin-right:auto; } }
+@media (max-width:640px) { .screen-qr-small { position:static; align-items:flex-start; margin-top:16px; } }
+
 .boot-note { color:var(--ed-ink-2); font-size:var(--ed-text-sm); text-align:center; margin:24px 0; }
 
 /* ---- toast ----------------------------------------------------------------- */

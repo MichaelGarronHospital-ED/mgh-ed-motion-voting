@@ -32,6 +32,11 @@ class TestSmoke(Base):
         self.page.click('#motion-list button[data-act="close"]')
         self.page.wait_for_function("() => window.__store.get('polls/p1').status === 'closed'")
 
+    def test_meeting_screen_shows_the_ed_card_when_signed_out(self):
+        h.open_screen(self.page, self.base)
+        self.page.wait_for_selector("#edpw")
+        self.assertIn("Enter the ED password to show the meeting screen.", self.page.inner_text("#screen"))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -596,6 +596,18 @@ export function countCtx() {
 // The result of a motion from its ballots, counted the way it will be saved.
 export function resultOf(poll, votes) { return computeResult(poll, votes, countCtx()); }
 
+// ---- the projector screen (config/screen) ----------------------------------------
+// { showQr, showTally, timer: { pollId, startedAt, seconds } | null, changedAt }.
+// Only the console writes it; the projector listens. Phones never read it.
+export function onScreen(cb, onError) {
+  return onSnapshot(doc(db, "config", "screen"), { includeMetadataChanges: true }, (snap) => {
+    cb(snap.exists() ? snap.data() : null, snap);
+  }, (e) => { if (onError) onError(e); else console.error(e); });
+}
+export async function setScreen(patch) {
+  await setDoc(doc(db, "config", "screen"), { ...patch, changedAt: serverTimestamp() }, { merge: true });
+}
+
 // ---- the voter page's reads ------------------------------------------------------
 // Fallback while config/live does not exist yet (before the first leadership
 // sign-in after the upgrade): the open motion only (0 or 1 document).
