@@ -5,7 +5,7 @@ Static frontend on **GitHub Pages** + **Firebase Firestore** for real-time vote 
 
 - **Voters:** `index.html` — pick your name, tap *In favour / Against / Abstain*.
 - **Leadership:** `admin-9f4k2x7q.html` — manage motions, see live weighted tally,
-  quorum meter, per-person table + CSV export. Passcode-protected + unguessable URL.
+  quorum meter, per-person table + CSV export. Leadership-password-protected + unguessable URL.
 
 Weights: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**. A motion
 passes when weighted *In favour* > weighted *Against*; abstentions count toward
@@ -67,9 +67,16 @@ the move point at the old address, which redirects here. Renaming this repo
 changes the URL and breaks the QR code, so don't, unless you leave a redirect.
 
 ### 4. Test (30 seconds)
-Open `admin-9f4k2x7q.html`, enter the passcode → **Motions** → add a motion → **Open**.
-Open `index.html` in another tab/phone, pick a name, vote. Confirm the tally
-and quorum meter update live in the admin **Live results** tab.
+**This uses the live database that real meetings use.** For most checks, run the
+local tests instead (`tests/README.md`): they need no Firebase at all. To try the
+real site, never during a meeting:
+
+Open `admin-9f4k2x7q.html`, enter the Leadership password → **Motions** → add a motion
+named clearly, e.g. "TEST, please ignore" → **Open**. Open `index.html` in another
+tab/phone, enter the ED password, pick a name, vote. Confirm the tally and quorum
+meter update live in the admin **Live results** tab. Then **Close** the test motion,
+**Delete** it, and **Delete permanently** from the Trash, so no test ballot is left in
+the record.
 
 ---
 
@@ -106,8 +113,10 @@ Both accounts live in Firebase → Authentication (Email/Password provider). Ano
 sign-in is no longer accepted by the rules. `set-passwords.py` (in `MGH-ED-Tools`) creates
 or updates both and verifies them.
 
-**Rollback:** if anything misbehaves, paste [`firestore.rules.open`](firestore.rules.open)
-into the Rules tab and Publish — everything works again with no auth required.
+**Rollback:** if newly published rules misbehave, put the previous version back:
+Firebase console → Firestore Database → **Rules** lists every published version, so
+pick the one before and publish it again. Or `git revert` the change here and deploy
+again (below). Never open the database to everyone as a fix: the ballots carry names.
 
 ### Publishing the rules from the command line
 
@@ -120,4 +129,6 @@ npx firebase-tools deploy --only firestore:rules
 ```
 
 `--only firestore:rules` publishes the rules and nothing else. Never publish during a
-live meeting. The rollback is still the console paste of `firestore.rules.open`.
+live meeting. Run `cd tests/rules && npm install && npm test` first (Firestore emulator).
+The page code and the rules work in pairs: deploy the rules right after the page
+change they belong to reaches `main` (see `CHANGES.md`).
