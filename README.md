@@ -3,13 +3,15 @@
 A free, mobile-friendly weighted-voting site for live meeting motions.
 Static frontend on **GitHub Pages** + **Firebase Firestore** for real-time vote storage.
 
-- **Voters:** `index.html` — pick your name, tap *In favour / Against / Abstain*.
-- **Leadership:** `admin-9f4k2x7q.html` — manage motions, see live weighted tally,
+- **Voters:** `index.html`: pick your name, tap *In favour / Against / Abstain*.
+- **Leadership:** `admin-9f4k2x7q.html`: manage motions, see live weighted tally,
   quorum meter, per-person table + CSV export. Leadership-password-protected + unguessable URL.
 
-Weights: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**. A motion
-passes when weighted *In favour* > weighted *Against*; abstentions count toward
-quorum only. Quorum is computed automatically as **50% of eligible voters**.
+The starting rules: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**; a motion
+passes when weighted *In favour* > weighted *Against*; abstentions count toward quorum
+only; quorum is **50% of eligible voters**, rounded up. Leadership can change these in
+the console's **Settings** (they apply to motions opened afterwards; closed motions keep
+their saved results).
 
 ## Where it lives
 
@@ -51,7 +53,7 @@ quorum only. Quorum is computed automatically as **50% of eligible voters**.
 Edit [`js/config.js`](js/config.js):
 - Paste your `firebaseConfig`.
 - Passwords are not in this file: see "Sign-in" below.
-- (Quorum is automatic — 50% of eligible voters — nothing to configure.)
+- Quorum and points per vote are set in the console's Settings (50% of eligible voters and 1 / 0.5 / 0 to start); nothing to configure here.
 
 The starting list of physicians is in [`js/roster.js`](js/roster.js) (**GROUP1 / GROUP2 / COURTESY**).
 Day to day, leadership changes the list in the console instead, with no code change:
