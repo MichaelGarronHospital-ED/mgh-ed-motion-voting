@@ -39,7 +39,7 @@ export function statusPill(status) {
 
 // ----------------------------------------------------------------- category labels
 // catLabel feeds the CSV and Excel records: keep its words exactly as they are.
-export function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":g==="removed"?"Removed":"— (uncategorized)";}
+export function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="courtesy"?"No vote":g==="removed"?"Removed":"\u2014 (uncategorized)";}
 export function uiCat(g){return g==="1"||g==="2"||g==="courtesy"?catLabel(g):"Uncategorized";}   // on screen
 export function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV
 
