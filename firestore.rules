@@ -55,10 +55,23 @@ service cloud.firestore {
     // A new ballot: first tap of a name on this motion. Written in the same
     // transaction as the +1 to the motion's voteCount, which is checked here
     // so a ballot can never land without being counted.
+    function baseKeys() { return ['name', 'slug', 'group', 'weight', 'isWriteIn', 'choice',
+                                  'sessionIds', 'submissionCount', 'flagged', 'firstAt', 'lastAt']; }
+    // Motions: favour / against / abstain, never picks. Questions and elections
+    // (R6): "pick" with 1 to `seats` different known options, or "abstain"
+    // with none.
+    function choiceOk(p, d) {
+      return p.get('kind', 'motion') == 'choice'
+        ? (d.choice in ['pick', 'abstain'] && d.picks is list
+           && d.picks.toSet().size() == d.picks.size()
+           && d.picks.hasOnly(p.optionIds)
+           && (d.choice == 'abstain' ? d.picks.size() == 0
+               : (d.picks.size() >= 1 && d.picks.size() <= p.get('seats', 1))))
+        : (isChoice(d.choice) && !('picks' in d));
+    }
     function isNewBallot(poll, vote) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['name', 'slug', 'group', 'weight', 'isWriteIn', 'choice',
-                               'sessionIds', 'submissionCount', 'flagged', 'firstAt', 'lastAt'])
+      return d.keys().hasOnly(baseKeys().concat(['picks']))
         && d.keys().hasAll(['name', 'slug', 'group', 'weight', 'isWriteIn', 'choice',
                             'sessionIds', 'submissionCount', 'flagged', 'firstAt', 'lastAt'])
         && d.slug is string && d.slug == vote
@@ -67,7 +80,7 @@ service cloud.firestore {
         && d.group is string && d.group.size() <= 20
         && d.weight is number && d.weight >= 0 && d.weight <= 1
         && d.isWriteIn is bool
-        && isChoice(d.choice)
+        && choiceOk(get(pollPath(poll)).data, d)
         && d.sessionIds is list && d.sessionIds.size() == 1 && isSessionId(d.sessionIds[0])
         && d.submissionCount == 1
         && d.flagged == false
@@ -79,20 +92,21 @@ service cloud.firestore {
     // were. Device ids only grow, by at most one new id, and keep every old
     // one; "flagged" is true exactly when 2+ devices have used this name; the
     // submission count goes up by one only when the choice actually changes.
-    function isBallotChange(vote) {
+    function isBallotChange(poll, vote) {
       let d = request.resource.data;
       let old = resource.data;
       let oldIds = old.get('sessionIds', []);
       let ids = d.sessionIds;
-      return d.diff(old).affectedKeys().hasOnly(['choice', 'submissionCount', 'sessionIds', 'flagged', 'lastAt'])
+      return d.diff(old).affectedKeys().hasOnly(['choice', 'picks', 'submissionCount', 'sessionIds', 'flagged', 'lastAt'])
         && d.slug == vote
-        && isChoice(d.choice)
+        && choiceOk(get(pollPath(poll)).data, d)
         && ids is list && ids.hasAll(oldIds)
         && (ids.size() == oldIds.size() || ids.size() == oldIds.size() + 1)
         && ids.toSet().size() == ids.size()
         && isSessionId(ids[ids.size() - 1])
         && d.flagged == (ids.size() > 1)
-        && d.submissionCount == old.get('submissionCount', 1) + (d.choice != old.get('choice', '') ? 1 : 0)
+        && d.submissionCount == old.get('submissionCount', 1)
+             + ((d.choice != old.get('choice', '') || d.get('picks', []) != old.get('picks', [])) ? 1 : 0)
         && d.lastAt == request.time;
     }
 
@@ -142,6 +156,14 @@ service cloud.firestore {
         && request.resource.data.supersededBy is string
         && newLog(request.resource.data.lastLog, poll, ['revote', 'runoff']);
     }
+    // A question or election (R6): 2 to 20 options with as many ids, and seats
+    // from 1 to one fewer than the options.
+    function choiceShapeOk(d) {
+      return d.get('kind', 'motion') != 'choice'
+        || (d.optionIds is list && d.optionIds.size() >= 2 && d.optionIds.size() <= 20
+            && d.options is list && d.options.size() == d.optionIds.size()
+            && d.seats is int && d.seats >= 1 && d.seats <= d.optionIds.size() - 1);
+    }
     function lockedPollUpdate(poll) {          // a saved result exists
       let ch = request.resource.data.diff(resource.data).affectedKeys();
       return ch.hasOnly(metaKeys()) || isReopen(poll, ch) || isRevoteLink(poll, ch);
@@ -150,7 +172,7 @@ service cloud.firestore {
       let b = resource.data;
       let a = request.resource.data;
       let ch = a.diff(b).affectedKeys();
-      return !ch.hasAny(['priorResults', 'supersededBy'])
+      return !ch.hasAny(['priorResults', 'supersededBy']) && choiceShapeOk(a)
         // a result only on a motion that was ALREADY closed, in its own write
         && (!('result' in a) || (b.get('status', '') == 'closed' && a.status == 'closed' && resultOk(a)))
         && timeOk(a, b, 'closedAt') && timeOk(a, b, 'openedAt')
@@ -173,7 +195,8 @@ service cloud.firestore {
     match /polls/{poll} {
       allow read: if signedIn();
       allow create: if isLeader() && request.resource.data.get('status', 'draft') == 'draft'
-        && !('result' in request.resource.data) && !('priorResults' in request.resource.data);
+        && !('result' in request.resource.data) && !('priorResults' in request.resource.data)
+        && choiceShapeOk(request.resource.data);
       allow delete: if isLeader() && resource.data.get('deleted', false) == true;   // Trash only
       // leadership edits within the limits above; a voter may only +1 the voteCount counter
       allow update: if (isLeader() && (hasResult(resource.data) ? lockedPollUpdate(poll) : unlockedPollUpdate(poll)))
@@ -187,7 +210,7 @@ service cloud.firestore {
         allow create: if (isLeader() && pollData(poll).status != 'closed')
                       || (signedIn() && pollIsOpen(poll) && isNewBallot(poll, vote));
         allow update: if (isLeader() && pollData(poll).status != 'closed')
-                      || (signedIn() && pollIsOpen(poll) && isBallotChange(vote));
+                      || (signedIn() && pollIsOpen(poll) && isBallotChange(poll, vote));
         // closed ballots go only after their motion is permanently deleted
         allow delete: if isLeader() && (!exists(pollPath(poll)) || pollData(poll).status != 'closed');
       }

@@ -12,7 +12,7 @@ import {
   watchMember, voterSignIn, leaderSignOut, isWrongPassword, classify, withTimeout, getHistoryOnce,
   getClosedPollsOnce, countOnce, outcomeWords, outcomeKind, localDate, tsMillis,
 } from "./db.js";
-import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt } from "./util.js";
+import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -32,9 +32,10 @@ const stale = new Map();        // motion id -> { timer, state, result } for a l
 
 // What this phone sent (kept on the phone, last 50 motions): pollId -> { slug, choice, at }.
 function receipts() { try { return JSON.parse(localStorage.getItem("ed_receipts") || "{}"); } catch (e) { return {}; } }
-function keepReceipt(pollId, slug, choice) {
+function keepReceipt(pollId, slug, choice, picks) {
   const r = receipts();
   r[pollId] = { slug, choice, at: Date.now() };
+  if (picks) r[pollId].picks = picks;
   const ids = Object.keys(r).sort((a, b) => r[b].at - r[a].at).slice(0, 50);
   const out = {}; ids.forEach((id) => { out[id] = r[id]; });
   try { localStorage.setItem("ed_receipts", JSON.stringify(out)); } catch (e) { /* private mode */ }
@@ -267,6 +268,7 @@ function voteBody() {
     // peek at how another person voted.
     const r = receipts()[open.id];
     const mine = deviceBound() === me.slug && r && r.slug === me.slug ? r : null;
+    if (open.kind === "choice") return head + choiceBallot(open, mine);
     const tile = ([c, l, ic]) => `<button type="button" class="vote" data-c="${c}" aria-pressed="${!!(mine && mine.choice === c)}">${icon(ic, 26)}${l}</button>`;
     const revote = open.revoteOf ? `<p class="ed-hint"><span class="ed-pill ed-pill-info">Re-vote</span> Reason: ${escapeHtml(open.revoteReason || "")}</p>` : "";
     return head + `
@@ -283,6 +285,31 @@ function voteBody() {
   return head + `<div class="ed-empty">${icon("clock", 40)}
     <strong>No motion open right now</strong>
     <span>Closed motions appear under Results.</span></div>`;
+}
+
+// A question or election: one tile per option, plus Abstain. Picking 1: a tap
+// is the vote. Picking more: tiles toggle, then "Submit vote".
+let picking = { pollId: null, picks: new Set() };
+function choiceBallot(open, mine) {
+  const seats = open.seats || 1;
+  const multi = seats > 1;
+  if (picking.pollId !== open.id) picking = { pollId: open.id, picks: new Set(mine && mine.choice === "pick" ? mine.picks || [] : []) };
+  const chosen = (id) => (multi ? picking.picks.has(id) : !!(mine && mine.choice === "pick" && (mine.picks || []).includes(id)));
+  const tiles = (open.options || []).map((o) => `<button type="button" class="vote option" data-pick="${escapeHtml(o.id)}" aria-pressed="${chosen(o.id)}">${escapeHtml(o.label)}</button>`).join("");
+  const revote = open.revoteOf ? `<p class="ed-hint"><span class="ed-pill ed-pill-info">${/^run-off/i.test(open.revoteReason || "") ? "Run-off" : "Re-vote"}</span> Reason: ${escapeHtml(open.revoteReason || "")}</p>` : "";
+  const labels = Object.fromEntries((open.options || []).map((o) => [o.id, o.label]));
+  const said = mine ? (mine.choice === "abstain" ? "You abstained." : `You voted for ${escapeHtml((mine.picks || []).map((id) => labels[id] || id).join(" and "))}.`) : "";
+  return `
+    <span class="ed-pill ed-pill-good"><span class="dot"></span>Voting open</span>
+    ${open.number ? `<p class="motion-num">Motion ${escapeHtml(open.number)}</p>` : ""}
+    <h2 class="motion-text">${escapeHtml(open.text)}</h2>${revote}
+    <p class="ed-hint">${multi ? `Pick up to ${seats}.` : open.style === "election" ? "Pick 1 candidate." : "Pick 1."}${seats === 1 && open.threshold === "majority" ? " The winner needs more than half of the points." : ""}</p>
+    <div class="votes options" role="group" aria-label="Your vote">${tiles}
+      <button type="button" class="vote option abstain-tile" data-c="abstain" aria-pressed="${!!(mine && mine.choice === "abstain")}">${icon("minus", 22)}Abstain</button></div>
+    ${multi ? `<p class="ed-hint" aria-live="polite" id="pick-count">Pick up to ${seats}. You picked ${picking.picks.size}.</p>
+      <div><button type="button" id="submit-picks" class="ed-btn ed-btn-filled" ${picking.picks.size ? "" : "disabled"}>Submit vote</button></div>` : ""}
+    ${voteMsg ? `<p class="ed-error err" role="alert">${icon("alert", 18)}<span>${escapeHtml(voteMsg)}</span></p>` : ""}
+    <p class="ed-hint">${said ? `${said} You can change it until voting closes.` : "You can change your vote until leadership closes the vote."}</p>`;
 }
 
 // ---- results tab (from the board; earlier ones on a tap) -------------------
@@ -312,7 +339,8 @@ function resultCard(id, e) {
   } else stale.delete(id);
   // Until a result exists we know nothing: an empty count reads "No quorum",
   // which on a meeting-room screen looks like a real result.
-  body = r ? `${resultWords(r)}${stackedBar(r.weight)}
+  body = r && r.kind === "choice" ? `${resultWords(r)}${choiceBars(r)}`
+    : r ? `${resultWords(r)}${stackedBar(r.weight)}
     <p class="legend"><span><i class="sw favour"></i>In favour</span><span><i class="sw against"></i>Against</span><span><i class="sw abstain"></i>Abstain</span></p>`
     : `<p class="ed-hint">Counting votes…</p>`;
   const extra = [];
@@ -411,11 +439,28 @@ function wireVoter() {
     me = null; voterTab = "vote"; render();
   });
   document.querySelectorAll("button[data-c]").forEach((b) =>
-    b.addEventListener("click", () => submit(b.dataset.c)));
+    b.addEventListener("click", () => submit(b.dataset.c, b.dataset.c === "abstain" && openMotion() && openMotion().kind === "choice" ? [] : undefined)));
+  document.querySelectorAll("button[data-pick]").forEach((b) => b.addEventListener("click", () => {
+    const open = openMotion();
+    if (!open) return;
+    const id = b.dataset.pick;
+    if ((open.seats || 1) === 1) { submit("pick", [id]); return; }
+    if (picking.picks.has(id)) picking.picks.delete(id);
+    else if (picking.picks.size < open.seats) picking.picks.add(id);
+    else { toast(`Pick up to ${open.seats}. Untick one first.`); return; }
+    render();
+    const again = document.querySelector(`button[data-pick="${CSS.escape(id)}"]`); if (again) again.focus();
+  }));
+  const sp = document.getElementById("submit-picks");
+  if (sp) sp.addEventListener("click", () => {
+    const open = openMotion();
+    // in the question's option order, so the same picks are never a new submission
+    submit("pick", (open.optionIds || []).filter((id) => picking.picks.has(id)));
+  });
   const el = document.getElementById("earlier-load");
   if (el) el.addEventListener("click", loadEarlier);
 }
-async function submit(choice) {
+async function submit(choice, picks) {
   const open = openMotion();
   if (!open) return;
   voteMsg = "";
@@ -424,10 +469,11 @@ async function submit(choice) {
     // leadership edits); write-ins keep their 0-weight snapshot.
     const rp = me.isWriteIn ? { group: me.group, weight: me.weight } : resolvedPerson(me.slug);
     await withTimeout(castVote({ pollId: open.id, name: me.name, slug: me.slug, group: rp.group,
-      weight: rp.weight, isWriteIn: me.isWriteIn, choice, sessionId }), 15000);
+      weight: rp.weight, isWriteIn: me.isWriteIn, choice, sessionId, picks }), 15000);
     localStorage.setItem("ed_bound", me.slug);   // lock this device to this person
-    keepReceipt(open.id, me.slug, choice);
-    toast("Vote recorded: " + labelOf(choice));
+    keepReceipt(open.id, me.slug, choice, picks);
+    if (picks) picking = { pollId: open.id, picks: new Set(picks) };
+    toast(choice === "pick" ? "Vote recorded." : "Vote recorded: " + labelOf(choice));
   } catch (e) {
     console.warn(e);
     const kind = classify(e);

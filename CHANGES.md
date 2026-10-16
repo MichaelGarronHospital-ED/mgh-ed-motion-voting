@@ -4,6 +4,31 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Questions and elections (voting upgrade step 6, Oct 2026)
+
+- **Add a motion → Type:** Motion, **Question** or **Election**. A question has 2 to 20
+  options and "How many can each person pick?"; for one pick, the winner needs "Most
+  points" or "More than half of the points". An election has candidates and seats (fewer
+  than the candidates). Options, seats and type lock once voting starts.
+- **Voters** see one large tile per option plus Abstain. Picking one: a tap is the vote.
+  Picking more: tap to choose, "Pick up to 2. You picked 1.", then **Submit vote**;
+  changing picks later works until it closes.
+- **Counting:** each pick adds the voter's points (full, half or none) to that option.
+  Winners are the options with the most points, up to the seats; an option with no points
+  never wins; a tie is reported ("Tie for the last seat: Dr A and Dr C"), never broken.
+  "No option has more than half. Dr B leads." offers **Run-off with the top two** (a new
+  linked question; the first one stays on record).
+- Results, the projector, the Voters tab, the Excel files and the printouts show ranked
+  bars with points and votes for each option.
+
+**Publish the rules before merging this page** (they accept question and election
+ballots and check their shape). With the old rules a question vote is refused with
+"Your vote could not be recorded. Please tell leadership."; motions are unaffected.
+**Once a question or election exists, never roll back to an earlier page.**
+
+Tests: 183 browser tests (16 new), 109 rules tests (9 new, with the real vote code for
+one and several picks).
+
 ## A meeting screen for the projector (voting upgrade step 5, Oct 2026)
 
 - **New page `screen.html`**, opened from the Meeting tab ("Open the projector screen").

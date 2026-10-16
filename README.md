@@ -131,6 +131,11 @@ the record.
 - **Physicians** tab → **Update the list by pasting**: paste the voting sheet from Excel
   (name and category columns), check the preview, then **Apply changes**. Nobody is removed
   unless you tick the box.
+- **Questions and elections:** on the Motions tab choose **Question** or **Election**,
+  type the options (or candidates), one per line, and how many each person can pick (or
+  how many seats). The winner is the option with the most points; for a one-pick
+  question you can require more than half, and if nobody gets it, the Results tab offers
+  **Run-off with the top two**. Ties are reported, never broken by the app.
 - There are no proxy votes.
 
 ## Notes

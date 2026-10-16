@@ -301,6 +301,21 @@ input.narrow-date { max-width:200px; }
   .rules-grid.two { grid-template-columns:1fr; }
 }
 
+/* ---- questions and elections (voting upgrade step 6) -------------------------- */
+.votes.options { grid-template-columns:1fr; }
+.vote.option { min-height:var(--ed-tap); flex-direction:row; justify-content:flex-start; text-align:left; padding:12px 16px;
+  font-size:var(--ed-text); }
+.vote.option.abstain-tile { color:var(--ed-ink-2); }
+.vote.option.abstain-tile[aria-pressed="true"] { color:var(--ed-accent-ink); }
+.choice-bars { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; font-size:var(--ed-text-sm); }
+.choice-bars .lbl { display:inline-flex; align-items:center; gap:6px; font-weight:600; overflow-wrap:anywhere; }
+.choice-bars li.won .lbl { color:var(--ed-green); }
+.choice-bars .num { color:var(--ed-ink-2); white-space:nowrap; }
+.choice-bars .num strong { color:var(--ed-ink); }
+.choice-bars .bar { margin-top:6px; }
+.screen .choice-bars { font-size:clamp(16px, 1.8vw, 28px); }
+.kind-seg { width:max-content; }
+
 /* ---- voter: results sections ------------------------------------------------ */
 .section-title { font:700 var(--ed-h3)/1.3 var(--ed-font-display); margin:8px 0 10px; }
 .group-title { font:600 var(--ed-text-sm)/1.3 var(--ed-font); color:var(--ed-ink-2); margin:12px 0 8px; }

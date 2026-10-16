@@ -131,6 +131,13 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   motion with its result first. "Delete meeting permanently" works only from the Trash:
   motions first, the meeting last, so running it again finishes a half-done delete.
   Motions made before meetings stay under "Earlier motions" and can be moved in.
+- **Questions and elections** (`kind: "choice"`, `style` question or election, `options`
+  [{id, label}], `optionIds`, `seats`, `threshold` plurality or majority). A ballot has
+  `choice` "pick" (with `picks`, in option order) or "abstain" (empty picks); a motion
+  ballot never has picks (R6). Each pick adds the voter's points; winners are the top
+  `seats` with points; a tie only when an option outside the winners equals the last
+  winner; 0 points never wins; "more than half" (one pick) can end in a run-off of the
+  top two (`runoffMotion`, logged as "runoff"). Options lock once voting starts.
 - **The projector never shows the for and against split** unless leadership ticks "Show
   the live count", and never a verdict before the result is saved (or counted once after
   30 s). Its timer never closes a vote.
