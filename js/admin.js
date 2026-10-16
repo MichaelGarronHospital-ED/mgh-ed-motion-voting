@@ -9,7 +9,7 @@ import {
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
-  historyIsCurrent, revoteMotion, setLogName,
+  historyIsCurrent, revoteMotion, setLogName, currentLive,
 } from "./db.js";
 import { toast, icon, escapeHtml } from "./util.js";
 import { $, S, R } from "./admin-state.js";
@@ -117,7 +117,8 @@ const DB_UPDATE_CONSOLE = "This page needs a database update that has not been p
 S.ready = false; S.dbUpdate = false; S.offline = false; S.busy = 0;
 S.saving = new Set();       // motions whose result this laptop is saving now
 S.reopenFor = null;         // motion whose Re-open form is showing
-R.canOpenClose = () => S.ready && !S.dbUpdate;
+// From step 2 the voters' board must be known too (actions patch it).
+R.canOpenClose = () => S.ready && !S.dbUpdate && currentLive() !== undefined;
 
 // ----------------------------------------------------------------- boot
 let votesUnsub = null;

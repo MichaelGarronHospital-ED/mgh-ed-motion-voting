@@ -362,8 +362,10 @@ class TestConsoleBoard(Base):
         wait_result(pg, "x1")
         self.assertEqual(self.live(pg)["open"]["id"], "y1")
 
-    def test_queued_close_after_reopen_is_refused(self):
-        """A close tapped offline is not kept to land later on a re-opened motion."""
+    def test_offline_close_is_not_queued_so_it_cannot_land_after_a_reopen(self):
+        """A close tapped offline fails at once (a transaction, never queued), so
+        it cannot land later on a motion re-opened meanwhile. The rules case (a
+        close naming an older opening is refused) is in rules.results.test.mjs."""
         pg = self.admin()
         seed_open(pg, ballots=h.GROUP1[:3])
         pg.wait_for_timeout(300)

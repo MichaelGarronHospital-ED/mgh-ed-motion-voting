@@ -33,7 +33,7 @@ to about 6,700.
 step-1 page works the same with them). Until the first leadership sign-in creates the
 board, phones fall back to reading the open motion directly.
 
-Tests: 108 browser tests (29 new), 64 rules tests (13 new, including the real close,
+Tests: 109 browser tests (29 new), 67 rules tests (15 new, including the real close,
 save, re-open, re-vote and history code writing the board in the emulator).
 
 ## Results are saved when a motion closes (voting upgrade step 1, Oct 2026)

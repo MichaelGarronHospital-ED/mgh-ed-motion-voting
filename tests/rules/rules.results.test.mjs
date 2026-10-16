@@ -106,7 +106,8 @@ describe("closing and saving (the real closeMotion and saveResult)", () => {
     a.setKnownPolls([{ id: "m1", text: "Motion one", status: "open", openedAt: OPENED }]);   // out of date
     await assertSucceeds(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
     const first = await readRaw("polls/m1");
-    await assertFails(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
+    await assert.rejects(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));    // the page stops (step 2: the board shows it closed)
+    await assertFails(updateDoc(doc(leader(), "polls/m1"), { status: "closed", closedAt: serverTimestamp(), closeOfOpenedAt: OPENED }));   // and the rules refuse
     assert.ok((await readRaw("polls/m1")).closedAt.isEqual(first.closedAt));
     // the previous page's close (no closing time) of a closed motion still passes, as before
     await assertSucceeds(updateDoc(doc(leader(), "polls/m1"), { status: "closed", lockedGroups: { x: "1" } }));
@@ -378,6 +379,40 @@ describe("re-vote (R2) and the voters' board", () => {
     assert.ok(Array.isArray(h.entries));
     live = await readRaw("config/live");
     assert.equal(live.results.m1, undefined, "archived motions leave the board");
+    a.setKnownPolls([]);
+  });
+  it("two laptops: a close or re-open from a laptop a step behind never writes its older copy of another motion", async () => {
+    const { a, polls } = await withBoard();
+    // laptop B closes and saves m1; laptop A still has the list from before (m1 open, no result)
+    const stale = await polls();
+    a.setKnownPolls(stale);
+    await a.closeMotion("m1", { openedAt: OPENED, votes: [] });
+    a.setKnownPolls(await polls());
+    assert.equal(await a.saveResult("m1"), "saved");
+    const saved = (await readRaw("config/live")).results.m1;
+    assert.ok(saved.result, "the board shows m1's saved result");
+    await seed("polls/x2", { text: "Another", order: 5, status: "open", voteCount: 0, archived: false, deleted: false, openedAt: OPENED });
+    // laptop A (out of date) closes x2, then re-opens it
+    a.setKnownPolls([...stale, { id: "x2", text: "Another", order: 5, status: "open", openedAt: OPENED }]);
+    await assertSucceeds(a.closeMotion("x2", { openedAt: OPENED, votes: [] }));
+    let live = await readRaw("config/live");
+    assert.deepEqual(live.results.m1.result.outcome, saved.result.outcome, "m1's saved result is still on the board");
+    assert.ok(live.results.m1.result, "not overwritten with null");
+    await seed("polls/x2", { ...(await readRaw("polls/x2")), result: { ...saved.result }, lockedGroups: {} });
+    a.setKnownPolls([...stale, { id: "x2", ...(await readRaw("polls/x2")) }]);
+    await assertSucceeds(a.reopenMotion("x2", "Closed early by mistake."));
+    live = await readRaw("config/live");
+    assert.ok(live.results.m1 && live.results.m1.result, "re-open leaves m1 alone too");
+    assert.equal(live.open.id, "x2");
+    a.setKnownPolls([]);
+  });
+  it("a close stops if the board already shows the motion closed by another laptop", async () => {
+    const { a, polls } = await withBoard();
+    const stale = await polls();
+    a.setKnownPolls(stale);
+    await a.closeMotion("m1", { openedAt: OPENED, votes: [] });
+    a.setKnownPolls(stale);                       // still thinks m1 is open
+    await assert.rejects(a.closeMotion("m1", { openedAt: OPENED, votes: [] }), (e) => e.why === "closed");
     a.setKnownPolls([]);
   });
   it("a late close never clears another motion's open (laptop B opened Y meanwhile)", async () => {

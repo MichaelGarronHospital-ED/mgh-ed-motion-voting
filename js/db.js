@@ -13,7 +13,7 @@ import {
 import { firebaseConfig, LEADER_EMAIL, ED_EMAIL } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js";
 import {
-  tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis,
+  tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
 } from "./count.js";
 import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js";
 
@@ -239,18 +239,23 @@ function simulate(changes) {
 }
 // The board built from the motions (no meetings yet).
 export function builtBoard(polls, opts) { return buildBoard(polls || knownPolls, [], opts); }
-// Add the board patch for these changes to a batch or transaction. cur: the
-// board as last read (the snapshot, or the transaction's own read).
-function patchBoard(target, cur, next, timeFor) {
-  if (cur === null) throw notFound("board");     // confirmed missing: build it, then try again
-  if (!cur) return false;                        // not known yet (nothing to patch against)
-  const ops = boardPatch(cur, next, timeFor);
+// The board built from these motions (and meetings, from step 4).
+function boardFrom(polls, opts) { return buildBoard(polls, [], opts); }
+// Write field-path changes ([path, value], undefined = delete) to the board.
+function writeOps(target, ops) {
   if (!ops.length) return false;
   const args = [];
   ops.forEach(([path, v]) => { args.push(new FieldPath(...path), v === undefined ? deleteField() : v); });
   args.push("changedAt", serverTimestamp());
   target.update(liveRef(), ...args);
   return true;
+}
+// Add the board patch for these changes to a batch. cur: the board as this
+// laptop last saw it. Missing, or not known yet: build it first, then the
+// action is tried once more (withBoard).
+function patchBoard(target, cur, next, timeFor) {
+  if (cur === null || cur === undefined) throw notFound("board");
+  return writeOps(target, boardPatch(cur, next, timeFor));
 }
 // Is the board missing (so a field-path patch would fail with not-found)?
 // Then build it first, and run the action once more.
@@ -614,12 +619,28 @@ export async function closeMotion(pollId, seen) {
     });
     writeLog(tx, { action: "close", pollId, text: p.text });
     const isOpenHere = cur.open && cur.open.id === pollId;
-    const shownClosed = cur.results && cur.results[pollId] && !isOpenHere;
-    if (!shownClosed) {
-      const next = buildBoard(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), [], { justClosed: pollId, now: Date.now() });
-      if (!isOpenHere) next.open = cur.open === undefined ? null : cur.open;   // never clear another motion's open
-      patchBoard(tx, cur, next, (id) => (id === pollId ? serverTimestamp() : undefined));
+    // The board (read in this transaction) already shows it closed: another
+    // laptop closed it. Stop: nothing is written.
+    if (cur.results && cur.results[pollId] && !isOpenHere) throw Object.assign(new Error("already closed"), { code: "failed-precondition", why: "closed" });
+    // Only this motion's part of the board is written, from the board read in
+    // this transaction: this laptop's list of motions may be a second behind,
+    // and must never write its older copy of another motion back.
+    const mine = boardFrom(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), { justClosed: pollId, now: Date.now() });
+    const ops = [];
+    if (isOpenHere) ops.push([["open"], null]);              // never clears another motion's open
+    ops.push([["lastClosedId"], pollId]);
+    if (mine.results[pollId]) {
+      ops.push([["results", pollId], { ...mine.results[pollId], closedAt: serverTimestamp() }]);
+      // Without meetings the board shows one day: entries (as the board has
+      // them) from another day go to past results.
+      if (!cur.meeting) {
+        const today = localDate(Date.now());
+        Object.entries(cur.results || {}).forEach(([id, e]) => {
+          if (id !== pollId && tsMillis(e.closedAt) !== null && localDate(e.closedAt) !== today) ops.push([["results", id], undefined]);
+        });
+      }
     }
+    writeOps(tx, ops);
   }));
 }
 
@@ -738,8 +759,22 @@ export async function reopenMotion(pollId, reason) {
       result: deleteField(), lockedGroups: deleteField(),
       priorResults, reopenCount: (p.reopenCount || 0) + 1, lastLog: logId,
     });
-    const sim = simulate({ [pollId]: { ...p, status: "open", archived: false, result: undefined, lockedGroups: undefined, priorResults, reopenCount: (p.reopenCount || 0) + 1 } });
-    patchBoard(tx, ls.data(), buildBoard(sim, []));
+    // Only this motion's part of the board, from the board read here (see closeMotion).
+    const cur = ls.data();
+    // (any other motion this laptop still thinks is open is left out: the
+    // console closed it first, and the board read here is what counts)
+    const sim = boardFrom(simulate({ [pollId]: { ...p, status: "open", archived: false, result: undefined, lockedGroups: undefined, priorResults, reopenCount: (p.reopenCount || 0) + 1 } })
+      .map((x) => (x.id !== pollId && x.status === "open" ? { ...x, status: "draft" } : x)));
+    const ops = [[["open"], sim.open && sim.open.id === pollId ? sim.open : null]];
+    if (cur.results && cur.results[pollId]) ops.push([["results", pollId], undefined]);
+    if (cur.lastClosedId === pollId) {
+      let last = null;
+      Object.entries(cur.results || {}).forEach(([id, e]) => {
+        if (id !== pollId && (last === null || (tsMillis(e.closedAt) || 0) > (tsMillis(cur.results[last].closedAt) || 0))) last = id;
+      });
+      ops.push([["lastClosedId"], last]);
+    }
+    writeOps(tx, ops);
     return "reopened";
   }));
 }
