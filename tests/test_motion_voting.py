@@ -417,6 +417,23 @@ class TestSignIn(Base):
         self.assertEqual(self.page.inner_text("#gate-err"), "Incorrect password.")
         self.assertTrue(self.page.evaluate("document.getElementById('console').classList.contains('hide')"))
 
+    def test_password_screens_ignore_stray_spaces_and_name_the_password(self):
+        # Safari files saved passwords by username; a fixed one per password stops it
+        # filling the wrong saved password (all ED tools share one web address).
+        self.page.add_init_script("window.__authReject = true;")
+        self.page.goto(f"{self.base}/index.html")
+        self.assertEqual(self.page.input_value("#edgate input[autocomplete=username]"), "ED password")
+        self.page.fill("#edpw", "  secret1 ")
+        self.page.click("#edgo")
+        self.page.wait_for_selector("#ederr:not(.hide)")
+        self.assertEqual(self.page.evaluate("window.__lastPassword"), "secret1")
+        h.load_admin(self.page, self.base)
+        self.assertEqual(self.page.input_value("#gate-form input[autocomplete=username]"), "Leadership password")
+        self.page.fill("#pass", " secret2  ")
+        self.page.click("#enter")
+        self.page.wait_for_selector("#gate-err:not(.hide)")
+        self.assertEqual(self.page.evaluate("window.__lastPassword"), "secret2")
+
     def test_an_old_anonymous_session_is_not_enough_to_vote(self):
         self.page.add_init_script(
             "window.__authInitial = { uid: 'anon-x', isAnonymous: true, email: null };")

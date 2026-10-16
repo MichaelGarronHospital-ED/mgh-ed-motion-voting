@@ -4,6 +4,15 @@ Running log of what changed and why, newest first.
 
 ---
 
+## iPhone Safari kept saying "wrong password" (Oct 16 2026)
+
+Some physicians' iPhone Safari refused the right ED password while other browsers took
+it. Every ED tool shares one web address, so Safari's saved passwords got mixed up and it
+filled an old or other tool's password into the box. Both password screens now carry an
+invisible username ("ED password" / "Leadership password"), so Safari keeps one saved
+entry per password, and both ignore spaces before or after the password (the real ones
+never have any). Nothing on screen changes; anyone signed in stays signed in.
+
 ## The shared ED tools look, for voters and leadership (Oct 15 2026)
 
 Same look as every ED tool: `css/ed-ui.css` is an exact copy of the master in the

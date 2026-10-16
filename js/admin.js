@@ -27,7 +27,7 @@ $("gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryEnter(
 // the LEADER_EMAIL account); nothing about it is stored in this public code, and
 // the console opens only on a real sign-in, so writes are always authorised.
 async function tryEnter() {
-  const typed = $("pass").value, err = $("gate-err");
+  const typed = $("pass").value.trim(), err = $("gate-err");   // passwords never start or end with a space
   if (!typed) return;
   $("enter").disabled = true; err.classList.add("hide");
   try { await leaderSignIn(typed); unlock(); }

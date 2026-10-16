@@ -69,7 +69,11 @@ h1, h2, h3 { font-family:var(--ed-font-display); text-wrap:balance; margin:0; }
 .gate .ed-badge { width:56px; height:56px; border-radius:14px; font-size:20px; margin:0 auto 14px; display:grid; }
 .gate h1 { font:700 24px/1.2 var(--ed-font-display); }
 .gate > .ed-muted { margin-top:6px; font-size:var(--ed-text-sm); }
-.gate-form { margin-top:20px; display:flex; flex-direction:column; gap:12px; text-align:left; }
+.gate-form { position:relative; margin-top:20px; display:flex; flex-direction:column; gap:12px; text-align:left; }
+/* Invisible "username" naming which password this is, so iPhone Safari saves the ED and
+   Leadership passwords as separate entries and doesn't fill one tool's into another
+   (every ED tool shares one web address). Not display:none: Safari ignores those. */
+.pw-user { position:absolute; top:0; left:0; width:1px; height:1px; padding:0; border:0; opacity:0; pointer-events:none; }
 .err { display:flex; gap:6px; align-items:center; }
 
 /* ---- fields ---------------------------------------------------------------- */
