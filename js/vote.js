@@ -8,9 +8,9 @@
 import { slugify } from "./roster.js";
 import { ORG_NAME } from "./config.js";
 import {
-  onLive, onOpenPolls, castVote, getSessionId, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson,
+  onLive, castVote, getSessionId, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson,
   watchMember, voterSignIn, leaderSignOut, isWrongPassword, classify, withTimeout, getHistoryOnce,
-  getClosedPollsOnce, countOnce, outcomeWords, outcomeKind, localDate, tsMillis, checkIn, getOwnBallot,
+  countOnce, outcomeWords, outcomeKind, localDate, tsMillis, checkIn, getOwnBallot,
   receiptCode, ballotReceipt, clockTime,
 } from "./db.js";
 import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js";
@@ -22,11 +22,9 @@ const sessionId = getSessionId();
 // ---- state -----------------------------------------------------------------
 let me = JSON.parse(localStorage.getItem("ed_voter") || "null"); // {name,slug,group,weight,isWriteIn}
 let voterTab = "vote";          // "vote" | "results"
-let board;                      // undefined: not known yet; null: not created yet (fallback); else config/live
+let board;                      // undefined: not known yet; null: not created yet; else config/live
 let boardFromCache = false;     // the last board came from the phone's cache (no connection)
 let boardSlow = false;          // no answer from the server within 15 s
-let fallbackOpen = null;        // the open motion while there is no board
-let fallbackUnsub = null;
 let voteMsg = "";               // a casting problem, shown under the ballot
 let earlier = { state: "idle" };   // "Show earlier results"
 const stale = new Map();        // motion id -> { timer, state, result } for a late result
@@ -42,7 +40,7 @@ function keepReceipt(pollId, slug, choice, picks, count) {
   try { localStorage.setItem("ed_receipts", JSON.stringify(out)); } catch (e) { /* private mode */ }
 }
 
-const openMotion = () => (board ? board.open : board === null ? fallbackOpen : null);
+const openMotion = () => (board ? board.open : null);
 
 // ---- data subscriptions ----------------------------------------------------
 function startData() {
@@ -61,19 +59,10 @@ function startData() {
     boardFromCache = fromCache;
     if (fromCache && !data && board !== undefined) { render(); return; }   // keep the last screen
     const prevOpen = openMotion();
-    if (data) {
-      board = data;
-      if (fallbackUnsub) { fallbackUnsub(); fallbackUnsub = null; fallbackOpen = null; }
-    } else if (!fromCache) {
-      // No board yet: listen to the open motion only, until leadership signs in.
-      board = null;
-      if (!fallbackUnsub) fallbackUnsub = onOpenPolls((list) => {
-        const before = openMotion();
-        fallbackOpen = list[0] || null;
-        navigate(before, openMotion());
-        render();
-      }, failed);
-    }
+    // No board yet (only before leadership's console first signs in after the
+    // upgrade): nothing is open for phones until it exists.
+    if (data) board = data;
+    else if (!fromCache) board = null;
     navigate(prevOpen, openMotion());
     render();
   }, { meta: true, onError: failed });
@@ -286,7 +275,7 @@ function voteBody() {
   }
   return head + ci + `<div class="ed-empty">${icon("clock", 40)}
     <strong>No motion open right now</strong>
-    <span>Closed motions appear under Results.</span></div>`;
+    <span>${board === null ? "Voting starts once leadership's console has been opened." : "Closed motions appear under Results."}</span></div>`;
 }
 
 // "Recorded: In favour. Receipt 7F3KQ. 12:04."
@@ -471,24 +460,7 @@ async function loadEarlier() {
   render();
   try {
     const h = await withTimeout(getHistoryOnce(), 10000);
-    if (h) earlier = { state: "ok", entries: h.entries || [], truncated: !!h.truncated };
-    else {
-      // No history document yet: read the closed motions once; old ones
-      // without a saved result are counted once from their ballots.
-      const polls = await withTimeout(getClosedPollsOnce(), 10000);
-      const t = (p) => tsMillis(p.closedAt) ?? tsMillis(p.createdAt) ?? 0;
-      polls.sort((a, b) => t(b) - t(a) || (b.order || 0) - (a.order || 0));
-      earlier = { state: "ok", truncated: false, entries: polls.map((p) => ({
-        id: p.id, text: p.text, meetingId: null, meetingTitle: null, meetingDate: localDate(t(p)) || null,
-        result: p.result || null, revoteOf: p.revoteOf || null, revoteReason: p.revoteReason || null,
-        supersededBy: p.supersededBy || null, reopenCount: p.reopenCount || 0, priorOutcome: null, _poll: p })) };
-      render();
-      for (const x of earlier.entries.filter((y) => !y.result)) {
-        try { x.result = await withTimeout(countOnce(x.id, x._poll), 15000); } catch (err) { console.warn(err); }
-        render();
-      }
-      return;
-    }
+    earlier = { state: "ok", entries: (h && h.entries) || [], truncated: !!(h && h.truncated) };
   } catch (err) {
     console.warn(err);
     if (classify(err) === "refused") { signedOutAgain(); return; }

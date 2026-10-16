@@ -21,6 +21,8 @@
 //  Step 7 (attendance and receipts): the console and the projector read a
 //  meeting's attendance; the voter page reads its own ballot once ("Check my
 //  recorded vote").
+//  Cleanup after step 7: the voter page no longer falls back to reading the
+//  motions when config/live or config/history is missing.
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -56,8 +58,6 @@ const SOURCES = {
     ["config/live", (db) => getDoc(doc(db, "config/live"))],
     ["config/roster", (db) => getDoc(doc(db, "config/roster"))],
     ["config/history (on a tap)", (db) => getDoc(doc(db, "config/history"))],
-    ["the open motions (fallback)", (db) => getDocs(query(collection(db, "polls"), where("status", "==", "open")))],
-    ["the closed motions (fallback for earlier results)", (db) => getDocs(query(collection(db, "polls"), where("status", "==", "closed")))],
     ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
     ["its ballots (a late result)", (db) => getDocs(collection(db, "polls/p1/votes"))],
     ["its own ballot (Check my recorded vote)", (db) => getDoc(doc(db, "polls/p1/votes/ash"))],

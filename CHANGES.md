@@ -4,6 +4,20 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Phones read only the board (voting upgrade cleanup, Oct 2026)
+
+Merge this only after the earlier steps are live **and** leadership has opened the
+console once, so `config/live` and `config/history` exist (check: Firebase console >
+Firestore > config has both documents, or the phones' Results tab shows results).
+
+- Phones no longer fall back to reading the motions when the voters' board or past
+  results are missing. Before the board exists, a phone says "Voting starts once
+  leadership's console has been opened."
+- A result that is late to save is still counted once by the phone after 30 seconds.
+
+No rules change. Tests: 194 browser tests (fallback tests replaced), 117 rules tests
+(the two fallback reads removed from the list of what phones read).
+
 ## Check-in, remote, vote receipts (voting upgrade step 7, Oct 2026)
 
 - **Check-in:** while a meeting is open, phones ask once "Where are you joining from?

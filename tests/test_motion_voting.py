@@ -68,15 +68,17 @@ class TestRosterAndQuorum(Base):
         self.assertIn("No vote", row)
 
     def test_courtesy_ballot_does_not_count_toward_quorum(self):
-        pg = self.voter()
-        # Ballots first: an old closed motion already has its ballots when the
-        # console signs in (it saves the result of such a motion straight away).
+        pg = self.page
+        pg.clock.install()
+        h.open_voter(pg, self.base)
         h.seed_ballots(pg, "p1", h.COURTESY, group="courtesy", weight=0)
         h.seed_poll(pg, status="closed", vote_count=len(h.COURTESY))
+        h.seed(pg, "polls/p1", {**h.get(pg, "polls/p1"), "closedAt": h.ts(1792000000000)})
+        h.build_board(pg)              # closed, result not saved yet: the phone counts it once after 30 s
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('[data-vtab="results"]')
-        pg.click("#earlier-load")      # no voters' board yet: earlier results, counted once
-        pg.wait_for_timeout(300)
+        pg.clock.run_for(31000)
+        pg.wait_for_selector("text=Count from the ballots")
         # Every courtesy member voting still cannot carry a motion.
         self.assertEqual(h.outcomes(pg.inner_text("#app")), ["No quorum"])
 
@@ -145,6 +147,7 @@ class TestCastingAVote(Base):
     def test_ballot_is_stored_with_the_right_name_group_and_weight(self):
         pg = self.voter()
         h.seed_poll(pg)
+        h.build_board(pg)
         name = h.GROUP1[1]
         h.pick_voter(pg, name)
         pg.click('button[data-c="favour"]')
@@ -160,6 +163,7 @@ class TestCastingAVote(Base):
     def test_changing_a_vote_replaces_it_without_double_counting(self):
         pg = self.voter()
         h.seed_poll(pg)
+        h.build_board(pg)
         name = h.GROUP1[1]
         h.pick_voter(pg, name)
         pg.click('button[data-c="favour"]')
@@ -175,6 +179,7 @@ class TestCastingAVote(Base):
     def test_retapping_the_same_choice_is_not_a_new_submission(self):
         pg = self.voter()
         h.seed_poll(pg)
+        h.build_board(pg)
         name = h.GROUP1[1]
         h.pick_voter(pg, name)
         pg.click('button[data-c="favour"]')
@@ -187,6 +192,7 @@ class TestCastingAVote(Base):
     def test_a_write_in_lands_at_zero_weight_for_review(self):
         pg = self.voter()
         h.seed_poll(pg)
+        h.build_board(pg)
         pg.click("#writein-btn")
         pg.fill("#writein", "Brand New Locum")
         pg.click("#writein-confirm")
@@ -200,6 +206,7 @@ class TestCastingAVote(Base):
     def test_device_is_locked_to_one_person_after_voting(self):
         pg = self.voter()
         h.seed_poll(pg)
+        h.build_board(pg)
         h.pick_voter(pg, h.GROUP1[1])
         pg.click('button[data-c="favour"]')
         pg.wait_for_timeout(200)
@@ -222,21 +229,23 @@ class TestResultsAreNeverWrong(Base):
     arrive, that announces a wrong outcome on a shared screen."""
 
     def test_voter_sees_counting_not_a_verdict_before_ballots_load(self):
-        pg = self.voter()
-        # Ballots first: an old closed motion already has its ballots when the
-        # console signs in (it saves the result of such a motion straight away).
+        pg = self.page
+        pg.clock.install()
+        h.open_voter(pg, self.base)
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
         h.seed_poll(pg, status="closed", vote_count=26)
+        h.seed(pg, "polls/p1", {**h.get(pg, "polls/p1"), "closedAt": h.ts(1792000000000)})
+        h.build_board(pg)
         h.pick_voter(pg, h.GROUP1[0])
         pg.wait_for_selector('[data-vtab="results"]')
-        pg.click('[data-vtab="results"]')
-        # click and read in the same tick, before any read comes back
+        # click and read in the same tick: the result is not saved yet
         first = pg.evaluate("""() => {
-            document.querySelector('#earlier-load').click();
+            document.querySelector('[data-vtab="results"]').click();
             return document.querySelector('#app').innerText; }""")
         self.assertEqual(h.outcomes(first), [], "a verdict was shown before the count")
-        self.assertIn("Loading earlier results", first)
-        pg.wait_for_timeout(400)
+        self.assertIn("Counting votes", first)
+        pg.clock.run_for(31000)
+        pg.wait_for_selector("text=Count from the ballots")
         self.assertEqual(h.outcomes(pg.inner_text("#app")), ["Passed"])
 
     def test_admin_sees_counting_not_a_verdict_before_ballots_load(self):
@@ -258,20 +267,22 @@ class TestResultsAreNeverWrong(Base):
         self.assertEqual(h.outcomes(pg.inner_text("#results-body")), ["Passes"])
 
     def test_voter_results_show_counting_while_ballots_are_in_flight(self):
-        pg = self.voter()
+        pg = self.page
+        pg.clock.install()
+        h.open_voter(pg, self.base)
         pg.evaluate("window.__store.stall('polls/p1/votes')")
-        # Ballots first: an old closed motion already has its ballots when the
-        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
         h.seed_poll(pg, status="closed", vote_count=26)
+        h.seed(pg, "polls/p1", {**h.get(pg, "polls/p1"), "closedAt": h.ts(1792000000000)})
+        h.build_board(pg)
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('[data-vtab="results"]')
-        pg.click("#earlier-load")      # no voters' board yet: earlier results, counted once
+        pg.clock.run_for(31000)
         pg.wait_for_timeout(300)
         self.assertEqual(h.outcomes(pg.inner_text("#app")), [])
         self.assertIn("Counting votes", pg.inner_text("#app"))
         pg.evaluate("window.__store.release('polls/p1/votes')")
-        pg.wait_for_timeout(300)
+        pg.wait_for_selector("text=Count from the ballots")
         self.assertEqual(h.outcomes(pg.inner_text("#app")), ["Passed"])
 
     def test_export_is_refused_until_the_ballots_are_in(self):

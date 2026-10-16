@@ -655,23 +655,10 @@ export async function getOwnBallot(pollId, slug) {
 }
 
 // ---- the voter page's reads ------------------------------------------------------
-// Fallback while config/live does not exist yet (before the first leadership
-// sign-in after the upgrade): the open motion only (0 or 1 document).
-export function onOpenPolls(cb, onError) {
-  return onSnapshot(query(pollsCol(), where("status", "==", "open")), (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted));
-  }, (e) => { if (onError) onError(e); else console.error(e); });
-}
 // "Show earlier results": one read of config/history (null if it does not exist yet).
 export async function getHistoryOnce() {
   const s = await getDoc(historyRef());
   return s.exists() ? s.data() : null;
-}
-// Fallback for earlier results while config/history does not exist: the closed
-// motions, read once.
-export async function getClosedPollsOnce() {
-  const snap = await getDocs(query(pollsCol(), where("status", "==", "closed")));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted);
 }
 // Count a closed motion once from its ballots (a result that is late, or an
 // old motion without one): the motion (its rule and frozen categories) and its
