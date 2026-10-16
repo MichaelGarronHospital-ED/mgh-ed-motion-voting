@@ -246,6 +246,30 @@ details.about > p { margin-top:2px; }
   #roster-table .cat-seg > button { flex:1 1 0; }
 }
 
+/* ---- leadership: banners, saving sheet, saved results (voting upgrade) ----- */
+.banners { display:flex; flex-direction:column; gap:8px; margin:0 0 12px; }
+.banners:empty { display:none; }
+.banner { display:flex; gap:10px; align-items:flex-start; border-radius:var(--ed-r-md); padding:12px 14px;
+  font-size:var(--ed-text-sm); background:var(--ed-amber-tint); color:var(--ed-ink); }
+.banner.ok { background:var(--ed-green-tint); }
+.banner .i { margin-top:1px; color:var(--ed-amber); }
+.banner.ok .i { color:var(--ed-green); }
+.banner .ed-btn { margin-top:6px; }
+.sheet-backdrop { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  padding:var(--ed-gutter); background:rgba(0,0,0,.45); }
+.sheet { width:100%; max-width:440px; margin:0; box-shadow:var(--ed-shadow-lg); }
+.sheet h2:focus-visible { box-shadow:var(--ed-ring); }
+.saved-line { display:flex; align-items:flex-start; gap:8px; font-size:var(--ed-text-sm); color:var(--ed-ink); }
+.saved-line .i { margin-top:1px; }
+.saved-line.warn { flex-wrap:wrap; align-items:center; }
+.saved-line .i { color:var(--ed-ink-2); }
+.saved-line.warn .i { color:var(--ed-amber); }
+.card-inset { background:var(--ed-surface-2); border-radius:var(--ed-r-md); padding:14px 16px; }
+.card-inset .ed-hint { color:var(--ed-ink); }   /* ink-2 on surface-2 is under 7:1 in dark */
+.plain-list { list-style:none; margin:0; padding:0; font-size:var(--ed-text-sm); }
+.plain-list li { padding:6px 0; border-bottom:1px solid var(--ed-line-soft); overflow-wrap:anywhere; }
+.plain-list li:last-child { border-bottom:none; }
+
 /* ---- toast ----------------------------------------------------------------- */
 .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:50; width:max-content; max-width:calc(100vw - 32px); }
 

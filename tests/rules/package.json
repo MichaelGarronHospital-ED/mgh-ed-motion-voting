@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Firestore security-rule tests for motion voting. Dev-only: the tool itself has no build step and no dependencies.",
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project ed-motion-voting-test \"node --test\""
+    "test": "firebase emulators:exec --only firestore --project ed-motion-voting-test \"node --import ./app-loader.mjs --test --test-concurrency=1\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

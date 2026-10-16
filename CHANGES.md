@@ -4,6 +4,41 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Results are saved when a motion closes (voting upgrade step 1, Oct 2026)
+
+Until now a result was worked out again from the ballots every time someone looked,
+and leadership could remove a ballot from a closed motion, which quietly changed a
+past result. Now:
+
+- **Closing saves the result once.** A short "Saving the result..." box shows until it
+  is saved (keep the page open; on an iPad or iPhone it cannot warn you). The Results tab
+  then says "Result saved at 12:14. It can't be changed."
+- **Old motions** are saved the first time leadership signs in, exactly as they show
+  today ("Saved the results of N earlier motions. Nothing they show has changed.").
+- **A bug is fixed:** a write-in who had been given a category but did not vote was
+  left out when a motion closed, so the quorum needed could drop at close. Closing now
+  keeps them. Old motions are checked: any motion where this could have changed whether
+  quorum was met is listed under "Please check" and marked on its result; nothing is
+  changed silently. Most likely none is listed.
+- **Re-open needs a reason**, and keeps the earlier count. **Removing a ballot** of a
+  closed motion is no longer possible, and a motion can be deleted only from the Trash.
+- **Change history:** open, close, re-open and permanent delete are recorded with the
+  reason (Results tab, "Change history").
+- **No more silent waits:** if the connection drops, or the database rules are older
+  than the page, the console says so in plain words and keeps Open and Close off.
+- Each motion keeps a copy of the counting rules it opened with (today's rules), ready
+  for the Settings screen in a later step.
+- **No proxy votes** (Alvin's decision, Oct 16 2026): the voting upgrade has no proxies
+  anywhere, in the data, the rules, the screens or the settings.
+
+Voters see no change. **Publish the rules before merging this page**: the old page
+keeps working with the new rules, except for removing a ballot of a closed motion and
+"Re-open voting" (both now refused on purpose). Close any open motion before rolling
+the page back.
+
+Tests: 79 browser tests (27 new), 51 rules tests (30 new, including the real page code
+run against the emulator: close, save, re-open, purge, catch-up).
+
 ## Console code split into parts; better test tools (voting upgrade step 0, Oct 2026)
 
 Nothing changes for voters or leadership. This prepares the bigger voting upgrade

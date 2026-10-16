@@ -88,9 +88,18 @@ the record.
 1. **Add all of Friday's motions** in advance (Motions tab).
 2. Share the voting link / **screen-share the QR code** (Share tab). Chat is not needed.
 3. For each motion: **Open** → let people vote → watch the quorum meter fill → **Close**.
+   Closing shows "Saving the result..." for a moment: keep the page open until it says
+   **Result saved** (on an iPad or iPhone especially).
 4. The result appears to everyone the moment you close the motion; voters can also review all past results under their **Results** tab.
-5. Move to the next motion. You can re-open any motion to re-vote. Motion wording can be edited until the first vote is cast, then it locks.
-6. Afterward, **Export CSV** for the record.
+   A saved result never changes, even if someone's category is changed later.
+5. Move to the next motion. If a motion was closed by mistake, **Re-open** it from the
+   Results tab and type the reason (kept in the change history; no health or private
+   details). The earlier count is kept. Motion wording can be edited until the first vote
+   is cast, then it locks.
+6. If the console shows a yellow line at the top, read it: "No connection" fixes itself
+   when the connection is back; "needs a database update" means the matching rules have
+   not been published yet (see below), and Open and Close stay off until they are.
+7. Afterward, **Export** for the record.
 
 ## Notes
 - **Duplicate detection:** one row per name. If the same name votes from two

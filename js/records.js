@@ -5,7 +5,8 @@
 // motion (not just the one on screen), so the file is complete.
 import { ORG_NAME } from "./config.js";
 import {
-  tally, weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
+  weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
+  resultOf, outcomeWords, sortMotions,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, toast } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
@@ -22,17 +23,17 @@ function closeMenu() { const m = $("export-menu"); if (m) m.open = false; }
 const today = () => new Date().toISOString().slice(0, 10);
 const statusWord = (p) => p.deleted ? "In trash" : p.status === "open" ? "Open" : p.status === "closed" ? "Closed" : "Draft";
 
+// Closed motions use their saved result; others are counted from their ballots.
 async function gatherRecords() {
-  const list = [...S.polls].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const list = sortMotions(S.polls);
   const votes = await Promise.all(list.map((p) => getVotesFor(p.id)));
   return list.map((p, i) => {
-    const vs = votes[i], t = tally(vs, p), q = quorumThreshold(p);
-    const met = t.quorumCount >= q;
-    const verdict = !vs.length ? (p.status === "draft" ? "Not yet voted" : "No ballots")
-      : !met ? "No quorum"
-      : t.weight.favour > t.weight.against ? "Passed" : t.weight.favour < t.weight.against ? "Did not pass" : "Tie";
-    const result = p.status === "open" && vs.length ? `${verdict} (voting still open)` : verdict;
-    return { n: i + 1, poll: p, votes: vs, t, quorum: q, result };
+    const vs = votes[i];
+    const t = p.status === "closed" && p.result ? p.result : resultOf(p, vs);
+    const verdict = !t.totalVotes ? (p.status === "draft" ? "Not yet voted" : "No ballots") : outcomeWords(t, "record");
+    let result = p.status === "open" && vs.length ? `${verdict} (voting still open)` : verdict;
+    if (p.status === "closed" && !p.result && vs.length) result += " (result not saved yet)";
+    return { n: i + 1, poll: p, votes: vs, t, quorum: t.quorumNeeded, result };
   });
 }
 

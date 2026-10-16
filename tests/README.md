@@ -33,6 +33,7 @@ Each group maps to a promise the tool makes to someone in a meeting room.
 | `TestResultsAreNeverWrong` | No verdict is ever shown — to a voter, to leadership, or into a CSV — before that motion's ballots have arrived. |
 | `TestLeadershipActions` | Only one motion is open at a time; opening one makes it visible to voters; removing a ballot brings the voter count down; closing freezes the weights so a later category change cannot rewrite a past result. |
 | `TestVoterReview` | Duplicate signals surface for review: the same name from two devices, and one device used for two names. |
+| `test_saved_results.py` | Closing saves the result once and it matches the live count; old motions are saved on sign-in exactly as they show (and only after the roster arrives); the write-in quorum check flags only motions whose outcome could differ; re-open needs a reason and keeps the earlier count; closed ballots are locked; every wait (offline, refused, slow) shows a plain message. |
 
 A console error in any test is a failure, even when the assertions pass.
 

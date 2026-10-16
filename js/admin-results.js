@@ -1,12 +1,15 @@
 // Leadership console: the Results and Voters tabs, and the one-motion CSV.
 import {
-  onVotesFor, clearVote, tally, weightForVote, groupForVote, quorumThreshold,
+  onVotesFor, clearVote, weightForVote, groupForVote, resultOf, outcomeWords, outcomeKind, clockTime,
+  getRecentLog, classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar } from "./util.js";
 import { $, S, R, STATUS_WORD, statusPill, groupLabel, download } from "./admin-state.js";
+import { tsMillis } from "./count.js";
 
 export function wireResults() {
   $("export").addEventListener("click", exportCsv);
+  $("history-load").addEventListener("click", loadHistory);
 }
 
 // Which motion the Results/Voters tabs show: an explicit selection, else the
@@ -16,10 +19,14 @@ function displayPoll() {
     const p = S.polls.find((x) => x.id === S.selectedPollId);
     if (p && !p.deleted) return p;
   }
-  return S.activePoll || [...S.polls].reverse().find((p) => p.status === "closed" && !p.archived && !p.deleted) || null;
+  if (S.activePoll) return S.activePoll;
+  // The most recent closed motion, by when it closed (old motions: when added).
+  const closed = S.polls.filter((p) => p.status === "closed" && !p.archived && !p.deleted);
+  const t = (p) => tsMillis(p.closedAt) ?? tsMillis(p.createdAt) ?? -1;
+  return closed.reduce((best, p) => (!best || t(p) >= t(best) ? p : best), null);
 }
 function motionSelectorHTML() {
-  const choosable = S.polls.filter((p) => !p.deleted);
+  const choosable = sortMotions(S.polls.filter((p) => !p.deleted));
   if (!choosable.length) return "";
   const opts = [`<option value="">Current motion (auto)</option>`].concat(
     choosable.map((p) => {
@@ -56,52 +63,163 @@ function ensureDisplay() {
 }
 
 export function renderResults() {
+  renderCatchUp();
   const sel = $("results-selector");
   sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
   wireMotionSelect(sel);
   const el = $("results-body");
   const d = ensureDisplay();
   if (!d) { el.innerHTML = `<p class="ed-hint">No motion to show. Open one, or choose a motion above.</p>`; return; }
+  // Keep a half-typed reason when the card redraws.
+  const typed = $("reopen-reason") ? $("reopen-reason").value : "";
   paintResults(el, d.poll, d.votes, d.loaded);
+  if ($("reopen-reason") && typed) $("reopen-reason").value = typed;
+}
+// "Passed, 21.5 to 6 points, quorum 29 of 24."
+export function resultLine(r) {
+  return `${outcomeWords(r, "voter")}, ${fmt(r.weight.favour)} to ${fmt(r.weight.against)} points, quorum ${r.quorumCount} of ${r.quorumNeeded}`;
+}
+function ruleHint(rule) {
+  const pass = rule && rule.threshold === "twoThirds"
+    ? "Passes with at least two-thirds of the weighted votes for or against; abstentions count only toward quorum."
+    : "Passes when weighted In favour beats weighted Against; abstentions count only toward quorum.";
+  return pass;
 }
 function paintResults(el, poll, votes, loaded) {
   // An empty tally scores as "No quorum: cannot pass". Shown before the
   // ballots arrive that is a wrong result on a shared screen, so hold off.
   const top = `${statusPill(poll.status)}<h2 class="motion-text">${escapeHtml(poll.text)}</h2>`;
-  if (!loaded) {
+  const saved = poll.status === "closed" && poll.result ? poll.result : null;
+  if (!saved && !loaded) {
     el.innerHTML = `${top}<p class="ed-hint">Counting votes…</p>`;
     return;
   }
-  const t = tally(votes, poll);
-  const quorum = quorumThreshold(poll);
-  const quorumMet = t.quorumCount >= quorum;
-  const outcome = !quorumMet ? verdictHTML("noq", "No quorum: cannot pass")
-    : t.weight.favour > t.weight.against ? verdictHTML("pass", "Passes")
-    : t.weight.favour < t.weight.against ? verdictHTML("fail", "Does not pass")
-    : verdictHTML("tie", "Tie");
-  const need = quorum - t.quorumCount;
+  const r = saved || resultOf(poll, votes);
+  const quorum = r.quorumNeeded;
+  const quorumMet = r.quorumCount >= quorum;
+  const need = quorum - r.quorumCount;
+  const ready = R.canOpenClose();
+  const pendingOpen = poll.status === "open" && (poll._pending || poll.openedAt === null);
+  let savedLine = "";
+  if (saved) {
+    savedLine = `<p class="saved-line">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}. It can't be changed. If it was closed by mistake, use Re-open.</span></p>`;
+    if (saved.quorumNote) savedLine += `<p class="notice">${icon("warn", 20)}<span>Quorum may have been counted too low when this closed (a write-in given a vote may have been left out). Shown as recorded.</span></p>`;
+  } else if (poll.status === "closed") {
+    savedLine = S.saving.has(poll.id)
+      ? `<p class="saved-line">${icon("clock", 18)}<span>Saving the result...</span></p>`
+      : `<div class="saved-line warn">${icon("alert", 18)}<span>Result not saved yet.</span><button type="button" class="ed-btn ed-btn-tinted btn-sm" id="r-save" ${ready ? "" : "disabled"}>Save result now</button></div>`;
+  }
+  const prior = (poll.priorResults || []);
+  const priorLine = prior.length ? `<p class="ed-hint">Re-opened ${prior.length === 1 ? "once" : prior.length + " times"}. Earlier count: ${escapeHtml(outcomeWords(prior[prior.length - 1], "voter"))} (${fmt(prior[prior.length - 1].weight.favour)} to ${fmt(prior[prior.length - 1].weight.against)} points).</p>` : "";
+  let actions;
+  if (poll.status === "open") {
+    actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-close" ${ready && !pendingOpen ? "" : "disabled"}>Close voting</button>`;
+  } else if (poll.status === "draft") {
+    actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" ${ready ? "" : "disabled"}>Open voting</button>`;
+  } else {
+    actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" aria-expanded="${S.reopenFor === poll.id}" aria-controls="reopen-form" ${ready ? "" : "disabled"}>Re-open voting</button>`;
+  }
+  const form = poll.status === "closed" && S.reopenFor === poll.id ? `
+    <form class="card-inset stack-sm" id="reopen-form">
+      <p><strong>Re-open this motion?</strong> Ballots already cast stay and people can vote or change their vote again. The earlier totals are kept as the earlier count.</p>
+      <label class="ed-label" for="reopen-reason">Reason
+        <textarea class="ed-field" id="reopen-reason" rows="2" maxlength="1000" aria-required="true"></textarea>
+      </label>
+      <p class="ed-hint">Kept with the record for at least 7 years. Do not include health or other private details.</p>
+      ${!saved ? `<p class="ed-hint" id="reopen-first">The result is saved first, so the earlier count is never lost.</p>` : ""}
+      <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm" id="reopen-go">Re-open</button>
+        <button type="button" class="ed-btn ed-btn-plain btn-sm" id="reopen-cancel">Cancel</button></div>
+    </form>` : "";
   el.innerHTML = `${top}
-    ${outcome}
-    ${bars(t)}
+    ${verdictHTML(outcomeKind(r), escapeHtml(outcomeWords(r, "console")))}
+    ${bars(r)}
     <div class="quorum ${quorumMet ? "met" : "short"}">
       <div class="spread"><span class="q-label">Quorum${poll.status === "closed" ? `${icon("lock", 16)}<span class="ed-muted">frozen at close</span>` : ""}</span>
-        <span class="q-state">${icon(quorumMet ? "check" : "alert", 18)}${t.quorumCount} of ${quorum} ${quorumMet ? "met" : "not met"}</span></div>
-      <div class="bar" aria-hidden="true"><span class="${quorumMet ? "favour" : "short"}" style="width:${quorum > 0 ? Math.min(100, (t.quorumCount / quorum) * 100) : 0}%"></span></div>
+        <span class="q-state">${icon(quorumMet ? "check" : "alert", 18)}${r.quorumCount} of ${quorum} ${quorumMet ? "met" : "not met"}</span></div>
+      <div class="bar" aria-hidden="true"><span class="${quorumMet ? "favour" : "short"}" style="width:${quorum > 0 ? Math.min(100, (r.quorumCount / quorum) * 100) : 0}%"></span></div>
       ${!quorumMet ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
     </div>
-    <p class="ed-hint">${t.totalVotes} ${t.totalVotes === 1 ? "ballot" : "ballots"} · ${t.writeIns} write-in${t.writeIns === 1 ? "" : "s"} · ${t.flags} flagged. Passes when weighted In favour beats weighted Against; abstentions count only toward quorum.</p>
-    <div class="row">
-      ${poll.status === "open"
-        ? `<button type="button" class="ed-btn ed-btn-filled" id="r-close">Close voting</button>`
-        : `<button type="button" class="ed-btn ed-btn-filled" id="r-open">${poll.status === "draft" ? "Open voting" : "Re-open voting"}</button>`}
-    </div>`;
-  const c = $("r-close"), o = $("r-open");
-  if (c) c.addEventListener("click", () => R.motionAction("close", poll.id));
-  if (o) o.addEventListener("click", () => R.motionAction("open", poll.id));
+    <p class="ed-hint">${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"} · ${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"} · ${r.flags} flagged. ${ruleHint(r.rule)}</p>
+    ${savedLine}${priorLine}
+    <div class="row">${actions}</div>${form}`;
+  const c = $("r-close"), o = $("r-open"), sv = $("r-save");
+  if (c) c.addEventListener("click", () => R.closeFlow(poll.id));
+  if (sv) sv.addEventListener("click", () => { R.saveFlow(poll.id); });
+  if (o) o.addEventListener("click", () => {
+    if (poll.status === "draft") { R.openFlow(poll.id); return; }
+    S.reopenFor = S.reopenFor === poll.id ? null : poll.id;
+    renderResults();
+    if ($("reopen-reason")) $("reopen-reason").focus();
+  });
+  const f = $("reopen-form");
+  if (f) {
+    $("reopen-cancel").addEventListener("click", () => { S.reopenFor = null; renderResults(); });
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const reason = $("reopen-reason").value.trim();
+      if (reason.length < 3) { toast("Type the reason first."); $("reopen-reason").focus(); return; }
+      $("reopen-go").disabled = true;
+      if ($("reopen-first")) $("reopen-first").textContent = "Saving the result first...";
+      const ok = await R.reopenFlow(poll.id, reason);
+      if (!ok && $("reopen-go")) $("reopen-go").disabled = false;
+    });
+  }
+}
+
+// The catch-up card: old results saved this session, failures, and motions
+// the write-in quorum check flagged (from the saved results themselves).
+function renderCatchUp() {
+  const el = $("catchup-card");
+  const flagged = S.polls.filter((p) => p.result && p.result.quorumNote);
+  const c = S.catchup;
+  let html = "";
+  if (flagged.length) {
+    html += `<h2>Please check</h2>
+      <p>${flagged.length} earlier motion${flagged.length === 1 ? "" : "s"} may have counted quorum too low, and the quorum outcome could have been different.</p>
+      <ul class="plain-list">${flagged.map((p) => `<li>${escapeHtml(p.text)} <span class="ed-muted">(${escapeHtml(resultLine(p.result))})</span></li>`).join("")}</ul>
+      <p class="ed-hint">Each is shown as recorded. For each one, keep it as recorded, or hold a re-vote at the next meeting.</p>`;
+  }
+  if (c && c.text) {
+    html += `<p class="${c.kind === "ok" ? "ed-hint" : "notice"}">${c.kind === "ok" ? "" : icon("warn", 20)}<span>${escapeHtml(c.text)}</span></p>`;
+    if (c.kind !== "ok") html += `<div><button type="button" class="ed-btn ed-btn-tinted btn-sm" id="catchup-retry">Try again</button></div>`;
+  }
+  el.innerHTML = html;
+  el.classList.toggle("hide", !html);
+  const b = $("catchup-retry"); if (b) b.addEventListener("click", () => R.retryCatchUp());
+}
+
+// ---- change history (on demand: one read of the latest 50 entries) ----------
+const ACTION_WORDS = {
+  open: "Opened", close: "Closed", "catch-up": "Saved earlier results", reopen: "Re-opened",
+  revote: "Re-vote started", runoff: "Run-off started", archive: "Archived", unarchive: "Unarchived",
+  trash: "Moved to Trash", restore: "Restored", purge: "Deleted permanently", move: "Moved",
+  settings: "Settings changed", roster: "Physician list changed", "roster-bulk": "Physician list updated by paste",
+  writein: "Write-in reviewed", meeting: "Meeting changed", attendance: "Attendance changed",
+  "history-purge": "Old history deleted",
+};
+export function logLine(e) {
+  const ms = tsMillis(e.at);
+  const when = ms === null ? "" : new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  let s = `${when}. ${ACTION_WORDS[e.action] || e.action}${e.by ? ` by ${e.by}` : ""}.`;
+  if (e.text) s += ` ${e.text}`;
+  if (e.reason && e.action !== "catch-up") s += ` Reason: ${e.reason}`;
+  if (e.before && e.before.outcome) s += ` Earlier count: ${resultLine(e.before)}.`;
+  return s;
+}
+async function loadHistory() {
+  const box = $("history-list");
+  box.innerHTML = `<li class="ed-muted">Loading...</li>`;
+  try {
+    const list = await getRecentLog(50);
+    box.innerHTML = list.length ? list.map((e) => `<li>${escapeHtml(logLine(e))}</li>`).join("") : `<li class="ed-muted">No changes recorded yet.</li>`;
+  } catch (e) {
+    const why = classify(e) === "refused" && (await rulesNeedUpdate()) ? DB_UPDATE_MSG : "Could not load the change history. Check your connection and try again.";
+    box.innerHTML = `<li class="ed-muted">${escapeHtml(why)}</li>`;
+  }
 }
 
 // One stacked bar plus a legend with the weighted points and head counts.
-function bars(t) {
+function bars(t) {   // t: a result (weight and count per choice)
   const row = (key, label) => `<li><i class="sw ${key}"></i><span class="lbl">${label}</span>
       <span class="num"><strong>${fmt(t.weight[key])} pts</strong> · ${t.count[key]} ${t.count[key] === 1 ? "vote" : "votes"}</span></li>`;
   return `${stackedBar(t.weight)}<ul class="tally">${row("favour", "In favour")}${row("against", "Against")}${row("abstain", "Abstain")}</ul>`;
@@ -138,7 +256,7 @@ function paintVoters(poll, votes) {
 
   // One hint line; what the flags mean sits in the "What the flags mean" fold.
   $("voters-note").textContent = `${votes.length} ${votes.length === 1 ? "ballot" : "ballots"} · ${reviewCount} to review · `
-    + (poll.status === "closed" ? "weights frozen when this motion closed" : "set categories under Physicians");
+    + (poll.status === "closed" ? "Closed: ballots are locked and kept with the result." : "set categories under Physicians");
   const frozen = poll.status === "closed";
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
@@ -151,13 +269,16 @@ function paintVoters(poll, votes) {
       <td class="num">${fmt(ew)}</td>
       <td class="choice">${escapeHtml(labelOf(v.choice))}</td>
       <td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>
-      <td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${escapeHtml(v.id)}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>
+      ${frozen ? "" : `<td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${escapeHtml(v.id)}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>`}
     </tr>`;
   }).join("");
   $("voters-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th class="num">Weight${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th><th class="num">Submissions</th><th><span class="sr">Remove</span></th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category</th><th class="num">Weight${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th><th class="num">Submissions</th>${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${frozen ? 5 : 6}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
   $("voters-table").querySelectorAll("button[data-del]").forEach((b) =>
-    b.addEventListener("click", () => { if (confirm("Remove this vote? This changes the result for this motion.")) clearVote(poll.id, b.dataset.del); }));
+    b.addEventListener("click", () => {
+      if (!confirm("Remove this vote? This changes the result for this motion.")) return;
+      clearVote(poll.id, b.dataset.del).catch((e) => R.actionFailed(e, "Not allowed: ballots of a closed motion are locked."));
+    }));
 }
 
 function exportCsv() {
@@ -167,7 +288,7 @@ function exportCsv() {
   // result to a file someone then circulates.
   if (!d.loaded) { toast("Still loading ballots. Try again in a moment."); return; }
   const poll = d.poll, list = d.votes || [];
-  const t = tally(list, poll);
+  const t = poll.status === "closed" && poll.result ? poll.result : resultOf(poll, list);
   const header = ["Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "WriteIn"];
   const lines = [header.join(",")];
   [...list].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => {
@@ -181,12 +302,8 @@ function exportCsv() {
   lines.push(`In favour (pts),${t.weight.favour}`);
   lines.push(`Against (pts),${t.weight.against}`);
   lines.push(`Abstain (pts),${t.weight.abstain}`);
-  const quorum = quorumThreshold(poll);
-  lines.push(`Quorum,${t.quorumCount} of ${quorum}`);
-  const result = t.quorumCount < quorum ? "NO QUORUM"
-    : t.weight.favour > t.weight.against ? "PASSES"
-    : t.weight.favour < t.weight.against ? "DOES NOT PASS" : "TIE";
-  lines.push(`Result,${result}`);
+  lines.push(`Quorum,${t.quorumCount} of ${t.quorumNeeded}`);
+  lines.push(`Result,${outcomeWords(t, "console").toUpperCase().replace("NO QUORUM: CANNOT PASS", "NO QUORUM")}`);
   download(new Blob([lines.join("\n")], { type: "text/csv" }), "motion-result.csv");
 }
 
