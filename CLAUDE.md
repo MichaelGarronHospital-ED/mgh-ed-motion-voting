@@ -48,7 +48,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   unguessable filename; keep the filename obscure if it's ever rotated.
 - `js/config.js` → Firebase config, `LEADER_EMAIL` + `ED_EMAIL` (the two shared accounts;
   the passwords live only in Firebase Auth), `ORG_NAME`.
-- `js/roster.js` → the roster and GROUP1 / GROUP2 / COURTESY weight assignments.
+- `js/roster.js` → the starting roster and GROUP1 / GROUP2 / COURTESY weight assignments.
+  Leadership's changes live in Firestore `config/roster` (`groups`, `added`, `removed`);
+  `currentRoster()` in db.js is the list in use (roster.js + added − removed).
 - `js/db.js` → Firestore + Auth wiring, tally/quorum logic.
 - `js/vote.js` / `js/admin.js` → the two UIs. `js/util.js` → shared helpers.
 - `js/xlsx.js` → dependency-free .xlsx writer behind the console's Export menu
@@ -94,5 +96,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   edit lock and the purge confirmation, so anything that removes a ballot must
   bring it down too (`clearVote` does this transactionally, floored at 0).
 - **Names are keyed by `slugify(name)`**, so two people whose names slugify
-  identically would share one ballot. Checked clean today across all 75 names —
-  re-check when adding to the roster.
+  identically would share one ballot. Checked clean today across all 75 names;
+  the console's Add refuses a name whose slug is already listed.
+- **Closed results never move.** Closing freezes every category into the motion
+  (`lockedGroups`), and any roster change (category, add, remove, restore) first
+  freezes closed motions that predate freezing (`freezeClosedMotions`). Removing
+  hides a physician (no vote on open or future motions); it never deletes.

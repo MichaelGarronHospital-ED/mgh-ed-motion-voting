@@ -10,7 +10,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig, LEADER_EMAIL, ED_EMAIL } from "./config.js";
-import { ROSTER, ROSTER_BY_SLUG, WEIGHTS } from "./roster.js";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -75,35 +75,102 @@ export function onVotesFor(pollId, cb) {
   });
 }
 
-// ---- roster category overrides --------------------------------------------
+// ---- roster changes made by leadership --------------------------------------
 // Editable from the leadership console and saved in Firestore (config/roster)
 // so changes persist and sync to everyone. roster.js holds the defaults.
-let overrideGroups = {};
+//   groups:  slug -> category ("1" | "2" | "courtesy"), overriding roster.js
+//   added:   slug -> { name }   physicians added in the console
+//   removed: slug -> true       taken off the list (false = restored)
+// Nothing is ever deleted: a removed physician keeps their category, so
+// restoring them puts them back exactly as they were.
+let overrideGroups = {}, addedPeople = {}, removedSlugs = {};
 export function onRosterOverrides(cb) {
   return onSnapshot(doc(db, "config", "roster"), (snap) => {
-    overrideGroups = (snap.exists() && snap.data().groups) || {};
+    const d = (snap.exists() && snap.data()) || {};
+    overrideGroups = d.groups || {};
+    addedPeople = d.added || {};
+    removedSlugs = d.removed || {};
     if (cb) cb(overrideGroups);
   });
 }
+export const isRemoved = (slug) => removedSlugs[slug] === true;
+const isAdded = (slug) => !ROSTER_BY_SLUG[slug] && !!addedPeople[slug] && !!addedPeople[slug].name;
+
+// Everyone on the list today: roster.js plus added, minus removed. This is
+// what voters pick from and what quorum counts.
+export function currentRoster() {
+  const base = ROSTER.map((p) => ({ name: p.name, slug: p.slug, group: overrideGroups[p.slug] || p.group }));
+  const added = Object.keys(addedPeople).filter(isAdded)
+    .map((slug) => ({ name: addedPeople[slug].name, slug, group: overrideGroups[slug] || "courtesy", added: true }));
+  return base.concat(added)
+    .filter((p) => !isRemoved(p.slug))
+    .map((p) => ({ ...p, weight: WEIGHTS[p.group] !== undefined ? WEIGHTS[p.group] : 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+export function rosterPerson(slug) { return currentRoster().find((p) => p.slug === slug) || null; }
+// Removed physicians, for the console's Restore list.
+export function removedRoster() {
+  return Object.keys(removedSlugs).filter(isRemoved).map((slug) => {
+    const name = ROSTER_BY_SLUG[slug] ? ROSTER_BY_SLUG[slug].name : (addedPeople[slug] && addedPeople[slug].name) || slug;
+    return { name, slug };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Before any change to who is listed or their category, give every closed
+// motion its own frozen copy of the categories, if it doesn't have one yet
+// (motions closed before freezing existed). Closed results then never move.
+async function freezeClosedMotions() {
+  const all = await getDocs(pollsCol);
+  const ops = [];
+  for (const d of all.docs) {
+    if (d.data().status === "closed" && !d.data().lockedGroups) {
+      ops.push(snapshotGroups(d.id).then((lockedGroups) => updateDoc(d.ref, { lockedGroups })));
+    }
+  }
+  await Promise.all(ops);
+}
 export async function setPersonGroup(slug, group) {
+  await freezeClosedMotions();
   await setDoc(doc(db, "config", "roster"), { groups: { [slug]: group } }, { merge: true });
 }
+// Add a physician (or restore a removed one with the same name). Returns
+// "added", "restored" or "exists".
+export async function addPhysician(name, group) {
+  const clean = name.trim().replace(/\s+/g, " ");
+  const slug = slugify(clean);
+  if (!slug) throw new Error("empty name");
+  if (rosterPerson(slug)) return "exists";
+  const restoring = isRemoved(slug);
+  await freezeClosedMotions();
+  const patch = { groups: { [slug]: group }, removed: { [slug]: false } };
+  if (!ROSTER_BY_SLUG[slug] && !(restoring && addedPeople[slug])) patch.added = { [slug]: { name: clean } };
+  await setDoc(doc(db, "config", "roster"), patch, { merge: true });
+  return restoring ? "restored" : "added";
+}
+export async function removePhysician(slug) {
+  await freezeClosedMotions();
+  await setDoc(doc(db, "config", "roster"), { removed: { [slug]: true } }, { merge: true });
+}
+export async function restorePhysician(slug) {
+  await freezeClosedMotions();
+  await setDoc(doc(db, "config", "roster"), { removed: { [slug]: false } }, { merge: true });
+}
+
+// A removed physician has no vote from then on (open and future motions);
+// closed motions keep the category they were frozen with.
 export function effectiveGroup(slug) {
+  if (isRemoved(slug)) return "removed";
   if (overrideGroups[slug]) return overrideGroups[slug];
   const base = ROSTER_BY_SLUG[slug];
-  return base ? base.group : "writein";
+  if (base) return base.group;
+  return isAdded(slug) ? "courtesy" : "writein";
 }
 export function resolvedPerson(slug) {
   const g = effectiveGroup(slug);
   return { group: g, weight: WEIGHTS[g] !== undefined ? WEIGHTS[g] : 0 };
 }
-// Full roster with overrides applied (for the leadership Summary tab).
-export function resolvedRoster() {
-  return ROSTER.map((p) => {
-    const g = overrideGroups[p.slug] || p.group;
-    return { ...p, group: g, weight: WEIGHTS[g] };
-  });
-}
+// Full roster with categories applied (for the leadership Physicians tab).
+export function resolvedRoster() { return currentRoster(); }
 
 // Eligible-to-vote count (weight > 0). Frozen for closed motions, live otherwise.
 // Includes write-ins who have been granted a category (they live in overrides).
@@ -111,9 +178,9 @@ export function eligibleCount(poll) {
   if (poll && poll.status === "closed" && poll.lockedGroups) {
     return Object.values(poll.lockedGroups).filter((g) => WEIGHTS[g] > 0).length;
   }
-  let n = ROSTER.filter((p) => WEIGHTS[effectiveGroup(p.slug)] > 0).length;
+  let n = currentRoster().filter((p) => p.weight > 0).length;
   Object.keys(overrideGroups).forEach((slug) => {
-    if (!ROSTER_BY_SLUG[slug] && WEIGHTS[overrideGroups[slug]] > 0) n += 1;   // granted write-ins
+    if (!ROSTER_BY_SLUG[slug] && !isAdded(slug) && !isRemoved(slug) && WEIGHTS[overrideGroups[slug]] > 0) n += 1;   // granted write-ins
   });
   return n;
 }
@@ -190,11 +257,11 @@ export async function purgePoll(pollId) {
   await deleteDoc(doc(db, "polls", pollId));
 }
 
-// Snapshot every physician's CURRENT category for a motion (roster + any
-// write-ins who voted in it). This is what gets frozen on close.
+// Snapshot every physician's CURRENT category for a motion (the list today +
+// any write-ins who voted in it). This is what gets frozen on close.
 async function snapshotGroups(pollId) {
   const lockedGroups = {};
-  ROSTER.forEach((p) => { lockedGroups[p.slug] = effectiveGroup(p.slug); });
+  currentRoster().forEach((p) => { lockedGroups[p.slug] = p.group; });
   const vs = await getDocs(collection(db, "polls", pollId, "votes"));
   vs.forEach((d) => {
     const s = d.data().slug;
