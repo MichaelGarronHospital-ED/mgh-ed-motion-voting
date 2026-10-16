@@ -805,11 +805,24 @@ export async function openPoll(pollId) {
     const num = agendaNumbers(knownPolls.filter((x) => x.meetingId === p.meetingId))[pollId];
     if (num && num !== p.number) patch.number = num;     // the agenda number, saved when it opens
   }
+  // A motion in a meeting nobody has started: opening it starts the meeting
+  // (same batch, with a "meeting" log entry), so phones and the projector see
+  // it. Only one meeting is open at a time: the console ends any other first.
+  const m = p.meetingId ? knownMeetings.find((x) => x.id === p.meetingId && !x.deleted) : null;
+  const startIt = !!(m && m.status === "planned");
+  if (startIt && knownMeetings.some((x) => x.status === "open" && !x.deleted && x.id !== m.id)) {
+    throw Object.assign(new Error("another meeting is open"), { code: "failed-precondition", why: "meeting-open" });
+  }
   await withBoard(async () => {
     const b = writeBatch(db);
     b.update(pollRef(pollId), patch);
     writeLog(b, { action: "open", pollId, text: p.text });
-    patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), knownMeetings));
+    if (startIt) {
+      b.update(meetingRef(m.id), { status: "open", startedAt: serverTimestamp() });
+      writeLog(b, { action: "meeting", meetingId: m.id, text: `Meeting started: ${m.title || ""}` });
+    }
+    const meetings = startIt ? simulateMeetings({ [m.id]: { status: "open", startedAt: Date.now() } }) : knownMeetings;
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), meetings));
     await b.commit();
   });
 }
@@ -854,7 +867,7 @@ export async function closeMotion(pollId, seen) {
       ops.push([["results", pollId], { ...mine.results[pollId], closedAt: serverTimestamp() }]);
       // Without meetings the board shows one day: entries (as the board has
       // them) from another day go to past results.
-      if (!cur.meeting) {
+      if (!cur.meeting && !knownMeetings.length) {
         const today = localDate(Date.now());
         Object.entries(cur.results || {}).forEach(([id, e]) => {
           if (id !== pollId && tsMillis(e.closedAt) !== null && localDate(e.closedAt) !== today) ops.push([["results", id], undefined]);
@@ -996,7 +1009,7 @@ export async function reopenMotion(pollId, reason) {
       // Without meetings the board shows the latest day: when the motion that
       // closed last re-opens, an earlier day's motions come back. Only entries
       // the board lacks are added; entries already there are never touched.
-      if (!cur.meeting) {
+      if (!cur.meeting && !knownMeetings.length) {
         Object.entries(sim.results || {}).forEach(([id, e]) => {
           if (id !== pollId && !(cur.results && cur.results[id])) ops.push([["results", id], e]);
         });

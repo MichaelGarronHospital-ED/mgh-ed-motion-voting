@@ -25,13 +25,20 @@ Running log of what changed and why, newest first.
 - **Settings → Delete history older than 7 years** (or the longer period set there):
   removes only entries past that period, and records that it did.
 
+- Opening a motion in a meeting nobody has started starts that meeting (another open
+  meeting is ended first, after asking), so phones and the projector always see it.
+
 **Publish the rules before merging this page** (they add meetings, and let leadership
 delete change-history entries only after the retention period, never under 7 years).
 With the old rules this page says "needs a database update" and keeps Open and Close
 off; voting itself is unaffected. **Once a meeting exists, never roll back to an earlier
 page** (it would list motions out of order).
 
-Tests: 157 browser tests (25 new), 93 rules tests (18 new, including the real meeting
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console tab (an open step-3 console does not keep the voters' board up to date with
+meetings).
+
+Tests: 166 browser tests (28 new), 93 rules tests (18 new, including the real meeting
 code and calendar-year retention with Feb 29).
 
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)

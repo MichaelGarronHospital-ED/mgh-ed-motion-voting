@@ -468,13 +468,24 @@ async function openFlow(id) {
   if (draftKids.length && !confirm(`Amendment ${n(draftKids[0].id)} hasn't been voted yet. Open the main motion anyway?`)) return;
   const main = p.amends ? S.polls.find((x) => x.id === p.amends) : null;
   if (main && main.status === "closed" && !confirm("The main motion has already been voted. Open this amendment anyway?")) return;
+  // Its meeting has not started and another one is open: end that one first
+  // (which closes its open motion with its result), as Start meeting does.
+  const m = currentMeetings().find((x) => x.id === p.meetingId && !x.deleted);
+  const otherM = m && m.status === "planned" ? currentMeetings().find((x) => x.status === "open" && !x.deleted && x.id !== m.id) : null;
+  if (otherM) {
+    if (!confirm(`${otherM.title || "Another meeting"} is still open. End the other meeting first?`)) return;
+    if (!(await R.endFlow(otherM.id))) return;
+  }
   const others = S.polls.filter((p) => p.status === "open" && p.id !== id);
   if (others.length && !confirm("This will close the currently open motion. Continue?")) return;
   for (const o of others) { if (!(await closeFlow(o.id))) return; }
   try {
     await openPoll(id);
-    toast("Motion opened. Voters can vote now.");
-  } catch (e) { await actionFailed(e, "Not allowed: this motion cannot be opened."); }
+    toast(m && m.status === "planned" ? "Meeting started and motion opened. Voters can vote now." : "Motion opened. Voters can vote now.");
+  } catch (e) {
+    if (e && e.why === "meeting-open") toast("Another meeting is still open. End it first (Meeting tab).");
+    else await actionFailed(e, "Not allowed: this motion cannot be opened.");
+  }
 }
 R.openFlow = openFlow;
 

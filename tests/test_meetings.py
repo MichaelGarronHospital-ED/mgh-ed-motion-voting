@@ -208,6 +208,59 @@ class TestMeetings(Console):
         self.assertIn("Kyle Vojdani", everything)
         self.assertIn("Voted, did not check in", everything)
 
+    def test_opening_a_motion_starts_its_planned_meeting(self):
+        """Planned meeting -> open -> close -> save: the board has the meeting and the entry."""
+        def seed(pg):
+            seed_meeting(pg)                              # planned
+            seed_motion(pg, "n1", "Approve the schedule")
+        pg = self.console(seed)
+        h.tab(pg, "motions")
+        pg.click('#motion-list button[data-act="open"][data-id="n1"]')
+        pg.wait_for_function("() => window.__store.get('polls/n1').status === 'open'")
+        m = h.get(pg, "meetings/m1")
+        self.assertEqual(m["status"], "open")
+        self.assertIsNotNone(m["startedAt"])
+        live = h.get(pg, "config/live")
+        self.assertEqual((live["meeting"]["id"], live["open"]["id"]), ("m1", "n1"))
+        self.assertIn("Meeting started: ED department meeting", [l.get("text") for l in self.logs(pg, "meeting")])
+        h.tab(pg, "results")
+        pg.click("#r-close")
+        pg.wait_for_function("() => (window.__store.get('polls/n1') || {}).result")
+        pg.wait_for_timeout(200)
+        self.assertTrue(h.get(pg, "config/live")["results"]["n1"]["result"])
+
+    def test_new_planned_meeting_after_last_months_ended_one(self):
+        def seed(pg):
+            seed_meeting(pg, "m0", title="Last month", date="2026-09-20", status="closed", endedAt=h.ts(NOW - 30 * 86400000))
+            seed_closed_saved(pg, "c0", NOW - 30 * 86400000, meetingId="m0")
+            seed_meeting(pg, "m1", title="This month", date="2026-10-20")
+            seed_motion(pg, "n1", "A new motion")
+        pg = self.console(seed)
+        self.assertEqual(h.get(pg, "config/live")["meeting"]["id"], "m0")   # the last one ended, until this one starts
+        h.tab(pg, "motions")
+        pg.click('#motion-list button[data-act="open"][data-id="n1"]')
+        pg.wait_for_function("() => (window.__store.get('config/live').meeting || {}).id === 'm1'")
+        h.tab(pg, "results")
+        pg.click("#r-close")
+        pg.wait_for_function("() => ((window.__store.get('config/live').results || {}).n1 || {}).result")
+        live = h.get(pg, "config/live")
+        self.assertNotIn("c0", live["results"])
+        pg.wait_for_function("() => (window.__store.get('config/history').entries || []).some(e => e.id === 'c0')")
+
+    def test_opening_in_a_planned_meeting_ends_the_other_open_one_first(self):
+        def seed(pg):
+            seed_meeting(pg, "m0", title="Running", status="open", startedAt=h.ts(NOW - 600000))
+            seed_meeting(pg, "m1", title="Next")
+            seed_motion(pg, "n1", "In the next meeting")
+        pg = self.console(seed)
+        pg.evaluate("window.confirm = () => true")
+        h.tab(pg, "meeting")
+        pg.select_option("#meeting-pick", "m1")       # show the next meeting's agenda
+        h.tab(pg, "motions")
+        pg.click('#motion-list button[data-act="open"][data-id="n1"]')
+        pg.wait_for_function("() => window.__store.get('meetings/m1').status === 'open'")
+        self.assertEqual(h.get(pg, "meetings/m0")["status"], "closed")
+
     def test_board_meeting_ignores_trashed_meetings(self):
         pg = self.page
         h.load_admin(pg, self.base)
