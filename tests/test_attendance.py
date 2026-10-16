@@ -106,6 +106,29 @@ class TestReceipts(Base):
         pg.wait_for_function(f"() => document.querySelector('.receipt-line').textContent.includes('In favour')")
         self.assertNotEqual(pg.inner_text(".receipt-line .receipt-code"), code)
 
+    def test_vote_that_times_out_but_landed_is_shown_as_recorded(self):
+        pg = self.page
+        pg.clock.install()
+        h.open_voter(pg, self.base)
+        seed_open(pg, ballots=[])
+        board(pg)
+        slug = h.slugify(h.GROUP1[0])
+        h.pick_voter(pg, h.GROUP1[0])
+        pg.wait_for_selector('button[data-c="favour"]')
+        # the vote reaches the server but the answer never comes back in time
+        pg.evaluate(f"window.__store.stall('polls/p1/votes/{slug}')")
+        pg.click('button[data-c="favour"]')
+        sid = pg.evaluate("localStorage.getItem('ed_session_id')")
+        h.seed(pg, f"polls/p1/votes/{slug}", {"name": h.GROUP1[0], "slug": slug, "group": "1", "weight": 1, "isWriteIn": False,
+            "choice": "favour", "sessionIds": [sid], "submissionCount": 1, "flagged": False})
+        pg.clock.run_for(16000)
+        pg.evaluate(f"window.__store.release('polls/p1/votes/{slug}')")
+        pg.wait_for_selector(".receipt-line")
+        self.assertNotIn("not sent", pg.inner_text("#app"))
+        self.assertEqual(pg.evaluate("localStorage.getItem('ed_bound')"), slug)
+        expected = pg.evaluate("async (v) => (await import('./js/count.js')).ballotReceipt('p1', v)", h.get(pg, f"polls/p1/votes/{slug}"))
+        self.assertEqual(pg.inner_text(".receipt-line .receipt-code"), expected)
+
     def test_check_my_vote_detects_a_change(self):
         pg = self.voter()
         seed_open(pg, ballots=[])

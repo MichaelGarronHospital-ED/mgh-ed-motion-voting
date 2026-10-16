@@ -21,6 +21,8 @@ Running log of what changed and why, newest first.
 - The meeting's Excel now has check-ins in the Meeting and Attendance sheets (people who
   voted without checking in are listed as "Voted, did not check in"), and remote and
   receipt columns in Ballots.
+- If a vote gets no answer within 15 seconds, the phone checks once what is recorded
+  under the name: if the vote landed, it shows the receipt as normal instead of "not sent".
 - **No proxy votes** (Alvin's decision): nothing about proxies was built.
 - What these mean: a check-in or a receipt records what someone said or what was recorded
   under a name. Everyone shares the ED password, so neither proves who tapped.
@@ -30,7 +32,7 @@ the meeting is open, under its own name, with nothing else). With the old rules 
 console's Attendance card says "needs a database update" and phones say "Check-in is
 not available yet."; votes are not affected.
 
-Tests: 194 browser tests (11 new), 119 rules tests (10 new).
+Tests: 198 browser tests (12 new), 123 rules tests (10 new).
 
 ## Questions and elections (voting upgrade step 6, Oct 2026)
 

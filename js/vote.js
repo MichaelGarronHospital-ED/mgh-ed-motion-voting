@@ -558,6 +558,9 @@ async function submit(choice, picks) {
   } catch (e) {
     console.warn(e);
     const kind = classify(e);
+    // No answer in 15 seconds: the vote may still have landed. Read this
+    // name's ballot once; if it says what was sent, it counts as recorded.
+    if (e && e.code === "timeout" && (await recordedAnyway(open, choice, picks))) { render(); return; }
     if (kind === "refused") {
       const still = openMotion();
       voteMsg = !still || still.id !== open.id ? "Voting on this motion has closed." : "Your vote could not be recorded. Please tell leadership.";
@@ -565,6 +568,19 @@ async function submit(choice, picks) {
     toast(voteMsg);
   }
   render();
+}
+async function recordedAnyway(open, choice, picks) {
+  try {
+    const v = await withTimeout(getOwnBallot(open.id, me.slug), 10000);
+    const same = v && v.choice === choice && JSON.stringify(v.picks || []) === JSON.stringify(picks || [])
+      && (v.sessionIds || []).includes(sessionId);
+    if (!same) return false;
+    localStorage.setItem("ed_bound", me.slug);
+    keepReceipt(open.id, me.slug, choice, picks, v.submissionCount);
+    if (picks) picking = { pollId: open.id, picks: new Set(picks) };
+    toast(choice === "pick" ? "Vote recorded." : "Vote recorded: " + labelOf(choice));
+    return true;
+  } catch (err) { console.warn(err); return false; }
 }
 
 render();
