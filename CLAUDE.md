@@ -37,6 +37,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   against the emulator, with Firebase swapped for the npm SDK (never the live project).
   `rules.listeners` checks every source each page reads is readable under these rules.
   Run after any change to `firestore.rules`.
+- **GitHub Actions:** `.github/workflows/tests.yml` runs both sets (rules on the emulator,
+  browser tests in Chromium) on every push to any branch and every pull request. Free on a
+  public repo. Actions are pinned by commit hash; runner image `ubuntu-24.04`.
 - **Deploy the site:** push to `main`; GitHub Pages is live about a minute later. Rules
   first, then the page. Bump `version.txt` and `js/version.js` together with every
   update (open consoles then say "A newer version is available. Reload."). Pages are
