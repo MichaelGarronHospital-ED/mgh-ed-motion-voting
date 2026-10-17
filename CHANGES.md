@@ -30,7 +30,7 @@ step-2 page never writes settings).
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console tab.
 
-Tests: 138 browser tests (23 new), 75 rules tests (8 new).
+Tests: 143 browser tests (23 new), 75 rules tests (8 new).
 
 ## Phones read results from one small board; re-vote (voting upgrade step 2, Oct 2026)
 
