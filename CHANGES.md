@@ -19,8 +19,13 @@ small and easy to check.
   read or a save be refused, hold it back, or count how many documents a page read.
 - The tests can run against the live site (with Firebase still replaced by the test
   copy, so no real data is touched): set `MV_BASE_URL`.
+- **Security fix:** if Continue on the Leadership password screen was tapped before the
+  page's code had loaded (slow network, or old and new cached files right after an
+  update), the browser itself sent the form and the password showed in the address bar
+  (and so in the history and server logs). The form now stays disabled until its code
+  has taken over, and never sends itself.
 
-Tests: the 42 existing browser tests and 21 rules tests pass unchanged; 10 new
+Tests: the 42 existing browser tests and 21 rules tests pass unchanged; 13 new
 (the test copy of Firebase, and a short live smoke set). Rules: unchanged.
 
 ## Leadership can add, remove and restore physicians (Oct 16 2026)

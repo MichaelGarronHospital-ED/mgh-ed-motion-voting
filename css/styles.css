@@ -70,6 +70,7 @@ h1, h2, h3 { font-family:var(--ed-font-display); text-wrap:balance; margin:0; }
 .gate h1 { font:700 24px/1.2 var(--ed-font-display); }
 .gate > .ed-muted { margin-top:6px; font-size:var(--ed-text-sm); }
 .gate-form { position:relative; margin-top:20px; display:flex; flex-direction:column; gap:12px; text-align:left; }
+.gate-fields { border:0; margin:0; padding:0; min-width:0; display:flex; flex-direction:column; gap:12px; }
 /* Invisible "username" naming which password this is, so iPhone Safari saves the ED and
    Leadership passwords as separate entries and doesn't fill one tool's into another
    (every ED tool shares one web address). Not display:none: Safari ignores those. */

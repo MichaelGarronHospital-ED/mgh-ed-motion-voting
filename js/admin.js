@@ -25,6 +25,8 @@ function unlock() {
 }
 // A real form: Enter in the field and a tap on Continue both submit it.
 $("gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryEnter(); });
+// Only now can the form be used (see the comment in admin-9f4k2x7q.html).
+$("gate-fields").disabled = false;
 // The Leadership password is checked by Firebase itself (it is the password of
 // the LEADER_EMAIL account); nothing about it is stored in this public code, and
 // the console opens only on a real sign-in, so writes are always authorised.
