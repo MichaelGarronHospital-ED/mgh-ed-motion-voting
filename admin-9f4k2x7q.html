@@ -28,8 +28,9 @@
         <fieldset id="gate-fields" class="gate-fields" disabled>
           <input class="pw-user" type="text" name="username" autocomplete="username" value="Leadership password" tabindex="-1" aria-hidden="true" />
           <label class="ed-label" for="pass">Leadership password
-            <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" />
+            <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" aria-describedby="pass-help" />
           </label>
+          <p class="ed-hint" id="pass-help">Not working on iPhone? Clear the box, type the password by hand, then tap Save when your phone offers.</p>
           <p id="gate-err" class="ed-error err hide" role="alert">Incorrect password.</p>
           <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
         </fieldset>
