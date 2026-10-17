@@ -86,6 +86,7 @@ function motionRow(p) {
         ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="open" data-id="${escapeHtml(p.id)}" ${ready ? "" : "disabled"}>Open</button>`
         : p.status === "closed"
         ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="reopen" data-id="${escapeHtml(p.id)}" ${ready ? "" : "disabled"}>Re-open</button>`
+          + (p.result && !p.supersededBy ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="revote" data-id="${escapeHtml(p.id)}" ${ready ? "" : "disabled"}>Re-vote</button>` : "")
         : `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="close" data-id="${escapeHtml(p.id)}" ${ready && !pendingOpen ? "" : "disabled"}>Close</button>`}
       ${p.status === "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="goto-results" data-id="${escapeHtml(p.id)}">Live results</button>` : ""}
       ${!locked ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="edit" data-id="${escapeHtml(p.id)}">Edit</button>` : ""}
@@ -124,6 +125,11 @@ export async function motionAction(act, id) {
     S.selectedPollId = id; S.reopenFor = id;
     R.showTab("results"); R.results(); R.voters();
     const r = $("reopen-reason"); if (r) r.focus();
+  } else if (act === "revote") {
+    // Same as on the Results tab: closed, result saved, not yet replaced.
+    S.selectedPollId = id; S.revoteFor = id; S.reopenFor = null;
+    R.showTab("results"); R.results(); R.voters();
+    const r = $("revote-reason"); if (r) r.focus();
   } else if (act === "goto-results") {
     S.selectedPollId = null;          // follow the live/open motion
     R.showTab("results"); R.results(); R.voters();
