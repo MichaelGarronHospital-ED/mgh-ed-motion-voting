@@ -20,13 +20,19 @@
       <span class="ed-badge" aria-hidden="true">ED</span>
       <h1>Leadership console</h1>
       <p class="ed-muted">Enter the Leadership password to manage motions and see results.</p>
-      <form id="gate-form" class="gate-form">
-        <input class="pw-user" type="text" name="username" autocomplete="username" value="Leadership password" tabindex="-1" aria-hidden="true" />
-        <label class="ed-label" for="pass">Leadership password
-          <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" />
-        </label>
-        <p id="gate-err" class="ed-error err hide" role="alert">Incorrect password.</p>
-        <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
+      <!-- method="post" and a disabled fieldset: until js/admin.js has taken over
+           the form (slow network, or old and new cached files after an update), it
+           cannot be sent by the browser itself, so the password never ends up in
+           the address bar, the history or server logs. admin.js enables it. -->
+      <form id="gate-form" class="gate-form" method="post" action="#">
+        <fieldset id="gate-fields" class="gate-fields" disabled>
+          <input class="pw-user" type="text" name="username" autocomplete="username" value="Leadership password" tabindex="-1" aria-hidden="true" />
+          <label class="ed-label" for="pass">Leadership password
+            <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" />
+          </label>
+          <p id="gate-err" class="ed-error err hide" role="alert">Incorrect password.</p>
+          <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
+        </fieldset>
       </form>
     </div>
   </div>
