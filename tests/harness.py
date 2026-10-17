@@ -95,6 +95,12 @@ def open_voter(page, base):
         page.wait_for_selector("#search, #app .tabs")
 
 
+def open_screen(page, base):
+    """Load the projector screen (meeting screen)."""
+    page.goto(f"{base}/screen.html")
+    page.wait_for_function("() => window.__store !== undefined")
+
+
 def load_admin(page, base):
     """Load the admin page but leave it locked, so the store can be seeded
     before the console boots and subscribes."""
@@ -199,6 +205,20 @@ def reads(page, prefix=""):
 def writes(page, prefix=""):
     """Documents the page has written so far under a path."""
     return page.evaluate("p => window.__store.writes(p)", prefix)
+
+
+def build_board(page):
+    """Write config/live and config/history as the console builds them (the
+    voter page and the projector read only these, never the motions)."""
+    page.evaluate("""async () => {
+        const b = await import('./js/board.js');
+        const st = window.__store.dump();
+        const list = (re) => Object.entries(st).filter(([k]) => re.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
+        const polls = list(/^polls[/][^/]+$/), ms = list(/^meetings[/][^/]+$/);
+        const bd = b.buildBoard(polls, ms);
+        window.__store.set('config/live', bd);
+        window.__store.set('config/history', b.buildHistory(polls, ms, bd));
+    }""")
 
 
 def store(page):

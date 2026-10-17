@@ -2,8 +2,8 @@
 // (title, date, chair, notes), Start and End, the link and QR code for voters,
 // this meeting's records, and meetings in the Trash.
 import {
-  createMeeting, updateMeeting, startMeeting, endMeeting, setMeetingDeleted, purgeMeeting, currentMeetings,
-  resolvedRoster, todayLocal, clockTime,
+  onScreen, setScreen, createMeeting, updateMeeting, startMeeting, endMeeting, setMeetingDeleted, purgeMeeting, currentMeetings,
+  resolvedRoster, todayLocal, clockTime, serverTimestamp,
 } from "./db.js";
 import { escapeHtml, toast, icon } from "./util.js";
 import { $, S, R, niceDate, meetingLabel } from "./admin-state.js";
@@ -28,6 +28,21 @@ R.selectedMeeting = selectedMeeting;
 
 let newOpen = false;
 export function wireMeeting() {
+  // The projector's controls: each is one write to config/screen.
+  onScreen((d) => {
+    S.screen = d || {};
+    $("screen-qr").checked = !d || d.showQr !== false;
+    $("screen-tally").checked = !!(d && d.showTally);
+  });
+  const save = (patch, ok) => setScreen(patch).then(() => ok && toast(ok), (e) => R.actionFailed(e, "Not allowed: the database refused the change."));
+  $("screen-qr").addEventListener("change", (e) => save({ showQr: e.target.checked }));
+  $("screen-tally").addEventListener("change", (e) => save({ showTally: e.target.checked }));
+  document.querySelectorAll("[data-timer]").forEach((b) => b.addEventListener("click", () => {
+    const secs = Number(b.dataset.timer);
+    if (!secs) { save({ timer: null }, "Timer stopped."); return; }
+    if (!S.activePoll) { toast("Open a motion first."); return; }
+    save({ timer: { pollId: S.activePoll.id, startedAt: serverTimestamp(), seconds: secs } }, `Timer started: ${secs / 60} min.`);
+  }));
   $("meeting-export").addEventListener("click", () => { const m = selectedMeeting(); if (m) exportMeeting(m.id); else toast("Add a meeting first."); });
   $("meeting-print").addEventListener("click", () => { const m = selectedMeeting(); if (m) printMeeting(m.id); else toast("Add a meeting first."); });
 }

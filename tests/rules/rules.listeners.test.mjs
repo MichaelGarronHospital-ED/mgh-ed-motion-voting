@@ -14,6 +14,9 @@
 //  Step 3 (settings, roster paste): no new source (config/settings was already read).
 //  Step 4 (meetings): the console adds meetings (in the load gate) and one
 //  meeting's change log; the voter page gets meeting data through the board.
+//  Step 5 (projector): the console adds config/screen; the projector (ED or
+//  leadership sign-in) reads config/live, config/screen, config/roster, the
+//  open motion's ballots, and one motion with its ballots (a late result).
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -41,6 +44,7 @@ const SOURCES = {
     ["config/live (may be missing)", (db) => getDoc(doc(db, "config/live"))],
     ["config/history (may be missing)", (db) => getDoc(doc(db, "config/history"))],
     ["meetings", (db) => getDocs(collection(db, "meetings"))],
+    ["config/screen (may be missing)", (db) => getDoc(doc(db, "config/screen"))],
     ["one meeting's change log", (db) => getDocs(query(collection(db, "log"), where("meetingId", "==", "m1")))],
   ],
   voter: [
@@ -52,14 +56,25 @@ const SOURCES = {
     ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
     ["its ballots (a late result)", (db) => getDocs(collection(db, "polls/p1/votes"))],
   ],
+  projector: [
+    ["config/live", (db) => getDoc(doc(db, "config/live"))],
+    ["config/screen", (db) => getDoc(doc(db, "config/screen"))],
+    ["config/roster", (db) => getDoc(doc(db, "config/roster"))],
+    ["the open motion's ballots", (db) => getDocs(collection(db, "polls/p1/votes"))],
+    ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
+  ],
 };
 
-describe("step 4 pages read only what the rules allow", () => {
+describe("step 5 pages read only what the rules allow", () => {
   for (const [name, read] of SOURCES.console) {
     it(`console (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }
   for (const [name, read] of SOURCES.voter) {
     it(`voter page (ED) can read ${name}`, async () => { await assertSucceeds(read(ed())); });
+  }
+  for (const [name, read] of SOURCES.projector) {
+    it(`projector (ED) can read ${name}`, async () => { await assertSucceeds(read(ed())); });
+    it(`projector (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }
   it("the voter page never needs the change log, and cannot read it", async () => {
     await assertFails(getDocs(query(collection(ed(), "log"), limit(1))));

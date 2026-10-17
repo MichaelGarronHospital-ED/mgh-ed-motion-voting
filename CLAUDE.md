@@ -54,6 +54,11 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 ## Files
 
 - `index.html` → voter view (loads `js/vote.js`).
+- `screen.html` → the meeting screen for the projector (loads `js/screen.js`). Display
+  only: turnout, quorum, timer, the saved result, the QR code. It reuses the browser's
+  existing sign-in and never signs in over it (one sign-in per browser for every tab);
+  signed out, it asks for the ED password only. Controls are in the console's Meeting
+  tab and live in `config/screen`.
 - `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Leadership-password-gated (Firebase sign-in) +
   unguessable filename; keep the filename obscure if it's ever rotated.
 - `js/config.js` → Firebase config, `LEADER_EMAIL` + `ED_EMAIL` (the two shared accounts;
@@ -129,6 +134,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   motion with its result first. "Delete meeting permanently" works only from the Trash:
   motions first, the meeting last, so running it again finishes a half-done delete.
   Motions made before meetings stay under "Earlier motions" and can be moved in.
+- **The projector never shows the for and against split** unless leadership ticks "Show
+  the live count", and never a verdict before the result is saved (or counted once after
+  30 s). Its timer never closes a vote.
 - **The console waits for its data (the load gate).** Nothing that saves a result, and no
   Open or Close, runs until roster, settings and motions have each arrived from the
   server. Every wait has a plain message for refused, offline and timeout (no bare

@@ -7,8 +7,16 @@ import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar } f
 import { $, S, R, STATUS_WORD, statusPill, groupLabel, download } from "./admin-state.js";
 import { tsMillis } from "./count.js";
 
+let hideLive = false;
+try { hideLive = localStorage.getItem("mv_hide_live") === "1"; } catch (e) { /* private mode */ }
 export function wireResults() {
   $("export").addEventListener("click", exportCsv);
+  $("hide-live").checked = hideLive;
+  $("hide-live").addEventListener("change", (e) => {
+    hideLive = e.target.checked;
+    try { localStorage.setItem("mv_hide_live", hideLive ? "1" : "0"); } catch (x) { /* private mode */ }
+    renderResults();
+  });
 }
 
 // Which motion the Results/Voters tabs show: an explicit selection, else the
@@ -110,6 +118,12 @@ function paintResults(el, poll, votes, loaded) {
   const saved = poll.status === "closed" && poll.result ? poll.result : null;
   if (!saved && !loaded) {
     el.innerHTML = `${top}<p class="ed-hint">Counting votes…</p>`;
+    return;
+  }
+  if (poll.status === "open" && hideLive) {
+    el.innerHTML = `${top}<p class="ed-hint">The live count is hidden on this screen. It shows again when the motion closes, or when you untick "Hide the live count".</p>
+      <div class="row"><button type="button" class="ed-btn ed-btn-filled" id="r-close" ${R.canOpenClose() && !(poll._pending || poll.openedAt === null) ? "" : "disabled"}>Close voting</button></div>`;
+    $("r-close").addEventListener("click", () => R.closeFlow(poll.id));
     return;
   }
   const r = saved || resultOf(poll, votes);
