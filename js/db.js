@@ -10,13 +10,13 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, LEADER_EMAIL, ED_EMAIL, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-9";
-import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-9";
+import { firebaseConfig, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-10";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-10";
 import {
   tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
-} from "./count.js?v=voting-9";
-import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-9";
-import { agendaOrder, agendaNumbers } from "./count.js?v=voting-9";
+} from "./count.js?v=voting-10";
+import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-10";
+import { agendaOrder, agendaNumbers } from "./count.js?v=voting-10";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -50,40 +50,21 @@ export function watchMember(cb) {
   });
 }
 
-// Signing in while the account emails move (old *.app to new *.invalid): the
-// account may have either email, and a page left open, or cached, cannot know
-// which. So each sign-in, at the moment it is tapped, tries the email that last
-// worked on this device (else the old one), and only on a refusal (wrong
-// password or no such account) tries the other one once. Offline or throttled:
-// no second try, the person is told. Only the account's own uid is accepted;
-// anything else is signed out again and counts as a refusal. One tap is one
-// "Incorrect password", however many emails were tried. This device remembers
-// only "old" or "new", never an email or a password.
+// Signing in. The accounts moved to their .invalid emails (step 9 tried both
+// while they moved; step 10 signs in with the new ones only). Only the
+// account's own uid is accepted; anything else is signed out again and counts
+// as a wrong password.
 const ACCOUNTS = {
-  ed: { uid: ED_UID, old: ED_EMAIL, new: ED_EMAIL_NEW },
-  leader: { uid: LEADER_UID, old: LEADER_EMAIL, new: LEADER_EMAIL_NEW },
+  ed: { uid: ED_UID, email: ED_EMAIL_NEW },
+  leader: { uid: LEADER_UID, email: LEADER_EMAIL_NEW },
 };
-const WORKED_KEY = "mv_signin_email";
-function lastWorked() { try { return localStorage.getItem(WORKED_KEY) === "new" ? "new" : "old"; } catch (e) { return "old"; } }
-function remember(which) { try { localStorage.setItem(WORKED_KEY, which); } catch (e) { /* private mode */ } }
 const refused = () => Object.assign(new Error("Incorrect password."), { code: "auth/invalid-credential" });
-const worthOtherEmail = (e) => isWrongPassword(e) || (((e && e.code) || "").includes("invalid-email"));
 async function signInAs(role, password) {
   const a = ACCOUNTS[role];
-  const first = lastWorked();
-  let refusal = null;
-  for (const which of [first, first === "new" ? "old" : "new"]) {
-    try {
-      const cred = await signInWithEmailAndPassword(auth, a[which], password);
-      if (cred && cred.user && cred.user.uid === a.uid) { remember(which); return cred; }
-      await signOut(auth);              // some other account under that email: never ours
-      refusal = refusal || refused();
-    } catch (e) {
-      if (!worthOtherEmail(e)) throw e;
-      if (!refusal || isWrongPassword(e)) refusal = isWrongPassword(e) ? e : refused();
-    }
-  }
-  throw refusal;
+  const cred = await signInWithEmailAndPassword(auth, a.email, password);
+  if (cred && cred.user && cred.user.uid === a.uid) return cred;
+  await signOut(auth);                  // some other account under that email: never ours
+  throw refused();
 }
 export function voterSignIn(password) { return signInAs("ed", password); }
 export function leaderSignIn(password) { return signInAs("leader", password); }
@@ -93,8 +74,6 @@ export function isWrongPassword(e) {
   const c = (e && e.code) || "";
   return c.includes("wrong-password") || c.includes("invalid-credential") || c.includes("user-not-found") || c.includes("invalid-login");
 }
-// Kept for one more release: a cached page from before step 9 imports these.
-export { LEADER_EMAIL, ED_EMAIL };
 
 // References are made when used (not once at load), so the rules tests can
 // run this file against the emulator with a different sign-in per test.
@@ -1315,6 +1294,6 @@ export function weightForVote(v, poll) {
 export function tally(votes, poll) {
   return tallyVotes(votes, (v) => weightForVote(v, poll));
 }
-export * from "./count.js?v=voting-9";
+export * from "./count.js?v=voting-10";
 
 export { serverTimestamp, copyRule };

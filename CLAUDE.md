@@ -96,10 +96,9 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **A role is known by uid, never by email.** Rules (`isAccount`) and pages (`isMember`,
   `isLeader` in `js/db.js`) compare `uid` with `LEADER_UID` / `ED_UID`; emails are only for
   `signInWithEmailAndPassword`. `tests/test_accounts.py` keeps config and rules equal and
-  refuses any `.email ===` check in page code. While the emails move (`.app` to
-  `.invalid`), `signInAs` tries the email that last worked on the device (localStorage
-  `mv_signin_email`: "old" or "new"), else the old one, and the other once only on a
-  refusal; it accepts only the pinned uid. **Never delete a role account** (a new one
+  refuses any `.email ===` check in page code. `signInAs` signs in with the `.invalid`
+  emails (`*_EMAIL_NEW`; step 9's old/new fallback is gone since step 10) and accepts only
+  the pinned uid. The old `.app` emails stay in `js/config.js` for one release, unused. **Never delete a role account** (a new one
   has a new uid).
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.

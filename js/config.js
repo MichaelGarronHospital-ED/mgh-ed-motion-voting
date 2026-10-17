@@ -26,13 +26,13 @@ export const firebaseConfig = {
 // and the rules and this file would refuse it until both are updated.
 export const LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2";
 export const ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3";
-// The emails are moving to addresses that can never be registered (.invalid).
-// Until the move is long done, the pages sign in with whichever of the two the
-// account has (js/db.js signInAs): the one that last worked on this device first.
-export const LEADER_EMAIL = "leadership@ed-motion-voting.app";       // before the move
-export const ED_EMAIL = "ed@ed-motion-voting.app";
-export const LEADER_EMAIL_NEW = "leadership@mgh-ed-voting.invalid";  // after the move
+// The accounts' emails since the move (addresses that can never be registered).
+export const LEADER_EMAIL_NEW = "leadership@mgh-ed-voting.invalid";
 export const ED_EMAIL_NEW = "ed@mgh-ed-voting.invalid";
+// The emails before the move. Not used any more; kept for one release so a
+// cached step-9 js/db.js that still imports them keeps loading. Remove next time.
+export const LEADER_EMAIL = "leadership@ed-motion-voting.app";
+export const ED_EMAIL = "ed@ed-motion-voting.app";
 
 // ---- 3. Branding ----------------------------------------------------------
 export const ORG_NAME = "MGH ED - Motion Voting";

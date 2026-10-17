@@ -2,6 +2,7 @@
 
     python3 tests/set_version.py voting-10
     python3 tests/set_version.py --snapshot      # once per release, before changing js/
+    python3 tests/set_version.py --snapshot voting-step-9   # the release before, if not live yet
 
 Writes version.txt and js/version.js, and puts ?v=<version> on every relative
 module import in js/ and on each page's script and stylesheet tags. A browser
@@ -55,6 +56,6 @@ def snapshot(ref="origin/main"):
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--snapshot"]:
-        snapshot()
+        snapshot(*sys.argv[2:3])       # optional: another ref than origin/main
     else:
         main(sys.argv[1] if len(sys.argv) > 1 else "")

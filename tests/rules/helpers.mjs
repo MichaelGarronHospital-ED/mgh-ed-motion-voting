@@ -26,8 +26,8 @@ export const LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2";
 export const ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3";
 export const account = (uid, email, provider = "password") =>
   testEnv.authenticatedContext(uid, { email, firebase: { sign_in_provider: provider, identities: {} } }).firestore();
-export const ed = () => account(ED_UID, "ed@ed-motion-voting.app");
-export const leader = () => account(LEADER_UID, "leadership@ed-motion-voting.app");
+export const ed = () => account(ED_UID, "ed@mgh-ed-voting.invalid");
+export const leader = () => account(LEADER_UID, "leadership@mgh-ed-voting.invalid");
 export const anonUser = () => testEnv.authenticatedContext("u-anon").firestore();
 export const stranger = () => testEnv.authenticatedContext("u-stranger", { email: "someone@example.com" }).firestore();
 export const signedOut = () => testEnv.unauthenticatedContext().firestore();

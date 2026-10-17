@@ -7,7 +7,7 @@
 //  Both are built from the motions alone (never from a laptop's selections or
 //  roster names), so two consoles always build the same board.
 // ============================================================================
-import { sortMotions, tsMillis, localDate, agendaOrder } from "./count.js?v=voting-9";
+import { sortMotions, tsMillis, localDate, agendaOrder } from "./count.js?v=voting-10";
 
 const SIZE_CAP = 600000;   // characters of JSON; Firestore's limit is 1 MiB per document
 
