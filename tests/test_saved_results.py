@@ -496,13 +496,20 @@ class TestFailurePaths(Base):
         h.tab(pg, "motions")
         pg.wait_for_function("() => !document.querySelector('#motion-list button[data-act=\"open\"]').disabled")
 
-    def test_step1_gate_opens_without_a_meetings_listener(self):
-        pg = self.admin()
+    def test_gate_opens_with_the_meetings_listener(self):
+        """Steps 1 to 3 had no meetings listener; from step 4 meetings are in the gate."""
+        pg = self.page
+        h.load_admin(pg, self.base)
         h.seed_poll(pg, pid="pd", status="draft")
+        pg.evaluate("window.__store.stall('meetings')")
+        h.unlock_admin(pg)
+        pg.wait_for_selector("#console:not(.hide)")
         pg.wait_for_timeout(300)
         h.tab(pg, "motions")
-        self.assertFalse(pg.is_disabled('#motion-list button[data-act="open"]'))
-        self.assertFalse(any(p.startswith("meetings") for p in pg.evaluate("window.__store.listenerPaths()")))
+        self.assertTrue(pg.is_disabled('#motion-list button[data-act="open"]'))
+        self.assertIn("meetings", pg.evaluate("window.__store.listenerPaths()"))
+        pg.evaluate("window.__store.release('meetings')")
+        pg.wait_for_function("() => !document.querySelector('#motion-list button[data-act=\"open\"]').disabled")
 
 
 if __name__ == "__main__":

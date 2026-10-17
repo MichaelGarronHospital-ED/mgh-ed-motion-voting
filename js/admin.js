@@ -9,7 +9,7 @@ import {
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
-  historyIsCurrent, revoteMotion, setLogName, currentLive,
+  historyIsCurrent, revoteMotion, setLogName, currentLive, onMeetings, currentMeetings,
 } from "./db.js";
 import { toast, icon, escapeHtml } from "./util.js";
 import { $, S, R } from "./admin-state.js";
@@ -19,6 +19,7 @@ import { wireResults } from "./admin-results.js";
 import { wireRoster } from "./admin-roster.js";
 import { wireRecords } from "./records.js";
 import { wireSettings } from "./admin-settings.js";
+import { wireMeeting } from "./admin-meeting.js";
 
 document.title = ORG_NAME + " · Leadership";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
@@ -81,7 +82,7 @@ function showTab(name) {
     x.classList.toggle("active", x.dataset.tab === name);
     x.setAttribute("aria-pressed", String(x.dataset.tab === name));
   });
-  ["share", "motions", "results", "voters", "roster", "settings"].forEach((n) =>
+  ["meeting", "motions", "results", "voters", "roster", "settings"].forEach((n) =>
     $("tab-" + n).classList.toggle("hide", n !== name));
   $("open-settings").setAttribute("aria-pressed", String(name === "settings"));
 }
@@ -133,10 +134,11 @@ function boot() {
   wireRoster();
   wireRecords();
   wireSettings();
+  wireMeeting();
 
   // The load gate: these three, each from the server, before anything that
   // saves a result or opens and closes runs.
-  ["roster", "settings", "polls"].forEach(gateNeed);
+  ["roster", "settings", "polls", "meetings"].forEach(gateNeed);
   const onErr = (src) => (e) => sourceFailed(src, e);
   // category changes re-weight everything live
   onRosterOverrides(() => { R.roster(); R.results(); R.voters(); }, { gate: "roster", onError: onErr("roster") });
@@ -165,6 +167,7 @@ function boot() {
     R.results();
     R.voters();
     R.writeins();
+    R.meeting();
     S.pending = !!snap.metadata.hasPendingWrites;
     if (S.ready && !S.offline) healResults();
     // Past results are written in their own write after an action, once the
@@ -172,6 +175,9 @@ function boot() {
     if (S.ready && !S.pending && !S.offline && S.historyDirty) flushHistory();
     checkBoard();
   }, { gate: "polls", onError: onErr("polls") });
+
+  // Meetings (from the step-4 rules on): part of the gate.
+  onMeetings(() => { R.meeting(); R.motions(); R.results(); checkBoard(); }, { gate: "meetings", onError: onErr("meetings") });
 
   // The voters' board and past results: compared with what the motions say.
   onLive(() => checkBoard(), { meta: true, onError: onErr("live") });
@@ -213,7 +219,7 @@ async function afterGate() {
     }
   }
   S.ready = true;
-  R.motions(); R.results(); R.voters();
+  R.motions(); R.results(); R.voters(); R.meeting();
   if (S.dbUpdate) return;
   finishPurges();
   healResults();
@@ -417,6 +423,14 @@ async function saveFlow(id) {
     historyChanged();
     sheet.close();
     toast("Motion closed. Result saved.");
+    const p = S.polls.find((x) => x.id === id);
+    if (p && p.amends) {
+      setTimeout(() => {
+        const q = S.polls.find((x) => x.id === id);
+        const nums = R.numbers();
+        if (q && q.result && q.result.outcome === "pass") toast(`Amendment ${nums[id] ? nums[id].number : ""} passed. Edit the main motion's wording to include it before opening.`);
+      }, 2400);
+    }
   } catch (e) {
     console.warn("save failed", e);
     const kind = classify(e);
@@ -447,18 +461,39 @@ R.actionFailed = actionFailed;
 
 // Open a draft motion (closing any other open motion first, with its result).
 async function openFlow(id) {
+  const p = S.polls.find((x) => x.id === id) || {};
+  const nums = R.numbers();
+  const n = (x) => (nums[x] ? nums[x].number : "");
+  const draftKids = S.polls.filter((a) => a.amends === id && !a.deleted && !a.archived && a.status === "draft");
+  if (draftKids.length && !confirm(`Amendment ${n(draftKids[0].id)} hasn't been voted yet. Open the main motion anyway?`)) return;
+  const main = p.amends ? S.polls.find((x) => x.id === p.amends) : null;
+  if (main && main.status === "closed" && !confirm("The main motion has already been voted. Open this amendment anyway?")) return;
+  // Its meeting has not started and another one is open: end that one first
+  // (which closes its open motion with its result), as Start meeting does.
+  const m = currentMeetings().find((x) => x.id === p.meetingId && !x.deleted);
+  const otherM = m && m.status === "planned" ? currentMeetings().find((x) => x.status === "open" && !x.deleted && x.id !== m.id) : null;
+  if (otherM) {
+    if (!confirm(`${otherM.title || "Another meeting"} is still open. End the other meeting first?`)) return;
+    if (!(await R.endFlow(otherM.id))) return;
+  }
   const others = S.polls.filter((p) => p.status === "open" && p.id !== id);
   if (others.length && !confirm("This will close the currently open motion. Continue?")) return;
   for (const o of others) { if (!(await closeFlow(o.id))) return; }
   try {
     await openPoll(id);
-    toast("Motion opened. Voters can vote now.");
-  } catch (e) { await actionFailed(e, "Not allowed: this motion cannot be opened."); }
+    toast(m && m.status === "planned" ? "Meeting started and motion opened. Voters can vote now." : "Motion opened. Voters can vote now.");
+  } catch (e) {
+    if (e && e.why === "meeting-open") toast("Another meeting is still open. End it first (Meeting tab).");
+    else await actionFailed(e, "Not allowed: this motion cannot be opened.");
+  }
 }
 R.openFlow = openFlow;
 
 // Re-open a closed motion with a reason (its result is saved first).
 async function reopenFlow(id, reason) {
+  const p = S.polls.find((x) => x.id === id) || {};
+  const m = currentMeetings().find((x) => x.id === p.meetingId);
+  if (m && m.status === "closed" && !confirm("This meeting has ended. Re-open anyway?")) return false;
   const others = S.polls.filter((p) => p.status === "open" && p.id !== id);
   if (others.length && !confirm("This will close the currently open motion. Continue?")) return false;
   for (const o of others) { if (!(await closeFlow(o.id))) return false; }
@@ -479,7 +514,16 @@ R.reopenFlow = reopenFlow;
 async function revoteFlow(id, reason) {
   S.busy += 1;
   try {
-    const newId = await revoteMotion(id, reason);
+    // Same meeting, unless it has ended: then the open meeting, or the one on screen.
+    const p = S.polls.find((x) => x.id === id) || {};
+    const m = currentMeetings().find((x) => x.id === p.meetingId);
+    let target = p.meetingId;
+    if (m && m.status === "closed") {
+      const openM = currentMeetings().find((x) => x.status === "open" && !x.deleted);
+      const sel = R.selectedMeeting();
+      target = (openM && openM.id) || (sel && sel.id !== m.id ? sel.id : p.meetingId);
+    }
+    const newId = await revoteMotion(id, reason, target);
     historyChanged();
     S.revoteReady = newId;
     toast("Re-vote ready. Open it when everyone is ready to vote again.");

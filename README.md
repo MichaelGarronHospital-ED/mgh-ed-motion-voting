@@ -87,8 +87,13 @@ the record.
 ---
 
 ## Running the meeting
-1. **Add all of Friday's motions** in advance (Motions tab).
-2. Share the voting link / **screen-share the QR code** (Share tab). Chat is not needed.
+1. **Before the meeting:** Meeting tab → **New meeting** (title and date), or just add a
+   motion and today's meeting is made for you. On the Motions tab, add the motions, or
+   **Paste an agenda** (one per line; lines starting "Amendment" become amendments).
+   Use **Up** and **Down** to reorder; **Add amendment** on a motion; **Details** for the
+   mover, seconder and notes (editable any time, even after the vote).
+2. **At the start:** Meeting tab → **Start meeting**. Screen-share the QR code (same tab).
+   Voters see the meeting's name and its results.
 3. For each motion: **Open** → let people vote → watch the quorum meter fill → **Close**.
    Closing shows "Saving the result..." for a moment: keep the page open until it says
    **Result saved** (on an iPad or iPhone especially).
@@ -99,13 +104,16 @@ the record.
    details). The earlier count is kept. If a result is contested after it was announced,
    use **Re-vote** (same two places) instead: everyone votes again on a copy, the original stays on record
    marked "Replaced by a re-vote", and voters see the reason. **Settings** (top right)
-   has the change history and your name for it. Motion wording can be edited until the first vote
-   is cast, then it locks.
+   has the change history and your name for it.
 6. If the console says "The voters' screen is out of date", tap **Fix it**.
    If the console shows a yellow line at the top, read it: "No connection" fixes itself
    when the connection is back; "needs a database update" means the matching rules have
    not been published yet (see below), and Open and Close stay off until they are.
-7. Afterward, **Export** for the record.
+7. **At the end:** Meeting tab → **End meeting** (it closes any open motion first), then
+   **Download this meeting (Excel)** for the record, or **Print this meeting** (minutes,
+   without names).
+8. A test meeting: move it to the Trash (Meeting tab), then **Delete meeting permanently**
+   from the Trash. A few lines stay in the change history, which is intended.
 
 ## Changing the rules or the list (no code needed)
 

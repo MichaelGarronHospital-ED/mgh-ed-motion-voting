@@ -7,10 +7,11 @@ import { ORG_NAME } from "./config.js";
 import {
   weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
   resultOf, outcomeWords, sortMotions, currentRule, liveEligible, quorumNeededFor, weightIn,
+  currentMeetings, agendaOrder, getLogForMeeting, tsMillis,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, toast } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
-import { $, S, catLabel, groupLabel, download } from "./admin-state.js";
+import { $, S, R, catLabel, groupLabel, download, meetingLabel, niceDate } from "./admin-state.js";
 
 export function wireRecords() {
   $("export-all").addEventListener("click", () => { closeMenu(); exportAll(); });
@@ -117,4 +118,101 @@ export function showPrint(html) {
   window.addEventListener("afterprint", done);
   window.print();
   setTimeout(done, 1000);
+}
+
+// ---- one meeting's records -------------------------------------------------------
+// Five sheets: Meeting, Motions, Ballots, Attendance, Changes. Built from the
+// saved results; each motion's ballots read once.
+const when = (t) => { const ms = tsMillis(t); return ms === null ? "" : new Date(ms).toLocaleString(); };
+const ruleWords = (r) => !r ? "" : `${r.threshold === "twoThirds" ? "Two-thirds of the points cast" : "More points in favour than against"}; quorum ${r.quorumPercent}%; points ${r.weights["1"]} / ${r.weights["2"]} / ${r.weights.courtesy}${r.tieRule === "fails" ? "; a tie does not pass" : ""}`;
+async function gatherMeeting(meetingId) {
+  const m = currentMeetings().find((x) => x.id === meetingId);
+  const rows = agendaOrder(S.polls.filter((p) => p.meetingId === meetingId));
+  const votes = await Promise.all(rows.map((r) => getVotesFor(r.poll.id)));
+  let log = [];
+  try { log = await getLogForMeeting(meetingId); } catch (e) { console.warn(e); }
+  const recs = rows.map((r, i) => {
+    const p = r.poll, vs = votes[i];
+    const t = p.status === "closed" && p.result ? p.result : resultOf(p, vs);
+    const verdict = !t.totalVotes ? (p.status === "draft" ? "Not yet voted" : "No ballots") : outcomeWords(t, "record");
+    return { number: r.number, poll: p, votes: vs, t, result: p.status === "open" && vs.length ? `${verdict} (voting still open)` : verdict };
+  });
+  return { m, recs, log };
+}
+function meetingTables({ m, recs, log }) {
+  const numOf = Object.fromEntries(recs.map((r) => [r.poll.id, r.number]));
+  const people = new Map();   // slug -> { name, group, motions }
+  recs.forEach((r) => r.votes.forEach((v) => {
+    const e = people.get(v.slug) || { name: v.name, group: v.isWriteIn ? "writein" : groupForVote(v, r.poll), motions: [] };
+    e.motions.push(r.number);
+    people.set(v.slug, e);
+  }));
+  const rules = [...new Set(recs.filter((r) => r.poll.status !== "draft").map((r) => ruleWords(r.t.rule)))];
+  const meeting = [["Item", "Value"],
+    ["Meeting", m.title || ""], ["Date", niceDate(m.date)], ["Status", m.status === "open" ? "Open" : m.status === "closed" ? "Ended" : "Planned"],
+    ["Started", when(m.startedAt)], ["Ended", when(m.endedAt)], ["Chair", m.chair || ""], ["Notes", m.notes || ""],
+    ["Voted at this meeting", people.size], ["Motions", recs.length], ["Pass rules used", rules.join(" | ")],
+    ["Exported", new Date().toLocaleString()]];
+  const motions = [["Number", "Motion", "Amendment of", "Type", "Mover", "Seconder", "Opened", "Closed", "Pass rule", "Result",
+    "In favour (pts)", "Against (pts)", "Abstain (pts)", "In favour (votes)", "Against (votes)", "Abstain (votes)", "Quorum",
+    "Re-vote or re-open", "Notes"]];
+  recs.forEach((r) => {
+    const p = r.poll, t = r.t;
+    const notes = [];
+    if (p.revoteOf) notes.push(`Re-vote. Reason: ${p.revoteReason || ""}`);
+    if (p.supersededBy) notes.push("Replaced by a re-vote");
+    if ((p.priorResults || []).length) notes.push(`Re-opened ${p.priorResults.length} time(s); earlier count: ${outcomeWords(p.priorResults[p.priorResults.length - 1], "record")}`);
+    motions.push([r.number, p.text, p.amends ? (numOf[p.amends] || "") : "", p.amends ? "Amendment" : "Motion", p.mover || "", p.seconder || "",
+      when(p.openedAt), p.status === "closed" ? when(p.closedAt) : "", ruleWords(t.rule), r.result,
+      t.weight.favour, t.weight.against, t.weight.abstain, t.count.favour, t.count.against, t.count.abstain,
+      `${t.quorumCount} of ${t.quorumNeeded}`, notes.join("; "), p.notes || ""]);
+  });
+  const ballots = [["Number", "Motion", "Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "Write-in"]];
+  recs.forEach((r) => [...r.votes].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => ballots.push([
+    r.number, r.poll.text, v.name, v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, r.poll)), weightForVote(v, r.poll),
+    labelOf(v.choice), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""])));
+  const attendance = [["Name", "Category", "Checked in as", "Motions voted on"]];
+  [...people.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((e) =>
+    attendance.push([e.name, e.group === "writein" ? "Write-in" : catLabel(e.group), "Voted, did not check in", e.motions.join(", ")]));
+  const changes = [["Time", "Change", "By", "Details", "Reason"]];
+  log.forEach((e) => changes.push([when(e.at), R.logAction ? R.logAction(e.action) : e.action, e.by || "", e.text || "", e.action === "catch-up" ? "" : (e.reason || "")]));
+  return { meeting, motions, ballots, attendance, changes };
+}
+export async function exportMeeting(meetingId) {
+  const btn = $("meeting-export");
+  btn.disabled = true;
+  try {
+    const data = await gatherMeeting(meetingId);
+    const t = meetingTables(data);
+    const bytes = buildXlsx([
+      { name: "Meeting", rows: t.meeting, widths: [24, 80] }, { name: "Motions", rows: t.motions },
+      { name: "Ballots", rows: t.ballots }, { name: "Attendance", rows: t.attendance }, { name: "Changes", rows: t.changes },
+    ]);
+    const slug = String(data.m.title || "meeting").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    download(new Blob([bytes], { type: XLSX_MIME }), `motion-voting-${data.m.date || today()}-${slug}.xlsx`);
+    toast("Meeting records downloaded.");
+  } catch (e) { console.error(e); toast("Could not export. Check your connection and try again."); }
+  finally { btn.disabled = false; }
+}
+// Minutes style: no named ballots.
+export async function printMeeting(meetingId) {
+  let data;
+  try { data = await gatherMeeting(meetingId); }
+  catch (e) { console.error(e); toast("Could not load the results. Check your connection and try again."); return; }
+  const { m, recs } = data;
+  const blocks = recs.map((r) => {
+    const p = r.poll, t = r.t;
+    return `<section class="pr-motion"><h2>${escapeHtml(r.number)}. ${escapeHtml(p.text)}</h2>
+      ${p.mover || p.seconder ? `<p class="pr-line">Moved by ${escapeHtml(p.mover || "(not recorded)")}; seconded by ${escapeHtml(p.seconder || "(not recorded)")}</p>` : ""}
+      <p class="pr-line"><b>${escapeHtml(r.result)}</b> &middot; Quorum ${t.quorumCount} of ${t.quorumNeeded} &middot; ${t.totalVotes} ballot${t.totalVotes === 1 ? "" : "s"}${p.revoteOf ? ` &middot; Re-vote (${escapeHtml(p.revoteReason || "")})` : ""}${p.supersededBy ? " &middot; Replaced by a re-vote" : ""}</p>
+      <table><thead><tr><th>Vote</th><th>Points</th><th>Votes</th></tr></thead><tbody>
+        <tr><td>In favour</td><td>${fmt(t.weight.favour)}</td><td>${t.count.favour}</td></tr>
+        <tr><td>Against</td><td>${fmt(t.weight.against)}</td><td>${t.count.against}</td></tr>
+        <tr><td>Abstain</td><td>${fmt(t.weight.abstain)}</td><td>${t.count.abstain}</td></tr>
+      </tbody></table>${p.notes ? `<p class="pr-line">Notes: ${escapeHtml(p.notes)}</p>` : ""}</section>`;
+  }).join("");
+  showPrint(`<h1>${escapeHtml(meetingLabel(m))}</h1>
+    <p class="pr-sub">${m.startedAt ? `Started ${escapeHtml(when(m.startedAt))}. ` : ""}${m.endedAt ? `Ended ${escapeHtml(when(m.endedAt))}. ` : ""}${m.chair ? `Chair: ${escapeHtml(m.chair)}. ` : ""}Printed ${escapeHtml(new Date().toLocaleString())}.</p>
+    ${blocks || "<p>No motions on this agenda.</p>"}
+    <p class="pr-sub">Named ballots are in the Excel download.</p>`);
 }

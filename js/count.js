@@ -273,3 +273,67 @@ export function parseRoster(text, roster, same = {}) {
   roster.forEach((p) => { if (!seen[p.slug]) out.missing.push({ name: p.name, slug: p.slug }); });
   return out;
 }
+
+// ---- agendas (voting upgrade, step 4) ---------------------------------------------
+// A meeting's motions in agenda order, numbered 1, 2, 2a, 2a.1, 3: main motions
+// by `order`, each followed by its amendments (`amends` = the motion they
+// change), each followed by amendments to that amendment (two levels at most).
+// Returns [{ poll, number, depth, parent }] (deleted motions left out).
+const letters = (i) => (i < 26 ? String.fromCharCode(97 + i) : letters(Math.floor(i / 26) - 1) + String.fromCharCode(97 + (i % 26)));
+export function agendaOrder(polls) {
+  const list = polls.filter((p) => !p.deleted);
+  const ids = new Set(list.map((p) => p.id));
+  const byOrder = (a, b) => (Number(a.order) || 0) - (Number(b.order) || 0)
+    || (tsMillis(a.createdAt) ?? 0) - (tsMillis(b.createdAt) ?? 0) || String(a.id).localeCompare(String(b.id));
+  const kids = (id) => list.filter((p) => p.amends === id).sort(byOrder);
+  const out = [];
+  list.filter((p) => !p.amends || !ids.has(p.amends)).sort(byOrder).forEach((m, i) => {
+    const n = String(i + 1);
+    out.push({ poll: m, number: n, depth: 0, parent: null });
+    kids(m.id).forEach((a, j) => {
+      const an = n + letters(j);
+      out.push({ poll: a, number: an, depth: 1, parent: m.id });
+      kids(a.id).forEach((b, k) => out.push({ poll: b, number: `${an}.${k + 1}`, depth: 2, parent: a.id }));
+    });
+  });
+  return out;
+}
+export function agendaNumbers(polls) {
+  const out = {};
+  agendaOrder(polls).forEach((r) => { out[r.poll.id] = r.number; });
+  return out;
+}
+
+// Read a pasted agenda: one motion per line. Leading numbering and bullets
+// ("1.", "2)", "a.", "-", "*") are removed; a line starting with "Amendment"
+// amends the motion above it, "Amendment to the amendment" the amendment above
+// that. Blank lines are ignored; up to 50 lines.
+// Returns { rows: [{ text, depth, parent (row index), number, problem }], tooMany }.
+export function parseAgenda(text) {
+  const lines = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const rows = [];
+  let lastMain = -1, lastAmend = -1, mains = 0, amendCount = 0, subCount = 0;
+  lines.slice(0, 50).forEach((raw) => {
+    let t = raw.replace(/^(?:\(?(?:\d+|[a-zA-Z])[.)]|[-*•])\s+/, "").trim();
+    let depth = 0;
+    if (/^amendment to the amendment\b/i.test(t)) depth = 2;
+    else if (/^amendment\b/i.test(t)) depth = 1;
+    const row = { text: t, depth, parent: null, number: "", problem: null };
+    if (t.replace(/^amendment( to the amendment)?\b[:\s-]*/i, "").length < 3) row.problem = "Too short";
+    if (depth === 0) {
+      mains += 1; amendCount = 0; lastMain = rows.length; lastAmend = -1;
+      row.number = String(mains);
+    } else if (depth === 1) {
+      if (lastMain < 0) row.problem = row.problem || "Amendment with no motion above it";
+      else { row.parent = lastMain; row.number = rows[lastMain].number + letters(amendCount); amendCount += 1; subCount = 0; lastAmend = rows.length; }
+    } else {
+      if (lastAmend < 0) row.problem = row.problem || "Amendment to an amendment with no amendment above it";
+      else { row.parent = lastAmend; subCount += 1; row.number = `${rows[lastAmend].number}.${subCount}`; }
+    }
+    rows.push(row);
+  });
+  return { rows, tooMany: lines.length > 50 };
+}
+// Today's local date as YYYY-MM-DD (meeting dates are local text, so time
+// zones never shift them).
+export function todayLocal() { return localDate(Date.now()); }

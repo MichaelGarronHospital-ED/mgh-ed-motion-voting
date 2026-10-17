@@ -272,7 +272,9 @@ function voteBody() {
     const revote = open.revoteOf ? `<p class="ed-hint"><span class="ed-pill ed-pill-info">Re-vote</span> Reason: ${escapeHtml(open.revoteReason || "")}</p>` : "";
     return head + `
       <span class="ed-pill ed-pill-good"><span class="dot"></span>Voting open</span>
+      ${open.number ? `<p class="motion-num">Motion ${escapeHtml(open.number)}</p>` : ""}
       <h2 class="motion-text">${escapeHtml(open.text)}</h2>${revote}
+      ${open.amendsNumber ? `<details class="about amend-fold"><summary>Amendment to motion ${escapeHtml(open.amendsNumber)}</summary><p class="ed-hint">${escapeHtml(open.amendsText || "")}</p></details>` : ""}
       ${(open.threshold || (open.rule && open.rule.threshold)) === "twoThirds" ? `<p class="ed-hint">Needs two-thirds of the points cast to pass.</p>` : ""}
       <div class="votes" role="group" aria-label="Your vote">${CHOICES.map(tile).join("")}</div>
       ${voteMsg ? `<p class="ed-error err" role="alert">${icon("alert", 18)}<span>${escapeHtml(voteMsg)}</span></p>` : ""}
@@ -300,7 +302,7 @@ function resultCard(id, e) {
   if (e.supersededBy) pills.push(`<span class="ed-pill ed-pill-quiet">Replaced by a re-vote</span>`);
   else if (e.revoteOf) pills.push(`<span class="ed-pill ed-pill-info">Re-vote</span>`);
   else pills.push(`<span class="ed-pill ed-pill-quiet">Closed</span>`);
-  const top = `<div class="row">${pills.join("")}</div><h2 class="motion-text">${escapeHtml(e.text)}</h2>`;
+  const top = `<div class="row">${pills.join("")}</div>${e.number ? `<p class="motion-num">Motion ${escapeHtml(e.number)}</p>` : ""}<h2 class="motion-text">${escapeHtml(e.text)}</h2>`;
   let body;
   let r = e.result;
   let note = "";

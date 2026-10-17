@@ -12,6 +12,8 @@
 //  as fallbacks: the open motions (where status == open), the closed motions
 //  once, one motion and its ballots (a late result counted once).
 //  Step 3 (settings, roster paste): no new source (config/settings was already read).
+//  Step 4 (meetings): the console adds meetings (in the load gate) and one
+//  meeting's change log; the voter page gets meeting data through the board.
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -38,6 +40,8 @@ const SOURCES = {
     ["one motion's change log", (db) => getDocs(query(collection(db, "log"), where("pollId", "==", "p1")))],
     ["config/live (may be missing)", (db) => getDoc(doc(db, "config/live"))],
     ["config/history (may be missing)", (db) => getDoc(doc(db, "config/history"))],
+    ["meetings", (db) => getDocs(collection(db, "meetings"))],
+    ["one meeting's change log", (db) => getDocs(query(collection(db, "log"), where("meetingId", "==", "m1")))],
   ],
   voter: [
     ["config/live", (db) => getDoc(doc(db, "config/live"))],
@@ -50,7 +54,7 @@ const SOURCES = {
   ],
 };
 
-describe("step 3 pages read only what the rules allow", () => {
+describe("step 4 pages read only what the rules allow", () => {
   for (const [name, read] of SOURCES.console) {
     it(`console (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }

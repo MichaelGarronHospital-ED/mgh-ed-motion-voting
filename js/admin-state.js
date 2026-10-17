@@ -43,6 +43,14 @@ export function catLabel(g){return g==="1"?"Full vote":g==="2"?"Half vote":g==="
 export function uiCat(g){return g==="1"||g==="2"||g==="courtesy"?catLabel(g):"Uncategorized";}   // on screen
 export function groupLabel(g){return catLabel(g);}   // same short labels in the Voters table / CSV
 
+// "Fri, Nov 20, 2026" from a stored YYYY-MM-DD date (local text, never shifted).
+export function niceDate(d, withYear = true) {
+  if (!d) return "";
+  const [y, m, day] = String(d).split("-").map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) });
+}
+export function meetingLabel(m) { return m ? `${m.title || "Meeting"}, ${niceDate(m.date)}` : ""; }
+
 // Download a Blob as a file.
 export function download(blob, name) {
   const a = document.createElement("a");

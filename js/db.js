@@ -16,6 +16,7 @@ import {
   tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
 } from "./count.js";
 import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js";
+import { agendaOrder, agendaNumbers } from "./count.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -55,6 +56,8 @@ const logCol = () => collection(db, "log");
 const rosterRef = () => doc(db, "config", "roster");
 const liveRef = () => doc(db, "config", "live");
 const historyRef = () => doc(db, "config", "history");
+const meetingsCol = () => collection(db, "meetings");
+const meetingRef = (id) => doc(db, "meetings", id);
 
 // ---- errors ------------------------------------------------------------------
 // Every Firestore error is one of: "refused" (the rules said no, or the sign-in
@@ -210,6 +213,149 @@ function grantedWriteins() {
 // polls: the console's in-memory list (no re-read of the collection).
 let knownPolls = [];
 export function setKnownPolls(list) { knownPolls = list; }
+let knownMeetings = [];
+export function setKnownMeetings(list) { knownMeetings = list; }
+export function currentMeetings() { return knownMeetings; }
+
+// ---- meetings (meetings/{id}) ------------------------------------------------------
+// { title, date (local YYYY-MM-DD text), status planned | open | closed,
+//   startedAt, endedAt, chair, notes, checkIn, archived, deleted, createdAt }
+export function onMeetings(cb, opts = {}) {
+  return onSnapshot(meetingsCol(), { includeMetadataChanges: !!opts.gate }, (snap) => {
+    if (opts.gate) gated(opts.gate, snap);
+    knownMeetings = snap.docs.map((d) => ({ id: d.id, ...d.data(), _pending: !!(d.metadata && d.metadata.hasPendingWrites) }));
+    cb(knownMeetings, snap);
+  }, (e) => { if (opts.onError) opts.onError(e); else console.error(e); });
+}
+function simulateMeetings(changes) {
+  return knownMeetings.map((m) => (changes[m.id] ? { ...m, ...changes[m.id] } : m));
+}
+// A meeting change, with its board patch and a "meeting" log entry.
+async function meetingWrite(id, patch, logText, extraPolls) {
+  return withBoard(async () => {
+    const b = writeBatch(db);
+    b.update(meetingRef(id), patch);
+    writeLog(b, { action: "meeting", meetingId: id, text: logText });
+    const sim = { ...patch };
+    ["startedAt", "endedAt"].forEach((k) => { if (k in sim) sim[k] = Date.now(); });
+    patchBoard(b, live, buildBoard(extraPolls || knownPolls, simulateMeetings({ [id]: sim })));
+    await b.commit();
+  });
+}
+export async function createMeeting(title, date) {
+  const ref = doc(meetingsCol());
+  const b = writeBatch(db);
+  b.set(ref, { title: String(title || "ED department meeting").trim().slice(0, 200), date, status: "planned",
+    chair: "", notes: "", checkIn: settings && settings.checkIn === false ? false : true,
+    archived: false, deleted: false, createdAt: serverTimestamp() });
+  writeLog(b, { action: "meeting", meetingId: ref.id, text: `Meeting added: ${title}, ${date}` });
+  await b.commit();
+  return ref.id;
+}
+export async function updateMeeting(id, patch) {
+  const m = knownMeetings.find((x) => x.id === id) || {};
+  await meetingWrite(id, patch, `Meeting details changed: ${patch.title || m.title || ""}`);
+}
+export async function startMeeting(id) {
+  const m = knownMeetings.find((x) => x.id === id) || {};
+  await meetingWrite(id, { status: "open", startedAt: serverTimestamp() }, `Meeting started: ${m.title || ""}`);
+}
+// The console closes any open motion of the meeting first (with its result).
+export async function endMeeting(id) {
+  const m = knownMeetings.find((x) => x.id === id) || {};
+  await meetingWrite(id, { status: "closed", endedAt: serverTimestamp() }, `Meeting ended: ${m.title || ""}`);
+}
+// Trash = hidden from the console's lists and never shown to voters; restorable.
+// A meeting with an open motion stays put: close the motion first.
+function refuseIfOpen(id) {
+  if (knownPolls.some((p) => p.meetingId === id && p.status === "open" && !p.deleted)) {
+    throw Object.assign(new Error("a motion is open"), { code: "failed-precondition", why: "open" });
+  }
+}
+export async function setMeetingDeleted(id, deleted) {
+  const m = knownMeetings.find((x) => x.id === id) || {};
+  if (deleted) refuseIfOpen(id);
+  await meetingWrite(id, { deleted }, `${deleted ? "Meeting moved to Trash" : "Meeting restored"}: ${m.title || ""}`);
+}
+// Delete a trashed meeting permanently: its motions first (each through
+// purgePoll: a purge log entry keeps each saved result), then the meeting
+// document with a purge log entry, last, in one batch. Running it again
+// finishes a delete that stopped halfway. Change-log entries stay until the
+// retention period ends.
+export async function purgeMeeting(id) {
+  const m = knownMeetings.find((x) => x.id === id) || {};
+  refuseIfOpen(id);
+  for (const p of knownPolls.filter((x) => x.meetingId === id)) {
+    if (!p.deleted) await trashPoll(p.id);       // the board and the change history hear of it
+    await purgePoll(p.id);
+  }
+  const b = writeBatch(db);
+  writeLog(b, { action: "purge", meetingId: id, text: `Meeting deleted permanently: ${m.title || ""}, ${m.date || ""}` });
+  b.delete(meetingRef(id));
+  await b.commit();
+}
+
+// Move a motion (with its amendments) to another meeting, at the end of its
+// agenda. Allowed on closed motions: it never changes a result.
+export async function moveToMeeting(pollId, meetingId) {
+  const group = [pollId];
+  for (let i = 0; i < group.length; i++) knownPolls.filter((p) => p.amends === group[i]).forEach((p) => group.push(p.id));
+  const top = knownPolls.filter((p) => p.meetingId === meetingId && !p.amends).reduce((mx, p) => Math.max(mx, Number(p.order) || 0), -1);
+  const changes = {};
+  group.forEach((id) => { changes[id] = id === pollId ? { meetingId, order: top + 1 } : { meetingId }; });
+  const m = knownMeetings.find((x) => x.id === meetingId) || {};
+  await withBoard(async () => {
+    const b = writeBatch(db);
+    Object.entries(changes).forEach(([id, ch]) => b.update(pollRef(id), ch));
+    writeLog(b, { action: "move", pollId, meetingId, text: `${textOf(pollId)} moved to ${m.title || "a meeting"}, ${m.date || ""}` });
+    patchBoard(b, live, buildBoard(simulate(changes), knownMeetings));
+    await b.commit();
+  });
+}
+// Move a motion up or down its agenda (amendments move with their motion).
+// Swaps places with its neighbour at the same level; renumbers that level if
+// two shared an order. Returns false at the top or bottom.
+export async function movePoll(pollId, dir) {
+  const p = knownPolls.find((x) => x.id === pollId);
+  if (!p) return false;
+  const level = agendaOrder(knownPolls.filter((x) => x.meetingId === p.meetingId))
+    .filter((r) => (r.poll.amends || null) === (p.amends || null)).map((r) => r.poll);
+  const i = level.findIndex((x) => x.id === pollId);
+  const j = i + (dir === "up" ? -1 : 1);
+  if (i < 0 || j < 0 || j >= level.length) return false;
+  const swapped = level.slice();
+  [swapped[i], swapped[j]] = [swapped[j], swapped[i]];
+  const changes = {};
+  swapped.forEach((x, k) => { if ((Number(x.order) || 0) !== k || level[k].id !== x.id) changes[x.id] = { order: k }; });
+  await withBoard(async () => {
+    const b = writeBatch(db);
+    Object.entries(changes).forEach(([id, ch]) => b.update(pollRef(id), ch));
+    patchBoard(b, live, buildBoard(simulate(changes), knownMeetings));
+    await b.commit();
+  });
+  return true;
+}
+// Add a pasted agenda to a meeting in one batch, after its existing motions.
+// rows: [{ text, parent }] where parent is the index (in rows) of the motion
+// it amends, or null.
+export async function addPolls(rows, meetingId) {
+  const b = writeBatch(db);
+  const refs = rows.map(() => doc(pollsCol()));
+  let top = knownPolls.filter((p) => p.meetingId === meetingId && !p.amends).reduce((mx, p) => Math.max(mx, Number(p.order) || 0), -1);
+  const kidCount = {};
+  rows.forEach((r, i) => {
+    const parent = r.parent !== null && r.parent !== undefined ? refs[r.parent] : null;   // r.parent: an index into rows
+    let order;
+    if (!parent) order = ++top;
+    else { const k = parent.id; kidCount[k] = (kidCount[k] || 0); order = kidCount[k]++; }
+    const d = { text: r.text.trim().slice(0, 4000), order, status: "draft", voteCount: 0, archived: false, deleted: false,
+      threshold: (settings && settings.threshold) || "majority", meetingId, createdAt: serverTimestamp() };
+    if (parent) d.amends = parent.id;
+    b.set(refs[i], d);
+  });
+  await b.commit();
+  return refs.map((r) => r.id);
+}
 
 // ---- the voters' board (config/live) and past results (config/history) ------
 // Every leadership action that changes what voters see patches the board in
@@ -238,9 +384,9 @@ function simulate(changes) {
   return knownPolls.map((p) => (changes[p.id] ? { ...p, ...changes[p.id] } : p)).filter((p) => !(changes[p.id] && changes[p.id]._gone));
 }
 // The board built from the motions (no meetings yet).
-export function builtBoard(polls, opts) { return buildBoard(polls || knownPolls, [], opts); }
+export function builtBoard(polls, opts) { return buildBoard(polls || knownPolls, knownMeetings, opts); }
 // The board built from these motions (and meetings, from step 4).
-function boardFrom(polls, opts) { return buildBoard(polls, [], opts); }
+function boardFrom(polls, opts, meetings) { return buildBoard(polls, meetings || knownMeetings, opts); }
 // Write field-path changes ([path, value], undefined = delete) to the board.
 function writeOps(target, ops) {
   if (!ops.length) return false;
@@ -277,7 +423,7 @@ export async function healBoard(opts = {}) {
   if (opts.pending) return "pending";
   if (!opts.force && Date.now() - lastHeal < 30000) return "wait";
   lastHeal = Date.now();
-  const board = buildBoard(knownPolls, []);
+  const board = buildBoard(knownPolls, knownMeetings);
   let wrote = false;
   if (!live || !sameBoard(board, live)) {
     await setDoc(liveRef(), { ...board, changedAt: serverTimestamp() });
@@ -290,17 +436,17 @@ export async function healBoard(opts = {}) {
 // Write past results if they differ from what is stored. Called only once the
 // motions snapshot has no pending writes, so every copied time is real.
 export async function writeHistory(board) {
-  const h = buildHistory(knownPolls, [], board || buildBoard(knownPolls, []));
+  const h = buildHistory(knownPolls, knownMeetings, board || buildBoard(knownPolls, knownMeetings));
   if (history && sameBoard(h, history)) return false;
   await setDoc(historyRef(), { ...h, changedAt: serverTimestamp() });
   history = h;
   return true;
 }
 // Does the stored board (or history) match what the motions say?
-export function boardIsCurrent() { return live !== undefined && sameBoard(buildBoard(knownPolls, []), live); }
+export function boardIsCurrent() { return live !== undefined && sameBoard(buildBoard(knownPolls, knownMeetings), live); }
 export function historyIsCurrent() {
   if (history === undefined) return true;
-  return sameBoard(buildHistory(knownPolls, [], buildBoard(knownPolls, [])), history);
+  return sameBoard(buildHistory(knownPolls, knownMeetings, buildBoard(knownPolls, knownMeetings)), history);
 }
 // Make sure the board exists before Open and Close are offered (every later
 // change to it is a field-path patch, which needs the document), and repair it
@@ -521,6 +667,10 @@ export function setLogName(n) { byName = String(n || "").trim().slice(0, 80); }
 export function writeLog(batchOrTx, entry) {
   const ref = doc(logCol());
   const e = { at: serverTimestamp(), ...entry };
+  if (e.pollId && !e.meetingId) {
+    const p = knownPolls.find((x) => x.id === e.pollId);
+    if (p && p.meetingId) e.meetingId = p.meetingId;
+  }
   if (e.text) e.text = String(e.text).slice(0, 200);
   if (e.reason) e.reason = String(e.reason).slice(0, 1000);
   if (byName && !e.by) e.by = byName;
@@ -540,14 +690,18 @@ function resultSummary(r) {
 }
 
 // ---- admin actions ---------------------------------------------------------
-export async function addPoll(text, threshold) {
-  const order = knownPolls.reduce((m, p) => Math.max(m, Number(p.order) || 0), -1) + 1;
+export async function addPoll(text, threshold, meetingId, amends) {
+  const siblings = knownPolls.filter((p) => (meetingId ? p.meetingId === meetingId : !p.meetingId) && (p.amends || null) === (amends || null));
+  const order = siblings.reduce((m, p) => Math.max(m, Number(p.order) || 0), -1) + 1;
   const ref = doc(pollsCol());
-  await setDoc(ref, {
+  const d = {
     text: text.trim(), order, status: "draft", voteCount: 0, archived: false, deleted: false,
     threshold: threshold || (settings && settings.threshold) || "majority",
     createdAt: serverTimestamp(),
-  });
+  };
+  if (meetingId) d.meetingId = meetingId;
+  if (amends) d.amends = amends;
+  await setDoc(ref, d);
   return ref.id;
 }
 
@@ -558,7 +712,7 @@ async function updateWithBoard(pollId, patch, log) {
     const b = writeBatch(db);
     b.update(pollRef(pollId), patch);
     if (log) writeLog(b, log);
-    patchBoard(b, live, buildBoard(simulate({ [pollId]: patch }), []));
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: patch }), knownMeetings));
     await b.commit();
   });
 }
@@ -647,13 +801,42 @@ export async function openPoll(pollId) {
   const p = knownPolls.find((x) => x.id === pollId) || {};
   const patch = { status: "open", archived: false, openedAt: serverTimestamp() };
   if (!p.rule) patch.rule = ruleFromSettings(settings, p.threshold);
-  await withBoard(async () => {
-    const b = writeBatch(db);
-    b.update(pollRef(pollId), patch);
-    writeLog(b, { action: "open", pollId, text: p.text });
-    patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), []));
-    await b.commit();
-  });
+  if (p.meetingId) {
+    const num = agendaNumbers(knownPolls.filter((x) => x.meetingId === p.meetingId))[pollId];
+    if (num && num !== p.number) patch.number = num;     // the agenda number, saved when it opens
+  }
+  // A motion in a meeting nobody has started: opening it starts the meeting
+  // (same batch, with a "meeting" log entry), so phones and the projector see
+  // it. Only one meeting is open at a time: the console ends any other first.
+  const m = p.meetingId ? knownMeetings.find((x) => x.id === p.meetingId && !x.deleted) : null;
+  const startIt = !!(m && m.status === "planned");
+  if (startIt && knownMeetings.some((x) => x.status === "open" && !x.deleted && x.id !== m.id)) {
+    throw Object.assign(new Error("another meeting is open"), { code: "failed-precondition", why: "meeting-open" });
+  }
+  if (!startIt) {
+    await withBoard(async () => {
+      const b = writeBatch(db);
+      b.update(pollRef(pollId), patch);
+      writeLog(b, { action: "open", pollId, text: p.text });
+      patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), knownMeetings));
+      await b.commit();
+    });
+    return;
+  }
+  // A transaction that reads the meeting: it is started (with its time and log
+  // entry) only if it is still planned, so two laptops never start it twice.
+  await withBoard(() => runTransaction(db, async (tx) => {
+    const ms = await tx.get(meetingRef(m.id));
+    const stillPlanned = ms.exists() && ms.data().status === "planned";
+    tx.update(pollRef(pollId), patch);
+    writeLog(tx, { action: "open", pollId, text: p.text });
+    if (stillPlanned) {
+      tx.update(meetingRef(m.id), { status: "open", startedAt: serverTimestamp() });
+      writeLog(tx, { action: "meeting", meetingId: m.id, text: `Meeting started: ${m.title || ""}` });
+    }
+    const meetings = simulateMeetings({ [m.id]: ms.exists() ? { ...ms.data(), ...(stillPlanned ? { status: "open", startedAt: Date.now() } : {}) } : {} });
+    patchBoard(tx, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), meetings));
+  }));
 }
 
 // Close, step 1: freeze the motion. From this moment the rules refuse every
@@ -675,6 +858,9 @@ export async function closeMotion(pollId, seen) {
     const ls = await tx.get(liveRef());
     if (!ls.exists()) throw notFound("board");
     const cur = ls.data();
+    // The motion's meeting as the server has it now (is it the board's meeting?).
+    const md = p.meetingId ? await tx.get(meetingRef(p.meetingId)) : null;
+    const meetingsNow = md && md.exists() ? simulateMeetings({ [p.meetingId]: md.data() }) : knownMeetings;
     tx.update(pollRef(pollId), {
       status: "closed", closedAt: serverTimestamp(),
       closeOfOpenedAt: seen && seen.openedAt !== undefined ? seen.openedAt : (p.openedAt === undefined ? null : p.openedAt),
@@ -688,7 +874,7 @@ export async function closeMotion(pollId, seen) {
     // Only this motion's part of the board is written, from the board read in
     // this transaction: this laptop's list of motions may be a second behind,
     // and must never write its older copy of another motion back.
-    const mine = boardFrom(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), { justClosed: pollId, now: Date.now() });
+    const mine = boardFrom(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), { justClosed: pollId, now: Date.now() }, meetingsNow);
     const ops = [];
     if (isOpenHere) ops.push([["open"], null]);              // never clears another motion's open
     ops.push([["lastClosedId"], pollId]);
@@ -696,7 +882,7 @@ export async function closeMotion(pollId, seen) {
       ops.push([["results", pollId], { ...mine.results[pollId], closedAt: serverTimestamp() }]);
       // Without meetings the board shows one day: entries (as the board has
       // them) from another day go to past results.
-      if (!cur.meeting) {
+      if (!cur.meeting && !knownMeetings.length) {
         const today = localDate(Date.now());
         Object.entries(cur.results || {}).forEach(([id, e]) => {
           if (id !== pollId && tsMillis(e.closedAt) !== null && localDate(e.closedAt) !== today) ops.push([["results", id], undefined]);
@@ -838,7 +1024,7 @@ export async function reopenMotion(pollId, reason) {
       // Without meetings the board shows the latest day: when the motion that
       // closed last re-opens, an earlier day's motions come back. Only entries
       // the board lacks are added; entries already there are never touched.
-      if (!cur.meeting) {
+      if (!cur.meeting && !knownMeetings.length) {
         Object.entries(sim.results || {}).forEach(([id, e]) => {
           if (id !== pollId && !(cur.results && cur.results[id])) ops.push([["results", id], e]);
         });
@@ -853,7 +1039,7 @@ export async function reopenMotion(pollId, reason) {
 // contest one). One batch: a draft copy right after the original (same
 // wording, editable before opening), linked both ways; a "revote" log entry;
 // the board marks the original "Replaced by a re-vote". Returns the new id.
-export async function revoteMotion(pollId, reason) {
+export async function revoteMotion(pollId, reason, meetingId) {
   const p = knownPolls.find((x) => x.id === pollId);
   if (!p || p.status !== "closed" || !p.result) throw Object.assign(new Error("not saved"), { code: "failed-precondition", why: "unsaved" });
   if (p.supersededBy) throw Object.assign(new Error("replaced"), { code: "failed-precondition", why: "replaced" });
@@ -863,12 +1049,17 @@ export async function revoteMotion(pollId, reason) {
     createdAt: serverTimestamp(), revoteOf: pollId, round: (p.round || 1) + 1, revoteReason: String(reason).slice(0, 1000),
   };
   ["threshold", "amends", "meetingId", "kind", "options", "optionIds", "seats", "style"].forEach((k) => { if (p[k] !== undefined) copy[k] = p[k]; });
+  if (meetingId && meetingId !== p.meetingId) {
+    // the original's meeting has ended: the re-vote goes to the open (or chosen) meeting
+    copy.meetingId = meetingId; delete copy.amends;
+    copy.order = knownPolls.filter((x) => x.meetingId === meetingId && !x.amends).reduce((mx, x) => Math.max(mx, Number(x.order) || 0), -1) + 1;
+  }
   await withBoard(async () => {
     const b = writeBatch(db);
     b.set(ref, copy);
     const logId = writeLog(b, { action: "revote", pollId, text: p.text, reason, before: resultSummary(p.result), after: { newPollId: ref.id } });
     b.update(pollRef(pollId), { supersededBy: ref.id, lastLog: logId });
-    patchBoard(b, live, buildBoard(simulate({ [pollId]: { supersededBy: ref.id } }), []));
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: { supersededBy: ref.id } }), knownMeetings));
     await b.commit();
   });
   return ref.id;
@@ -877,6 +1068,36 @@ export async function revoteMotion(pollId, reason) {
 // Change history of one motion (one read of its entries, on demand), newest first.
 export async function getLogFor(pollId) {
   const snap = await getDocs(query(logCol(), where("pollId", "==", pollId)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (tsMillis(b.at) || 0) - (tsMillis(a.at) || 0));
+}
+// How many years the change history is kept: the setting, never under 7.
+export function keepYears() {
+  const y = settings && Number.isInteger(settings.retentionYears) ? settings.retentionYears : 7;
+  return Math.max(7, y);
+}
+// "Delete history older than N years": entries from before the day before the
+// Nth anniversary of today (the rules check each one again, by calendar date),
+// then one "history-purge" entry saying how many went. Returns the number deleted.
+export async function purgeOldHistory() {
+  const n = keepYears();
+  const now = new Date();
+  const cutoff = new Date(Date.UTC(now.getUTCFullYear() - n, now.getUTCMonth(), now.getUTCDate()) - 2 * 86400000);
+  const snap = await getDocs(query(logCol(), where("at", "<", cutoff)));
+  let deleted = 0;
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const b = writeBatch(db);
+    snap.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
+    await b.commit();
+    deleted += Math.min(400, snap.docs.length - i);
+  }
+  const b = writeBatch(db);
+  writeLog(b, { action: "history-purge", text: `Deleted ${deleted} change-history entr${deleted === 1 ? "y" : "ies"} older than ${n} years` });
+  await b.commit();
+  return deleted;
+}
+// Change history of one meeting (its own entries and its motions'), newest first.
+export async function getLogForMeeting(meetingId) {
+  const snap = await getDocs(query(logCol(), where("meetingId", "==", meetingId)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (tsMillis(b.at) || 0) - (tsMillis(a.at) || 0));
 }
 // The latest entries, newest first; `after` (an entry from the last page) for "Show more".
