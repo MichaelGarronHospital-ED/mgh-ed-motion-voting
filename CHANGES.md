@@ -26,7 +26,10 @@ ballots and check their shape). With the old rules a question vote is refused wi
 "Your vote could not be recorded. Please tell leadership."; motions are unaffected.
 **Once a question or election exists, never roll back to an earlier page.**
 
-Tests: 186 browser tests (16 new), 113 rules tests (9 new, with the real vote code for
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console and projector tab.
+
+Tests: 197 browser tests (16 new), 113 rules tests (9 new, with the real vote code for
 one and several picks).
 
 ## A meeting screen for the projector (voting upgrade step 5, Oct 2026)
