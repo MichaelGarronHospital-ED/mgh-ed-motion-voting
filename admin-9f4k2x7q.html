@@ -34,6 +34,7 @@
           <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
         </fieldset>
       </form>
+      <p id="boot-note" class="boot-note">Starting... If this message stays, reload the page.</p>
     </div>
   </div>
 
@@ -52,6 +53,7 @@
       <button type="button" id="lock" class="ed-btn ed-btn-plain btn-sm">Lock</button>
     </header>
     <h1 class="ed-title page-title">Leadership console</h1>
+    <div id="banners" class="banners" role="status" aria-live="polite"></div>
 
     <div class="tabs-wrap">
       <nav class="tabs ed-seg" aria-label="Console sections">
@@ -90,8 +92,19 @@
 
     <!-- RESULTS -->
     <section id="tab-results" class="hide">
+      <div class="card stack hide" id="catchup-card"></div>
       <div class="card" id="results-selector"></div>
       <div class="card stack" id="results-body"></div>
+      <div class="card stack" id="history-card">
+        <details class="about">
+          <summary>Change history</summary>
+          <div class="stack-sm">
+            <p class="ed-hint">Every open, close, re-open and permanent delete, with its reason. Kept for at least 7 years.</p>
+            <div><button type="button" id="history-load" class="ed-btn ed-btn-tinted btn-sm">Show the latest 50</button></div>
+            <ul id="history-list" class="plain-list history-list"></ul>
+          </div>
+        </details>
+      </div>
     </section>
 
     <!-- VOTERS -->
@@ -158,6 +171,16 @@
   </div>
 
   </main>
+
+  <!-- Closing and saving a result: a blocking sheet until the server confirms -->
+  <div id="sheet" class="sheet-backdrop hide">
+    <div class="card sheet stack" role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-describedby="sheet-status">
+      <h2 id="sheet-title" tabindex="-1">Closing the vote</h2>
+      <p id="sheet-status" role="status" aria-live="polite"></p>
+      <p id="sheet-hint" class="ed-hint"></p>
+      <div class="row" id="sheet-actions"></div>
+    </div>
+  </div>
 
   <div id="toast" class="toast ed-toast hide" role="status" aria-live="polite"></div>
   <script type="module" src="js/admin.js"></script>

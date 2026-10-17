@@ -69,8 +69,10 @@ class TestRosterAndQuorum(Base):
 
     def test_courtesy_ballot_does_not_count_toward_quorum(self):
         pg = self.voter()
-        h.seed_poll(pg, status="closed", vote_count=len(h.COURTESY))
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.COURTESY, group="courtesy", weight=0)
+        h.seed_poll(pg, status="closed", vote_count=len(h.COURTESY))
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('[data-vtab="results"]')
         pg.wait_for_timeout(300)
@@ -80,9 +82,11 @@ class TestRosterAndQuorum(Base):
     def test_pass_rule_is_weighted_favour_over_against(self):
         pg = self.admin()
         # 24 full votes for, 2 against -> quorum met, passes.
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:24], choice="favour")
         h.seed_ballots(pg, "p1", h.GROUP1[24:26], choice="against")
+        h.seed_poll(pg, status="closed", vote_count=26)
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
         body = pg.inner_text("#results-body")
@@ -91,17 +95,21 @@ class TestRosterAndQuorum(Base):
 
     def test_tie_is_reported_as_a_tie(self):
         pg = self.admin()
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:13], choice="favour")
         h.seed_ballots(pg, "p1", h.GROUP1[13:26], choice="against")
+        h.seed_poll(pg, status="closed", vote_count=26)
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
         self.assertEqual(h.outcomes(pg.inner_text("#results-body")), ["Tie"])
 
     def test_half_weight_group_counts_as_half_a_point(self):
         pg = self.admin()
-        h.seed_poll(pg, status="closed", vote_count=len(h.GROUP2))
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP2, choice="favour", group="2", weight=0.5)
+        h.seed_poll(pg, status="closed", vote_count=len(h.GROUP2))
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
         body = pg.inner_text("#results-body")
@@ -113,8 +121,10 @@ class TestRosterAndQuorum(Base):
         # document carrying the same slug counted that person twice.
         pg = self.admin()
         name = h.GROUP1[0]
-        h.seed_poll(pg, status="closed", vote_count=2)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", [name], choice="favour")
+        h.seed_poll(pg, status="closed", vote_count=2)
         pg.evaluate(
             "([s, n]) => window.__store.set('polls/p1/votes/dup-' + s, {name:n, slug:s,"
             " choice:'against', group:'1', weight:1, flagged:false, submissionCount:1})",
@@ -212,8 +222,10 @@ class TestResultsAreNeverWrong(Base):
 
     def test_voter_sees_counting_not_a_verdict_before_ballots_load(self):
         pg = self.voter()
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
+        h.seed_poll(pg, status="closed", vote_count=26)
         h.pick_voter(pg, h.GROUP1[0])
         pg.wait_for_selector('[data-vtab="results"]')
         # click and read in the same tick, before the snapshot callback runs
@@ -230,8 +242,10 @@ class TestResultsAreNeverWrong(Base):
         # votes snapshot back so that state is pinned rather than raced.
         pg = self.admin()
         pg.evaluate("window.__store.stall('polls/p1/votes')")
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
+        h.seed_poll(pg, status="closed", vote_count=26)
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
         stalled = pg.inner_text("#results-body")
@@ -244,8 +258,10 @@ class TestResultsAreNeverWrong(Base):
     def test_voter_results_show_counting_while_ballots_are_in_flight(self):
         pg = self.voter()
         pg.evaluate("window.__store.stall('polls/p1/votes')")
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
+        h.seed_poll(pg, status="closed", vote_count=26)
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('[data-vtab="results"]')
         pg.wait_for_timeout(300)
@@ -257,8 +273,10 @@ class TestResultsAreNeverWrong(Base):
     def test_export_is_refused_until_the_ballots_are_in(self):
         pg = self.admin()
         pg.evaluate("window.__store.stall('polls/p1/votes')")
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
+        h.seed_poll(pg, status="closed", vote_count=26)
         h.tab(pg, "voters")
         pg.wait_for_timeout(300)
         msg = pg.evaluate("""() => {
@@ -268,8 +286,10 @@ class TestResultsAreNeverWrong(Base):
 
     def test_export_works_once_the_ballots_are_in(self):
         pg = self.admin()
-        h.seed_poll(pg, status="closed", vote_count=26)
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
+        h.seed_poll(pg, status="closed", vote_count=26)
         pg.wait_for_timeout(300)
         h.tab(pg, "voters")
         with pg.expect_download() as dl:
@@ -321,8 +341,10 @@ class TestLeadershipActions(Base):
         pg.select_option("#results-selector select", "pa")
         pg.wait_for_timeout(250)
         pg.evaluate("window.confirm = () => true")
-        pg.click("#r-open")
-        pg.wait_for_timeout(400)
+        pg.click("#r-open")                     # a closed motion re-opens with a reason
+        pg.fill("#reopen-reason", "Closed early by mistake.")
+        pg.click("#reopen-go")
+        pg.wait_for_function("() => window.__store.get('polls/pa').status === 'open'")
         poll = h.get(pg, "polls/pa")
         self.assertEqual(poll["status"], "open")
         self.assertFalse(poll["archived"], "an open motion must not stay archived")
@@ -463,9 +485,11 @@ class TestAddRemovePhysicians(Base):
         """An old closed motion with no frozen categories gets a frozen copy
         BEFORE the list changes, so its result stays exactly as it was."""
         pg = self.admin()
-        h.seed_poll(pg, status="closed", vote_count=26)          # no lockedGroups
+        # Ballots first: an old closed motion already has its ballots when the
+        # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:24], choice="favour")
         h.seed_ballots(pg, "p1", h.GROUP1[24:26], choice="against")
+        h.seed_poll(pg, status="closed", vote_count=26)          # no lockedGroups
         h.tab(pg, "results")
         pg.wait_for_timeout(300)
         before = pg.inner_text("#results-body")

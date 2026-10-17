@@ -12,7 +12,9 @@
 //      its own slug, a real choice, only the expected fields, a device list
 //      that only grows, "flagged" matching that list, server timestamps, and
 //      a new ballot always comes with the +1 to the motion's vote count.
-//    - only leadership manages motions, settings, and votes after closing.
+//    - only leadership manages motions and settings; since the saved-results
+//      rules (R1) a motion is deleted only from the Trash and the ballots of a
+//      closed motion are locked, for leadership too (rules.results.test.mjs).
 //
 //  They run against the local Firestore emulator: no real project, no real
 //  data, no credentials. Run with:  npm test   (needs Java)
@@ -36,8 +38,9 @@ before(async () => {
     projectId: "ed-motion-voting-test",
     firestore: {
       rules: readFileSync(new URL("../../firestore.rules", import.meta.url), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      // the port in firebase.json (8181), as the emulator reports it
+      host: (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8181").split(":")[0],
+      port: Number((process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8181").split(":")[1]),
     },
   });
 });
@@ -233,10 +236,14 @@ describe("Leadership password", () => {
     await assertSucceeds(setDoc(doc(leader(), "polls/new"), { text: "Motion C", status: "draft" }));
     await assertSucceeds(updateDoc(doc(leader(), "polls/open"), { status: "closed" }));
     await assertSucceeds(setDoc(doc(leader(), "config/roster"), { groups: { ashcombe: "2" } }, { merge: true }));
-    await assertSucceeds(deleteDoc(doc(leader(), "polls/new")));
+    await assertFails(deleteDoc(doc(leader(), "polls/new")));            // not in the Trash
+    await assertSucceeds(updateDoc(doc(leader(), "polls/new"), { deleted: true }));
+    await assertSucceeds(deleteDoc(doc(leader(), "polls/new")));         // from the Trash
   });
-  it("can adjust and remove ballots, even after closing", async () => {
-    await assertSucceeds(updateDoc(doc(leader(), "polls/closed/votes/ashcombe"), { weightOverride: 2 }));
-    await assertSucceeds(deleteDoc(doc(leader(), "polls/closed/votes/ashcombe")));
+  it("can adjust and remove ballots while open, never after closing", async () => {
+    await assertSucceeds(updateDoc(doc(leader(), "polls/open/votes/ashcombe"), { weightOverride: 2 }));
+    await assertSucceeds(deleteDoc(doc(leader(), "polls/open/votes/ashcombe")));
+    await assertFails(updateDoc(doc(leader(), "polls/closed/votes/ashcombe"), { weightOverride: 2 }));
+    await assertFails(deleteDoc(doc(leader(), "polls/closed/votes/ashcombe")));
   });
 });
