@@ -107,6 +107,15 @@ Voting with a keyboard keeps its place after each tap.
 Tests: 121 browser tests (32 new), 67 rules tests (15 new, including the real close,
 save, re-open, re-vote and history code writing the board in the emulator).
 
+---
+
+## Tests run on GitHub for every push (Oct 17 2026)
+
+- `.github/workflows/tests.yml` runs the database rules tests and the browser tests on every
+  push and pull request. No page, rule or test changed.
+
+---
+
 ## Results are saved when a motion closes (voting upgrade step 1, Oct 2026)
 
 Until now a result was worked out again from the ballots every time someone looked,

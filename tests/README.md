@@ -19,6 +19,9 @@ python3 -m playwright install chromium     # ~120 MB, once
 python3 -m unittest -v
 ```
 
+GitHub Actions runs these and the rules tests on every push and pull request
+(`../.github/workflows/tests.yml`), with the same commands as above.
+
 On Linux the browser also needs system libraries:
 `sudo python3 -m playwright install-deps chromium`.
 
