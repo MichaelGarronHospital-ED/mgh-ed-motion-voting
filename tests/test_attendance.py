@@ -215,7 +215,7 @@ class TestLeadershipAttendance(Base):
 class TestProjectorCheckIns(Base):
     def test_screen_shows_check_in_counts_while_waiting(self):
         pg = self.page
-        pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        pg.add_init_script(h.auth_init(h.ED_EMAIL))
         h.open_screen(pg, self.base)
         seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
         for i, mode in enumerate(["room", "room", "remote"]):

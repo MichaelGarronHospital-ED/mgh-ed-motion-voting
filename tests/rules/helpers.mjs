@@ -19,10 +19,15 @@ export async function setUp() {
 }
 export async function tearDown() { if (testEnv) await testEnv.cleanup(); }
 
-// These emails must match ED_EMAIL and LEADER_EMAIL in js/config.js and the
-// list in firestore.rules.
-export const ed = () => testEnv.authenticatedContext("u-ed", { email: "ed@ed-motion-voting.app" }).firestore();
-export const leader = () => testEnv.authenticatedContext("u-leader", { email: "leadership@ed-motion-voting.app" }).firestore();
+// The two accounts, by uid (the same as LEADER_UID and ED_UID in js/config.js
+// and firestore.rules; tests/test_accounts.py checks). A real sign-in token
+// carries the email too and the provider "password".
+export const LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2";
+export const ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3";
+export const account = (uid, email, provider = "password") =>
+  testEnv.authenticatedContext(uid, { email, firebase: { sign_in_provider: provider, identities: {} } }).firestore();
+export const ed = () => account(ED_UID, "ed@ed-motion-voting.app");
+export const leader = () => account(LEADER_UID, "leadership@ed-motion-voting.app");
 export const anonUser = () => testEnv.authenticatedContext("u-anon").firestore();
 export const stranger = () => testEnv.authenticatedContext("u-stranger", { email: "someone@example.com" }).firestore();
 export const signedOut = () => testEnv.unauthenticatedContext().firestore();

@@ -27,10 +27,11 @@ their saved results).
   `main` is live about a minute later.
 - **Passwords (since Oct 14 2026):** the ED tools' shared **ED password** (voters, once per
   device) and **Leadership password** (the settings console). Nothing about either is in
-  the repo: each is the password of one Firebase Auth account (`ED_EMAIL`, `LEADER_EMAIL`
-  in `js/config.js`), checked by Firebase, and the rules accept only those two accounts.
-  To change them, edit `~/mgh-ed-passwords.txt` and run `python3 set-passwords.py --apply`
-  in the `MGH-ED-Tools` folder.
+  the repo: each is the password of one Firebase Auth account, checked by Firebase, and
+  the rules and pages accept only those two accounts, by uid (see Sign-in below).
+  To change them, use the ED tools passwords page,
+  https://michaelgarronhospital-ed.github.io/mgh-ed-hiring/passwords.html (sign in with the
+  Leadership password). `set-passwords.py` in the `MGH-ED-Tools` folder is the break-glass way.
 - **Old address:** this tool used to live at
   `https://dralvinyang.github.io/ED-motion-voting/tools/motion-voting/`. That
   old repo is archived and only redirects: old `/tools/motion-voting/…` links
@@ -161,14 +162,25 @@ the record.
 
 Firestore only answers two shared accounts (see `firestore.rules`):
 
-- `ED_EMAIL` (`ed@ed-motion-voting.app`), password = the **ED password**. Voters enter it
-  once on the voting page; Firebase remembers the sign-in on that device.
-- `LEADER_EMAIL` (`leadership@ed-motion-voting.app`), password = the **Leadership
-  password**. Opens the settings console (`admin-9f4k2x7q.html`).
+| Account | uid (`js/config.js`) | Signs in with (`js/config.js`) | Password |
+|---|---|---|---|
+| ED | `ED_UID` = `CXyo7yciWpc78J1TQYRzrPpu77C3` | `ED_EMAIL` | the **ED password**. Voters enter it once on the voting page; Firebase remembers the sign-in on that device. |
+| Leadership | `LEADER_UID` = `3eigCLaK0RQ5PmVhxfDgI0qoYzQ2` | `LEADER_EMAIL` | the **Leadership password**. Opens the settings console (`admin-9f4k2x7q.html`). |
 
-Both accounts live in Firebase → Authentication (Email/Password provider). Anonymous
-sign-in is no longer accepted by the rules. `set-passwords.py` (in `MGH-ED-Tools`) creates
-or updates both and verifies them.
+- **An account is recognised by its uid, never by its email** (since voting step 9). The
+  rules (`isAccount`) and the pages (`isMember`, `isLeader` in `js/db.js`) compare the uid,
+  which never changes, so a signed-in phone stays in when an account's email is changed,
+  and a stranger who makes an account with a freed old email gets nothing. The emails are
+  used only to sign in. The uids are public (they are in the rules too); a test keeps
+  `js/config.js` and `firestore.rules` the same.
+- **Never delete either account.** A new account gets a new uid, and the rules and pages
+  refuse it until both are updated with the new uid (rules first, then the page).
+- Both accounts live in Firebase → Authentication (Email/Password provider), and only a
+  password sign-in counts. Anonymous sign-in is not accepted by the rules.
+- The emails are moving from `*.ed-motion-voting.app` (a domain nobody owns, so anyone
+  could buy it and reset a password) to `*.mgh-ed-voting.invalid` (reserved, can never be
+  registered). Step 9 still signs in with the old emails; step 10 switches them, merged
+  right after the emails are changed.
 
 **Rollback:** if newly published rules misbehave, put the previous version back:
 Firebase console → Firestore Database → **Rules** lists every published version, so

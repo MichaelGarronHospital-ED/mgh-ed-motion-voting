@@ -8,7 +8,9 @@ function emit() { watchers.forEach((cb) => cb(current)); }
 export function getAuth() { return { __auth: true }; }
 export function onAuthStateChanged(auth, cb) {
   watchers.push(cb);
-  cb(current);
+  // Like the real SDK, the first call comes after the caller's code has run
+  // (Firebase first restores the saved sign-in), never during the subscribe.
+  Promise.resolve().then(() => { if (watchers.includes(cb)) cb(current); });
   return () => { const i = watchers.indexOf(cb); if (i >= 0) watchers.splice(i, 1); };
 }
 export async function signInAnonymously() {
@@ -22,7 +24,10 @@ export async function signInWithEmailAndPassword(auth, email, password) {
   // the way Firebase answers once email-enumeration protection is on.
   window.__lastPassword = password;
   if (!password || window.__authReject) { const e = new Error("bad password"); e.code = "auth/invalid-credential"; throw e; }
-  current = { uid: email && email.startsWith("leadership") ? "leader-uid" : "ed-uid", isAnonymous: false, email };
+  // The two accounts' real uids (the same as js/config.js and firestore.rules;
+  // test_accounts.py checks). The page recognises them by uid, never by email.
+  window.__lastEmail = email;
+  current = { uid: email && email.startsWith("leadership") ? "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2" : "CXyo7yciWpc78J1TQYRzrPpu77C3", isAnonymous: false, email };
   emit();
   return { user: current };
 }

@@ -10,7 +10,7 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, LEADER_EMAIL, ED_EMAIL } from "./config.js";
+import { firebaseConfig, LEADER_EMAIL, ED_EMAIL, LEADER_UID, ED_UID } from "./config.js";
 import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js";
 import {
   tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
@@ -23,9 +23,10 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // ---- auth ------------------------------------------------------------------
-// Two shared accounts, one per password (config.js): ED_EMAIL for voters (the ED
-// password) and LEADER_EMAIL for leadership (the Leadership password). The rules
-// accept only these two, so the password is enforced by the server, not just by
+// Two shared accounts, one per password (config.js): ED for voters (the ED
+// password) and LEADER for leadership (the Leadership password). Who is signed
+// in is decided by the account's uid, never its email (an email can change, so a
+// page and the server could disagree; a uid cannot). The rules accept only these two, so the password is enforced by the server, not just by
 // the screen. Firebase keeps the sign-in on the device, so a phone that has
 // entered the ED password once goes straight to the ballot afterwards.
 //
@@ -33,7 +34,8 @@ const auth = getAuth(app);
 // A leadership session therefore also counts as a member on the voter page (a
 // chair voting on the console laptop must not be signed out of the console).
 export function watchAuth(cb) { return onAuthStateChanged(auth, cb); }
-export const isMember = (u) => !!u && !u.isAnonymous && (u.email === ED_EMAIL || u.email === LEADER_EMAIL);
+export const isLeader = (u) => !!u && !u.isAnonymous && u.uid === LEADER_UID;
+export const isMember = (u) => !!u && !u.isAnonymous && (u.uid === ED_UID || u.uid === LEADER_UID);
 // Calls cb(user) whenever the member state changes: the user when signed in as
 // ED or leadership, null otherwise (signed out, or an old anonymous session).
 export function watchMember(cb) { return onAuthStateChanged(auth, (u) => cb(isMember(u) ? u : null)); }
@@ -45,7 +47,6 @@ export function isWrongPassword(e) {
   const c = (e && e.code) || "";
   return c.includes("wrong-password") || c.includes("invalid-credential") || c.includes("user-not-found") || c.includes("invalid-login");
 }
-export { LEADER_EMAIL, ED_EMAIL };
 
 // References are made when used (not once at load), so the rules tests can
 // run this file against the emulator with a different sign-in per test.

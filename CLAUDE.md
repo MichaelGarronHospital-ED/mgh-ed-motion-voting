@@ -61,7 +61,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   tab and live in `config/screen`.
 - `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Leadership-password-gated (Firebase sign-in) +
   unguessable filename; keep the filename obscure if it's ever rotated.
-- `js/config.js` → Firebase config, `LEADER_EMAIL` + `ED_EMAIL` (the two shared accounts;
+- `js/config.js` → Firebase config, `LEADER_UID` + `ED_UID` (the two shared accounts, by
+  uid, the same as `firestore.rules`), `LEADER_EMAIL` + `ED_EMAIL` (used only to sign in;
   the passwords live only in Firebase Auth), `ORG_NAME`.
 - `js/roster.js` → the starting roster and GROUP1 / GROUP2 / COURTESY weight assignments.
   Leadership's changes live in Firestore `config/roster` (`groups`, `added`, `removed`);
@@ -87,6 +88,11 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 
 ## Rules of the road
 
+- **A role is known by uid, never by email.** Rules (`isAccount`) and pages (`isMember`,
+  `isLeader` in `js/db.js`) compare `uid` with `LEADER_UID` / `ED_UID`; emails are only for
+  `signInWithEmailAndPassword`. `tests/test_accounts.py` keeps config and rules equal and
+  refuses any `.email ===` check in page code. **Never delete a role account** (a new one
+  has a new uid).
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.
   Quorum = 50% of eligible voters, computed automatically. These are `LEGACY_RULE` in

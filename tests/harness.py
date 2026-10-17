@@ -21,9 +21,26 @@ TOOL = HERE.parent
 REPO = TOOL
 STUBS = HERE / "stubs"
 
-# Must match LEADER_EMAIL in js/config.js.
-LEADER_EMAIL = "leadership@ed-motion-voting.app"
-ED_EMAIL = "ed@ed-motion-voting.app"   # must match ED_EMAIL in js/config.js
+# The two shared accounts. The pages recognise them by uid (js/config.js
+# LEADER_UID, ED_UID, the same as firestore.rules; test_accounts.py checks all
+# copies agree). The emails are only what the page signs in with.
+LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2"
+ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3"
+LEADER_EMAIL = "leadership@ed-motion-voting.app"   # must match LEADER_EMAIL in js/config.js
+ED_EMAIL = "ed@ed-motion-voting.app"               # must match ED_EMAIL in js/config.js
+# The emails the accounts move to (design passwords.md, Phase A).
+NEW_LEADER_EMAIL = "leadership@mgh-ed-voting.invalid"
+NEW_ED_EMAIL = "ed@mgh-ed-voting.invalid"
+
+
+def uid_for(email):
+    return LEADER_UID if email and email.startswith("leadership") else ED_UID
+
+
+def auth_init(email, uid=None):
+    """Init script: the page starts already signed in (another tab, or a reload)."""
+    return ("window.__authInitial = { uid: '%s', isAnonymous: false, email: '%s' };"
+            % (uid or uid_for(email), email))
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -119,8 +136,8 @@ def unlock_admin(page, read=None, then=None):
     body = then or (f"return document.querySelector('{read}').innerText;"
                     if read else "return null;")
     return page.evaluate(
-        "() => { window.__auth.force({ uid: 'leader-uid', email: '%s' });"
-        " %s }" % (LEADER_EMAIL, body))
+        "() => { window.__auth.force({ uid: '%s', isAnonymous: false, email: '%s' });"
+        " %s }" % (LEADER_UID, LEADER_EMAIL, body))
 
 
 def open_admin(page, base):

@@ -5,7 +5,7 @@
 // ============================================================================
 import { ORG_NAME } from "./config.js";
 import {
-  onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
+  onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, isLeader,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
@@ -39,7 +39,7 @@ $("gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryEnter(
 // Only now can the form be used (see the comment in admin-9f4k2x7q.html).
 $("gate-fields").disabled = false;
 // The Leadership password is checked by Firebase itself (it is the password of
-// the LEADER_EMAIL account); nothing about it is stored in this public code, and
+// the Leadership account); nothing about it is stored in this public code, and
 // the console opens only on a real sign-in, so writes are always authorised.
 async function tryEnter() {
   const typed = $("pass").value.trim(), err = $("gate-err");   // passwords never start or end with a space
@@ -63,7 +63,7 @@ try {
   }
 } catch (e) { /* private mode */ }
 // Auto-unlock on reload if a leadership session is already persisted.
-watchAuth((user) => { if (user && user.email === LEADER_EMAIL) unlock(); });
+watchAuth((user) => { if (isLeader(user)) unlock(); });
 $("lock").addEventListener("click", async (e) => {
   e.preventDefault();
   if (S.busy > 0) {

@@ -4,6 +4,36 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Accounts are known by uid, not email (voting step 9, Oct 2026)
+
+A safety change, the first half of moving the two account emails off a domain nobody
+owns (`ed-motion-voting.app`: anyone could buy it and reset a password) to addresses that
+can never be registered (`*.mgh-ed-voting.invalid`).
+
+- **The rules and the pages now recognise the ED and Leadership accounts by their uid**
+  (the account's fixed id), not by their email. A uid never changes, so the rules and the
+  pages stay right before, during and after the email change, and a phone or console that
+  is signed in stays in. Someone who made a new account with a freed old email would get a
+  different uid and nothing else.
+- Only a password sign-in counts (the rules also check the sign-in method).
+- The pages still sign in with the old emails. Step 10 switches them, and is merged right
+  after the emails are changed.
+- Never delete either account: a new one has a new uid, which the rules and pages refuse.
+- How to change the passwords now points to the ED tools passwords page.
+- Tests only: the test stand-in for Firebase sign-in now answers a moment later, as
+  Firebase does, so a console that starts already signed in is tested too.
+
+**Publish the rules before merging this page** (the step-8 page works with them, since
+it signs in to the same two accounts).
+
+After the update: check in a private window, or wait 10 minutes.
+
+Tests: 225 browser tests (8 new), 131 rules tests (9 new: the right uid with the old or the
+new email is let in; the right email with another uid, a non-password sign-in, or the ED
+account acting as Leadership is refused).
+
+---
+
 ## Phones read only the board (voting upgrade cleanup, Oct 2026)
 
 Merge this only after the earlier steps are live **and** leadership has opened the
