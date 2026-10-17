@@ -38,10 +38,10 @@ the page back.
 
 After the update: check the live pages in a private window, or wait 10 minutes (files
 are cached that long, and a page mixing old and new files shows "Starting... If this
-stays blank, reload the page."). Close and reopen every console tab; from this version
+message stays, reload the page."). Close and reopen every console tab; from this version
 on, an open console says "A newer version is available. Reload." after each update.
 
-Tests: 84 browser tests (32 new), 52 rules tests (31 new, including the real page code
+Tests: 89 browser tests (34 new), 52 rules tests (31 new, including the real page code
 run against the emulator: close, save, re-open, purge, catch-up).
 
 ## Console code split into parts; better test tools (voting upgrade step 0, Oct 2026)

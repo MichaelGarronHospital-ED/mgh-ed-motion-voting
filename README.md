@@ -154,5 +154,5 @@ the new rules, so nothing breaks in between.
 - Close and reopen every console and projector tab after an update reaches the site.
   An open console also says "A newer version is available. Reload."
 - Browsers keep the site's files for up to 10 minutes, so for a short time a page can
-  mix old and new files and stay on "Starting..." or blank: reload it. To check a new
+  mix old and new files and stay on "Starting...": reload it. To check a new
   version straight away, use a private window, or wait 10 minutes.

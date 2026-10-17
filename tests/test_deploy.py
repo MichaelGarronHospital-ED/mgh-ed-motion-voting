@@ -11,8 +11,8 @@ from test_saved_results import seed_open
 class TestAfterAnUpdate(Base):
     def test_pages_say_starting_until_the_code_runs(self):
         html = (h.REPO / "index.html").read_text()
-        self.assertIn("Starting... If this stays blank, reload the page.", html)
-        self.assertIn("Starting... If this stays blank, reload the page.", (h.REPO / "admin-9f4k2x7q.html").read_text())
+        self.assertIn("Starting... If this message stays, reload the page.", html)
+        self.assertIn("Starting... If this message stays, reload the page.", (h.REPO / "admin-9f4k2x7q.html").read_text())
         pg = self.voter()
         self.assertNotIn("Starting...", pg.inner_text("#app"))
         h.load_admin(pg, self.base)
@@ -27,6 +27,28 @@ class TestAfterAnUpdate(Base):
         pg.evaluate("window.dispatchEvent(new Event('focus'))")
         pg.wait_for_selector("text=A newer version is available.")
         self.assertEqual(pg.evaluate("window.__store.reads()") >= 0, True)
+
+    def test_newer_version_only_for_a_higher_voting_number(self):
+        for body, shown in (("voting-0\n", False), ("garbage", False), ("voting-1x", False), ("voting-99\n", True)):
+            pg = self.browser.new_page()
+            errs = []
+            h.wire(pg, errs)
+            pg.route("**/version.txt", (lambda b: lambda route: route.fulfill(status=200, body=b))(body))
+            h.open_admin(pg, self.base)              # checked at load too
+            pg.wait_for_timeout(400)
+            self.assertEqual("newer version" in pg.inner_text("#banners"), shown, body)
+            if shown:
+                self.assertIn("If this keeps showing, wait 10 minutes and reload.", pg.inner_text("#banners"))
+            self.assertEqual(errs, [])
+            pg.close()
+
+    def test_new_code_on_an_old_cached_page_does_not_fail(self):
+        """A page from before this version (no "Starting..." line) with the new code."""
+        old = (h.REPO / "admin-9f4k2x7q.html").read_text().replace(
+            '<p id="boot-note" class="boot-note">Starting... If this message stays, reload the page.</p>', "")
+        self.page.route("**/admin-9f4k2x7q.html", lambda r: r.fulfill(status=200, content_type="text/html", body=old))
+        h.open_admin(self.page, self.base)
+        self.page.wait_for_selector("#console:not(.hide)")
 
     def test_version_file_matches_the_code(self):
         txt = (h.REPO / "version.txt").read_text().strip()

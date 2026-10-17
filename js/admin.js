@@ -21,7 +21,7 @@ import { wireRecords } from "./records.js";
 document.title = ORG_NAME + " · Leadership";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
 // and new files after an update) goes.
-$("boot-note").remove();
+$("boot-note")?.remove();   // a page from before this version has none
 
 // ----------------------------------------------------------------- gate (sign-in)
 let booted = false;
@@ -105,7 +105,7 @@ function setBanner(key, html, kind = "warn") {
 }
 R.setBanner = setBanner;
 // A newer version on the site (an update reached it while this tab was open).
-watchVersion(() => setBanner("version", `A newer version is available. <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-reload="1">Reload</button>`));
+watchVersion(() => setBanner("version", `A newer version is available. <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-reload="1">Reload</button> If this keeps showing, wait 10 minutes and reload.`));
 $("banners").addEventListener("click", (e) => { if (e.target.closest("[data-reload]")) location.reload(); });
 const NO_CONN = "No connection to the voting database. Open and Close will work again when it reconnects.";
 const DB_UPDATE_CONSOLE = "This page needs a database update that has not been published yet. Open and Close are off until it is.";
