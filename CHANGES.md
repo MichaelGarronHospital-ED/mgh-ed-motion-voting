@@ -21,7 +21,7 @@ Firestore > config has both documents, or the phones' Results tab shows results)
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-No rules change. Tests: 215 browser tests (fallback tests replaced), 122 rules tests
+No rules change. Tests: 216 browser tests (fallback tests replaced), 122 rules tests
 (the two fallback reads removed from the list of what phones read).
 
 ## Check-in, remote, vote receipts (voting upgrade step 7, Oct 2026)
