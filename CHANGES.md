@@ -4,6 +4,38 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)
+
+- **Settings → Voting rules:** points per vote for Full, Half and No vote (0 to 1), the
+  quorum percent, the default pass rule for new motions (more points in favour, or at
+  least two-thirds of the points cast with abstentions not counted), whether a tie reads
+  "Tie" or "Tie: does not pass", and how long the change history is kept (at least 7
+  years). Saved changes apply only to motions opened afterwards: closed motions keep
+  their results, the open motion keeps the rules it opened with, and old motions keep
+  the old rules. The screen refuses invalid values, and so do the database rules.
+- **Add a motion** has a pass rule (default from Settings), changeable while it is a draft.
+  The ballot says "Needs two-thirds of the points cast to pass." when that applies.
+- **Physicians tab:** a "Write-ins to review" card (kept in the database, so it survives
+  a reload; the tab shows how many): Add as Full, Half or No vote, Not a physician, or
+  Restore if they were removed. **Update the list by pasting** from Excel, with a
+  preview of new names, category changes, unchanged names, names not in the paste
+  (removed only if you tick the box) and problems ("Looks like Meg Reynolds: same
+  person?"). Every change to the list is in the change history.
+- The records said "(uncategorized)" after a dash; they now say "Uncategorized".
+- No proxy votes, as decided: there is no proxy setting.
+- **Re-vote is now also on the motion card** in the Motions list, next to Re-open. It
+  shows only when the motion is closed, its result is saved and it has not been replaced
+  by a re-vote already. Tapping it opens the Results tab with the re-vote reason box
+  ready, the same as the Re-vote button there.
+
+**Publish the rules before merging this page** (they add the settings checks; the
+step-2 page never writes settings).
+
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console tab.
+
+Tests: 145 browser tests (24 new), 75 rules tests (8 new).
+
 ## Phones read results from one small board; re-vote (voting upgrade step 2, Oct 2026)
 
 **The big one: the free daily read limit.** Each phone used to read every ballot of

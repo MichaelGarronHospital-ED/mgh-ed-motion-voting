@@ -1,7 +1,9 @@
-// Leadership console: the Settings view. In this step of the upgrade it holds
-// your name for the change history and the change history itself; the voting
-// rules join it in the next step.
-import { getLogPage, setLogName, classify, rulesNeedUpdate, DB_UPDATE_MSG } from "./db.js";
+// Leadership console: the Settings view. The voting rules (points per vote,
+// quorum, pass rule, tie wording, how long the change history is kept), your
+// name for the change history, and the change history itself.
+import {
+  getLogPage, setLogName, classify, rulesNeedUpdate, DB_UPDATE_MSG, currentSettings, saveSettings, DEFAULT_RULE,
+} from "./db.js";
 import { escapeHtml, toast } from "./util.js";
 import { $, R } from "./admin-state.js";
 import { logLine } from "./admin-results.js";
@@ -18,6 +20,8 @@ export function wireSettings() {
   $("name-form").addEventListener("submit", (e) => { e.preventDefault(); saveName($("log-name").value); toast("Saved on this laptop."); });
   $("history-load").addEventListener("click", () => loadHistory(false));
   $("history-more").addEventListener("click", () => loadHistory(true));
+  $("rules-form").addEventListener("submit", (e) => { e.preventDefault(); saveRules(); });
+  $("rules-form").addEventListener("input", () => { formDirty = true; });
   // Asked once per laptop, at the top of the console.
   if (!store.get(NAME_KEY) && !store.get(ASKED_KEY)) {
     $("name-card").classList.remove("hide");
@@ -37,7 +41,54 @@ function saveName(v) {
   store.set(NAME_KEY, name); store.set(ASKED_KEY, "1");
   setLogName(name);
 }
-function renderSettings() { /* the rules screen arrives in the next step */ }
+// ---- the voting rules ------------------------------------------------------------
+let formDirty = false;
+const DEFAULTS = { weights: DEFAULT_RULE.weights, quorumPercent: DEFAULT_RULE.quorumPercent,
+  threshold: DEFAULT_RULE.threshold, tieRule: DEFAULT_RULE.tieRule, retentionYears: 7 };
+export function renderSettings(force) {
+  if (formDirty && !force) return;
+  const st = { ...DEFAULTS, ...(currentSettings() || {}) };
+  $("w-1").value = st.weights["1"]; $("w-2").value = st.weights["2"]; $("w-c").value = st.weights.courtesy;
+  $("q-pct").value = st.quorumPercent;
+  $("threshold").value = st.threshold;
+  $("tie-rule").value = st.tieRule;
+  $("keep-years").value = st.retentionYears || 7;
+  $("rules-err").classList.add("hide");
+  formDirty = false;
+}
+R.renderSettings = renderSettings;
+// The screen refuses invalid values before saving (the rules refuse them too).
+function readRules() {
+  const num = (id) => Number(String($(id).value).trim());
+  const w = { "1": num("w-1"), "2": num("w-2"), courtesy: num("w-c") };
+  const problems = [];
+  const okW = (x) => Number.isFinite(x) && x >= 0 && x <= 1 && Math.abs(Math.round(x * 20) - x * 20) < 1e-9;
+  if (!okW(w["1"]) || !okW(w["2"]) || !okW(w.courtesy)) problems.push("Points per vote must be between 0 and 1, in steps of 0.05.");
+  const q = num("q-pct");
+  if (!Number.isInteger(q) || q < 1 || q > 100) problems.push("Quorum must be a whole number from 1 to 100.");
+  const keep = num("keep-years");
+  if (!Number.isInteger(keep) || keep < 7 || keep > 50) problems.push("Keep the change history at least 7 years (whole years, up to 50).");
+  return { problems, value: { weights: w, quorumPercent: q, threshold: $("threshold").value, tieRule: $("tie-rule").value, retentionYears: keep } };
+}
+async function saveRules() {
+  const { problems, value } = readRules();
+  const err = $("rules-err");
+  if (problems.length) {
+    err.innerHTML = problems.map((p) => escapeHtml(p)).join("<br>");
+    err.classList.remove("hide");
+    return;
+  }
+  err.classList.add("hide");
+  $("settings-save").disabled = true;
+  try {
+    await saveSettings(value);
+    formDirty = false;
+    toast("Saved. Applies to motions opened from now on. Closed motions keep their results. The open motion keeps the rules it opened with.");
+  } catch (e) {
+    const why = classify(e) === "refused" ? ((await rulesNeedUpdate()) ? DB_UPDATE_MSG : "Not allowed: the database refused these settings.") : "Not saved: no connection. Try again.";
+    toast(why);
+  } finally { $("settings-save").disabled = false; }
+}
 
 let lastEntry = null;
 async function loadHistory(more) {

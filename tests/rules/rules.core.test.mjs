@@ -247,3 +247,36 @@ describe("Leadership password", () => {
     await assertFails(deleteDoc(doc(leader(), "polls/closed/votes/ashcombe")));
   });
 });
+
+// ---- R3: the voting rules (config/settings) ----------------------------------
+describe("settings (R3)", () => {
+  const good = (extra = {}) => ({ v: 1, weights: { "1": 1, "2": 0.5, courtesy: 0 }, quorumPercent: 50, threshold: "majority",
+    tieRule: "tie", checkIn: true, retentionYears: 7, updatedAt: serverTimestamp(), ...extra });
+  it("leadership saves valid settings; a voter cannot", async () => {
+    await assertSucceeds(setDoc(doc(leader(), "config/settings"), good()));
+    await assertSucceeds(setDoc(doc(leader(), "config/settings"), good({ weights: { "1": 1, "2": 0.75, courtesy: 0.05 }, quorumPercent: 66, threshold: "twoThirds", tieRule: "fails", retentionYears: 10 })));
+    await assertFails(setDoc(doc(ed(), "config/settings"), good()));
+  });
+  it("refuses weights above 1, negative or text", async () => {
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ weights: { "1": 2, "2": 0.5, courtesy: 0 } })));
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ weights: { "1": 1, "2": -0.5, courtesy: 0 } })));
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ weights: { "1": "1", "2": 0.5, courtesy: 0 } })));
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ weights: { "1": 1, "2": 0.5 } })));
+  });
+  it("refuses quorum 0, 101 or 50.5", async () => {
+    for (const q of [0, 101, 50.5]) await assertFails(setDoc(doc(leader(), "config/settings"), good({ quorumPercent: q })));
+  });
+  it("refuses keeping the change history under 7 years, or over 50", async () => {
+    for (const y of [1, 6, 51, 7.5]) await assertFails(setDoc(doc(leader(), "config/settings"), good({ retentionYears: y })));
+  });
+  it("refuses unknown keys (proxies included), unknown rules and the laptop's own time", async () => {
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ proxies: { allowed: true } })));
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ threshold: "unanimous" })));
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ tieRule: "coin" })));
+    await assertFails(setDoc(doc(leader(), "config/settings"), good({ updatedAt: Timestamp.now() })));
+  });
+  it("other config documents are unchanged: leadership writes, everyone signed in reads", async () => {
+    await assertSucceeds(setDoc(doc(leader(), "config/roster"), { writeins: { zed: { name: "Zed", status: "dismissed" } } }, { merge: true }));
+    await assertSucceeds(getDoc(doc(ed(), "config/roster")));
+  });
+});

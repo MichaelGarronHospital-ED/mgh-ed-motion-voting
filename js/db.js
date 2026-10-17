@@ -318,32 +318,94 @@ async function freezeClosedMotions() {
     .map(async (p) => updateDoc(pollRef(p.id), { lockedGroups: snapshotGroupsFor(await getVotesFor(p.id)) }));
   await Promise.all(ops);
 }
-export async function setPersonGroup(slug, group) {
+// Every roster change: closed motions frozen first, then the change and a
+// "roster" change-log entry in one batch.
+async function rosterWrite(patch, log) {
   await freezeClosedMotions();
-  await setDoc(rosterRef(), { groups: { [slug]: group } }, { merge: true });
+  const b = writeBatch(db);
+  b.set(rosterRef(), patch, { merge: true });
+  writeLog(b, log);
+  await b.commit();
+}
+const nameOf = (slug) => (ROSTER_BY_SLUG[slug] && ROSTER_BY_SLUG[slug].name) || (addedPeople[slug] && addedPeople[slug].name)
+  || (writeinsSeen[slug] && writeinsSeen[slug].name) || slug;
+const CAT_NAME = { "1": "Full vote", "2": "Half vote", courtesy: "No vote" };
+export async function setPersonGroup(slug, group) {
+  await rosterWrite({ groups: { [slug]: group } },
+    { action: "roster", text: `${nameOf(slug)}: ${CAT_NAME[effectiveGroup(slug)] || "Uncategorized"} to ${CAT_NAME[group] || group}` });
 }
 // Add a physician (or restore a removed one with the same name). Returns
 // "added", "restored" or "exists".
-export async function addPhysician(name, group) {
+export async function addPhysician(name, group, logAction = "roster") {
   const clean = name.trim().replace(/\s+/g, " ");
   const slug = slugify(clean);
   if (!slug) throw new Error("empty name");
   if (rosterPerson(slug)) return "exists";
   const restoring = isRemoved(slug);
-  await freezeClosedMotions();
   const patch = { groups: { [slug]: group }, removed: { [slug]: false } };
   if (!ROSTER_BY_SLUG[slug] && !(restoring && addedPeople[slug])) patch.added = { [slug]: { name: clean } };
-  await setDoc(rosterRef(), patch, { merge: true });
+  await rosterWrite(patch, { action: logAction, text: `${restoring ? "Restored" : "Added"} ${clean} (${CAT_NAME[group] || group})` });
   return restoring ? "restored" : "added";
 }
 export async function removePhysician(slug) {
-  await freezeClosedMotions();
-  await setDoc(rosterRef(), { removed: { [slug]: true } }, { merge: true });
+  await rosterWrite({ removed: { [slug]: true } }, { action: "roster", text: `Removed ${nameOf(slug)}` });
 }
 export async function restorePhysician(slug) {
-  await freezeClosedMotions();
-  await setDoc(rosterRef(), { removed: { [slug]: false } }, { merge: true });
+  await rosterWrite({ removed: { [slug]: false } }, { action: "roster", text: `Restored ${nameOf(slug)}` });
 }
+// A write-in who is not a physician: their ballots stay at 0 points.
+export async function dismissWritein(slug) {
+  await rosterWrite({ writeins: { [slug]: { status: "dismissed" } } }, { action: "writein", text: `${nameOf(slug)}: not a physician` });
+}
+// Apply a pasted list (count.js parseRoster): one roster write and one
+// "roster-bulk" log entry listing every change. remove: also take off the
+// names missing from the paste (hides them, never deletes).
+export async function applyRosterChanges(diff, remove) {
+  const patch = { groups: {}, added: {}, removed: {} };
+  diff.added.forEach((p) => {
+    patch.groups[p.slug] = p.group;
+    patch.removed[p.slug] = false;
+    if (!ROSTER_BY_SLUG[p.slug] && !addedPeople[p.slug]) patch.added[p.slug] = { name: p.name };
+  });
+  diff.changed.forEach((c) => { patch.groups[c.slug] = c.to; });
+  if (remove) diff.missing.forEach((m) => { patch.removed[m.slug] = true; });
+  ["groups", "added", "removed"].forEach((k) => { if (!Object.keys(patch[k]).length) delete patch[k]; });
+  const n = diff.added.length + diff.changed.length + (remove ? diff.missing.length : 0);
+  await rosterWrite(patch, {
+    action: "roster-bulk", text: `Updated the list by paste: ${n} change${n === 1 ? "" : "s"}`,
+    after: {
+      added: diff.added.map((p) => `${p.name} (${CAT_NAME[p.group]})`),
+      changed: diff.changed.map((c) => `${c.name}: ${CAT_NAME[c.from] || c.from} to ${CAT_NAME[c.to]}`),
+      removed: remove ? diff.missing.map((m) => m.name) : [],
+    },
+  });
+  return n;
+}
+
+// ---- settings (the rules for counting) ---------------------------------------------
+// One batch: config/settings and a "settings" change-log entry. Applies to
+// motions opened from now on; closed motions keep their results; the open
+// motion keeps the rules it opened with.
+export async function saveSettings(next) {
+  const s = {
+    v: 1,
+    weights: { "1": Number(next.weights["1"]), "2": Number(next.weights["2"]), courtesy: Number(next.weights.courtesy) },
+    quorumPercent: Math.round(Number(next.quorumPercent)),
+    threshold: next.threshold, tieRule: next.tieRule,
+    checkIn: next.checkIn !== undefined ? !!next.checkIn : (settings && settings.checkIn !== undefined ? settings.checkIn : true),
+    retentionYears: Math.max(7, Math.round(Number(next.retentionYears) || 7)),
+    updatedAt: serverTimestamp(),
+  };
+  const b = writeBatch(db);
+  b.set(doc(db, "config", "settings"), s);
+  const before = settings ? { weights: settings.weights, quorumPercent: settings.quorumPercent, threshold: settings.threshold,
+    tieRule: settings.tieRule, retentionYears: settings.retentionYears } : null;
+  writeLog(b, { action: "settings", text: "Voting rules changed", before,
+    after: { weights: s.weights, quorumPercent: s.quorumPercent, threshold: s.threshold, tieRule: s.tieRule, retentionYears: s.retentionYears } });
+  await b.commit();
+}
+// The rule a motion opened now would get (today's settings).
+export function currentRule(threshold) { return ruleFromSettings(settings, threshold); }
 
 // A removed physician has no vote from then on (open and future motions);
 // closed motions keep the category they were frozen with.
@@ -478,11 +540,12 @@ function resultSummary(r) {
 }
 
 // ---- admin actions ---------------------------------------------------------
-export async function addPoll(text) {
+export async function addPoll(text, threshold) {
   const order = knownPolls.reduce((m, p) => Math.max(m, Number(p.order) || 0), -1) + 1;
   const ref = doc(pollsCol());
   await setDoc(ref, {
     text: text.trim(), order, status: "draft", voteCount: 0, archived: false, deleted: false,
+    threshold: threshold || (settings && settings.threshold) || "majority",
     createdAt: serverTimestamp(),
   });
   return ref.id;

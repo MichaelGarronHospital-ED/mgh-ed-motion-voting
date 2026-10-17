@@ -11,6 +11,7 @@
 //  voter page reads config/live, config/roster, config/history (on a tap), and
 //  as fallbacks: the open motions (where status == open), the closed motions
 //  once, one motion and its ballots (a late result counted once).
+//  Step 3 (settings, roster paste): no new source (config/settings was already read).
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -49,7 +50,7 @@ const SOURCES = {
   ],
 };
 
-describe("step 2 pages read only what the rules allow", () => {
+describe("step 3 pages read only what the rules allow", () => {
   for (const [name, read] of SOURCES.console) {
     it(`console (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }

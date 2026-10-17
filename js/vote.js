@@ -273,6 +273,7 @@ function voteBody() {
     return head + `
       <span class="ed-pill ed-pill-good"><span class="dot"></span>Voting open</span>
       <h2 class="motion-text">${escapeHtml(open.text)}</h2>${revote}
+      ${(open.threshold || (open.rule && open.rule.threshold)) === "twoThirds" ? `<p class="ed-hint">Needs two-thirds of the points cast to pass.</p>` : ""}
       <div class="votes" role="group" aria-label="Your vote">${CHOICES.map(tile).join("")}</div>
       ${voteMsg ? `<p class="ed-error err" role="alert">${icon("alert", 18)}<span>${escapeHtml(voteMsg)}</span></p>` : ""}
       <p class="ed-hint">${mine ? `You voted <strong>${escapeHtml(labelOf(mine.choice))}</strong>. You can change it until voting closes.`

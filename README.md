@@ -3,13 +3,15 @@
 A free, mobile-friendly weighted-voting site for live meeting motions.
 Static frontend on **GitHub Pages** + **Firebase Firestore** for real-time vote storage.
 
-- **Voters:** `index.html` — pick your name, tap *In favour / Against / Abstain*.
-- **Leadership:** `admin-9f4k2x7q.html` — manage motions, see live weighted tally,
+- **Voters:** `index.html`: pick your name, tap *In favour / Against / Abstain*.
+- **Leadership:** `admin-9f4k2x7q.html`: manage motions, see live weighted tally,
   quorum meter, per-person table + CSV export. Leadership-password-protected + unguessable URL.
 
-Weights: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**. A motion
-passes when weighted *In favour* > weighted *Against*; abstentions count toward
-quorum only. Quorum is computed automatically as **50% of eligible voters**.
+The starting rules: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**; a motion
+passes when weighted *In favour* > weighted *Against*; abstentions count toward quorum
+only; quorum is **50% of eligible voters**, rounded up. Leadership can change these in
+the console's **Settings** (they apply to motions opened afterwards; closed motions keep
+their saved results).
 
 ## Where it lives
 
@@ -51,7 +53,7 @@ quorum only. Quorum is computed automatically as **50% of eligible voters**.
 Edit [`js/config.js`](js/config.js):
 - Paste your `firebaseConfig`.
 - Passwords are not in this file: see "Sign-in" below.
-- (Quorum is automatic — 50% of eligible voters — nothing to configure.)
+- Quorum and points per vote are set in the console's Settings (50% of eligible voters and 1 / 0.5 / 0 to start); nothing to configure here.
 
 The starting list of physicians is in [`js/roster.js`](js/roster.js) (**GROUP1 / GROUP2 / COURTESY**).
 Day to day, leadership changes the list in the console instead, with no code change:
@@ -92,10 +94,10 @@ the record.
    **Result saved** (on an iPad or iPhone especially).
 4. The result appears to everyone the moment you close the motion; voters can also review all past results under their **Results** tab.
    A saved result never changes, even if someone's category is changed later.
-5. Move to the next motion. If a motion was closed by mistake, **Re-open** it from the
-   Results tab and type the reason (kept in the change history; no health or private
+5. Move to the next motion. If a motion was closed by mistake, **Re-open** it (on its
+   motion card or the Results tab) and type the reason (kept in the change history; no health or private
    details). The earlier count is kept. If a result is contested after it was announced,
-   use **Re-vote** instead: everyone votes again on a copy, the original stays on record
+   use **Re-vote** (same two places) instead: everyone votes again on a copy, the original stays on record
    marked "Replaced by a re-vote", and voters see the reason. **Settings** (top right)
    has the change history and your name for it. Motion wording can be edited until the first vote
    is cast, then it locks.
@@ -104,6 +106,19 @@ the record.
    when the connection is back; "needs a database update" means the matching rules have
    not been published yet (see below), and Open and Close stay off until they are.
 7. Afterward, **Export** for the record.
+
+## Changing the rules or the list (no code needed)
+
+- **Settings** (top right of the console) → **Voting rules**: points per vote for each
+  category, quorum percent, the default pass rule for new motions, how a tie is shown,
+  and how long the change history is kept (7 years at least). A change applies only to
+  motions opened afterwards; closed motions keep their results.
+- **Physicians** tab → **Write-ins to review**: people who typed their own name. Add them
+  with a category, or mark "Not a physician" (their votes stay at 0 points).
+- **Physicians** tab → **Update the list by pasting**: paste the voting sheet from Excel
+  (name and category columns), check the preview, then **Apply changes**. Nobody is removed
+  unless you tick the box.
+- There are no proxy votes.
 
 ## Notes
 - **Duplicate detection:** one row per name. If the same name votes from two

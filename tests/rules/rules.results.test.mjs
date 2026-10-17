@@ -436,3 +436,32 @@ describe("re-vote (R2) and the voters' board", () => {
     }
   });
 });
+
+describe("settings and roster changes (the real page code, R3)", () => {
+  it("saveSettings writes valid settings and a settings log entry", async () => {
+    const a = await app();
+    as(leader());
+    await assertSucceeds(a.saveSettings({ weights: { "1": 1, "2": 0.5, courtesy: 0 }, quorumPercent: 60, threshold: "twoThirds", tieRule: "fails", retentionYears: 8 }));
+    const st = await readRaw("config/settings");
+    assert.equal(st.quorumPercent, 60);
+    assert.equal(st.checkIn, true);
+    const logs = (await getDocs(collection(leader(), "log"))).docs.map((d) => d.data());
+    assert.ok(logs.some((e) => e.action === "settings"));
+  });
+  it("applyRosterChanges and a category change write the roster and their log entries", async () => {
+    const a = await app();
+    as(leader());
+    a.setKnownPolls([]);
+    await assertSucceeds(a.applyRosterChanges({ added: [{ name: "Zed Newdoc", slug: "zed-newdoc", group: "1" }],
+      changed: [{ name: "Meg Reynolds", slug: "meg-reynolds", from: "1", to: "2" }], missing: [{ name: "Alvin Yang", slug: "alvin-yang" }] }, false));
+    await assertSucceeds(a.setPersonGroup("zed-newdoc", "2"));
+    await assertSucceeds(a.dismissWritein("someone-else"));
+    const r = await readRaw("config/roster");
+    assert.equal(r.groups["zed-newdoc"], "2");
+    assert.equal(r.groups["meg-reynolds"], "2");
+    assert.equal(r.removed["alvin-yang"], undefined);      // not removed unless ticked
+    assert.equal(r.writeins["someone-else"].status, "dismissed");
+    const logs = (await getDocs(collection(leader(), "log"))).docs.map((d) => d.data().action).sort();
+    assert.deepEqual(logs, ["roster", "roster-bulk", "writein"]);
+  });
+});

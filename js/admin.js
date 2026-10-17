@@ -140,7 +140,10 @@ function boot() {
   const onErr = (src) => (e) => sourceFailed(src, e);
   // category changes re-weight everything live
   onRosterOverrides(() => { R.roster(); R.results(); R.voters(); }, { gate: "roster", onError: onErr("roster") });
-  onSettings(() => { R.roster(); R.results(); }, { gate: "settings", onError: onErr("settings") });
+  onSettings(() => {
+    R.roster(); R.results(); R.syncDefaultThreshold();
+    if (!$("tab-settings").classList.contains("hide")) R.renderSettings();
+  }, { gate: "settings", onError: onErr("settings") });
   R.roster();
 
   onPolls((p, snap) => {
@@ -161,6 +164,7 @@ function boot() {
     R.motions();
     R.results();
     R.voters();
+    R.writeins();
     S.pending = !!snap.metadata.hasPendingWrites;
     if (S.ready && !S.offline) healResults();
     // Past results are written in their own write after an action, once the
