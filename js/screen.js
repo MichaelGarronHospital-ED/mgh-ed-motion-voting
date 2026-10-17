@@ -85,7 +85,7 @@ function render() {
   if (!authKnown) { root.innerHTML = ""; return; }
   if (!member) { root.innerHTML = gateHTML(); wireGate(); return; }
   const note = (offline || slow ? `<p class="screen-note" role="status">${icon("alert", 18)}No connection. May be out of date.</p>` : "")
-    + (newer ? `<p class="screen-note" role="status">${icon("alert", 18)}A newer version is available. <button type="button" class="ed-btn ed-btn-tinted btn-sm" id="screen-reload">Reload</button></p>` : "");
+    + (newer ? `<p class="screen-note" role="status">${icon("alert", 18)}A newer version is available. <button type="button" class="ed-btn ed-btn-tinted btn-sm" id="screen-reload">Reload</button> If this keeps showing, wait 10 minutes and reload.</p>` : "");
   if (board === undefined) { root.innerHTML = `${note}<p class="screen-wait">Connecting...</p>`; return; }
   const m = board && board.meeting;
   const head = `<header class="screen-head"><span class="ed-badge" aria-hidden="true">ED</span>

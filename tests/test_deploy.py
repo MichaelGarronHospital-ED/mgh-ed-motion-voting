@@ -80,7 +80,7 @@ class TestConsoleListeners(Base):
         self.assertEqual(sorted(set(pg.evaluate("window.__store.listenerPaths()"))), sorted(EXPECTED_PROJECTOR))
 
     def test_projector_says_starting_and_a_newer_version(self):
-        self.assertIn("Starting... If this stays blank, reload the page.", (h.REPO / "screen.html").read_text())
+        self.assertIn("Starting... If this message stays, reload the page.", (h.REPO / "screen.html").read_text())
         pg = self.page
         pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
         pg.route("**/version.txt", lambda r: r.fulfill(status=200, body="voting-99\n"))
