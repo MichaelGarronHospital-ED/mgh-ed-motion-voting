@@ -14,8 +14,14 @@ Firestore > config has both documents, or the phones' Results tab shows results)
   results are missing. Before the board exists, a phone says "Voting starts once
   leadership's console has been opened."
 - A result that is late to save is still counted once by the phone after 30 seconds.
+- The two old reading functions stay in `js/db.js` for one more release (unused), so a
+  phone that still has the previous voting page in its cache does not fail to load.
+  Remove them in the next update.
 
-No rules change. Tests: 198 browser tests (fallback tests replaced), 121 rules tests
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console and projector tab.
+
+No rules change. Tests: 210 browser tests (fallback tests replaced), 121 rules tests
 (the two fallback reads removed from the list of what phones read).
 
 ## Check-in, remote, vote receipts (voting upgrade step 7, Oct 2026)
