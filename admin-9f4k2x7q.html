@@ -28,8 +28,9 @@
         <fieldset id="gate-fields" class="gate-fields" disabled>
           <input class="pw-user" type="text" name="username" autocomplete="username" value="Leadership password" tabindex="-1" aria-hidden="true" />
           <label class="ed-label" for="pass">Leadership password
-            <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" />
+            <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" aria-describedby="pass-help" />
           </label>
+          <p class="ed-hint" id="pass-help">Not working on iPhone? Clear the box, type the password by hand, then tap Save when your phone offers.</p>
           <p id="gate-err" class="ed-error err hide" role="alert">Incorrect password.</p>
           <button id="enter" type="submit" class="ed-btn ed-btn-filled">Continue</button>
         </fieldset>
@@ -50,10 +51,22 @@
           <button type="button" role="menuitem" id="print-all">Print or save as PDF<small>Results of every motion</small></button>
         </div>
       </details>
+      <button type="button" id="open-settings" class="ed-btn ed-btn-plain btn-sm" aria-pressed="false">Settings</button>
       <button type="button" id="lock" class="ed-btn ed-btn-plain btn-sm">Lock</button>
     </header>
     <h1 class="ed-title page-title">Leadership console</h1>
     <div id="banners" class="banners" role="status" aria-live="polite"></div>
+    <section id="name-card" class="card stack hide">
+      <h2>Your name for the change history</h2>
+      <form id="ask-form" class="stack-sm">
+        <label class="ed-label" for="ask-name">Name
+          <input class="ed-field" id="ask-name" type="text" maxlength="80" autocomplete="name" placeholder="For example: Kyle" />
+        </label>
+        <p class="ed-hint">Shown next to the changes you make here (open, close, re-open, re-vote). Typed on this laptop, not checked.</p>
+        <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm">Save</button>
+          <button type="button" id="ask-skip" class="ed-btn ed-btn-plain btn-sm">Not now</button></div>
+      </form>
+    </section>
 
     <div class="tabs-wrap">
       <nav class="tabs ed-seg" aria-label="Console sections">
@@ -95,16 +108,6 @@
       <div class="card stack hide" id="catchup-card"></div>
       <div class="card" id="results-selector"></div>
       <div class="card stack" id="results-body"></div>
-      <div class="card stack" id="history-card">
-        <details class="about">
-          <summary>Change history</summary>
-          <div class="stack-sm">
-            <p class="ed-hint">Every open, close, re-open and permanent delete, with its reason. Kept for at least 7 years.</p>
-            <div><button type="button" id="history-load" class="ed-btn ed-btn-tinted btn-sm">Show the latest 50</button></div>
-            <ul id="history-list" class="plain-list history-list"></ul>
-          </div>
-        </details>
-      </div>
     </section>
 
     <!-- VOTERS -->
@@ -166,6 +169,26 @@
         <h2>Removed</h2>
         <p class="ed-hint">Not in the voters' name list and not counted toward quorum. Closed motions keep their results. Restore puts them back with the same category.</p>
         <ul id="removed-list" class="removed-list"></ul>
+      </div>
+    </section>
+    <!-- SETTINGS (header button) -->
+    <section id="tab-settings" class="hide">
+      <div class="card stack">
+        <h2>Your name for the change history</h2>
+        <form id="name-form" class="stack-sm">
+          <label class="ed-label" for="log-name">Name
+            <input class="ed-field" id="log-name" type="text" maxlength="80" autocomplete="name" />
+          </label>
+          <p class="ed-hint">Typed on this laptop. Not checked.</p>
+          <div><button type="submit" class="ed-btn ed-btn-tinted btn-sm">Save</button></div>
+        </form>
+      </div>
+      <div class="card stack" id="history-card">
+        <h2>Change history</h2>
+        <p class="ed-hint">Every open, close, re-open, re-vote, archive, trash and permanent delete, with its reason. Kept for at least 7 years.</p>
+        <div><button type="button" id="history-load" class="ed-btn ed-btn-tinted btn-sm">Show the latest 50</button></div>
+        <ul id="history-list" class="plain-list history-list"></ul>
+        <div><button type="button" id="history-more" class="ed-btn ed-btn-plain btn-sm hide">Show more</button></div>
       </div>
     </section>
   </div>

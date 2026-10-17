@@ -8,7 +8,8 @@ import {
   onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
-  setKnownPolls, tsMillis, resultSaved,
+  setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
+  historyIsCurrent, revoteMotion, setLogName, currentLive,
 } from "./db.js";
 import { toast, icon, escapeHtml } from "./util.js";
 import { $, S, R } from "./admin-state.js";
@@ -17,6 +18,7 @@ import { wireMotions } from "./admin-motions.js";
 import { wireResults } from "./admin-results.js";
 import { wireRoster } from "./admin-roster.js";
 import { wireRecords } from "./records.js";
+import { wireSettings } from "./admin-settings.js";
 
 document.title = ORG_NAME + " · Leadership";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
@@ -79,8 +81,9 @@ function showTab(name) {
     x.classList.toggle("active", x.dataset.tab === name);
     x.setAttribute("aria-pressed", String(x.dataset.tab === name));
   });
-  ["share", "motions", "results", "voters", "roster"].forEach((n) =>
+  ["share", "motions", "results", "voters", "roster", "settings"].forEach((n) =>
     $("tab-" + n).classList.toggle("hide", n !== name));
+  $("open-settings").setAttribute("aria-pressed", String(name === "settings"));
 }
 R.showTab = showTab;
 document.querySelectorAll(".tab").forEach((t) =>
@@ -114,7 +117,8 @@ const DB_UPDATE_CONSOLE = "This page needs a database update that has not been p
 S.ready = false; S.dbUpdate = false; S.offline = false; S.busy = 0;
 S.saving = new Set();       // motions whose result this laptop is saving now
 S.reopenFor = null;         // motion whose Re-open form is showing
-R.canOpenClose = () => S.ready && !S.dbUpdate;
+// From step 2 the voters' board must be known too (actions patch it).
+R.canOpenClose = () => S.ready && !S.dbUpdate && currentLive() !== undefined;
 
 // ----------------------------------------------------------------- boot
 let votesUnsub = null;
@@ -128,6 +132,7 @@ function boot() {
   wireResults();
   wireRoster();
   wireRecords();
+  wireSettings();
 
   // The load gate: these three, each from the server, before anything that
   // saves a result or opens and closes runs.
@@ -156,8 +161,17 @@ function boot() {
     R.motions();
     R.results();
     R.voters();
+    S.pending = !!snap.metadata.hasPendingWrites;
     if (S.ready && !S.offline) healResults();
+    // Past results are written in their own write after an action, once the
+    // server has confirmed it (so every copied time is real).
+    if (S.ready && !S.pending && !S.offline && S.historyDirty) flushHistory();
+    checkBoard();
   }, { gate: "polls", onError: onErr("polls") });
+
+  // The voters' board and past results: compared with what the motions say.
+  onLive(() => checkBoard(), { meta: true, onError: onErr("live") });
+  onHistoryDoc(() => checkBoard(), { onError: onErr("history") });
 
   setTimeout(() => { if (!gateIsOpen()) setBanner("conn", NO_CONN); }, 15000);
   whenReady().then(afterGate);
@@ -184,12 +198,75 @@ async function afterGate() {
     S.dbUpdate = true;
     setBanner("db", DB_UPDATE_MSG);
   }
+  if (!S.dbUpdate) {
+    // The last step of the gate: the board must exist before Open and Close,
+    // because every later change to it is a field-path patch.
+    try { await ensureBoard(); }
+    catch (e) {
+      console.warn("board", e);
+      if (classify(e) === "refused") { S.dbUpdate = true; setBanner("db", DB_UPDATE_CONSOLE); }
+      else setBanner("conn", NO_CONN);
+    }
+  }
   S.ready = true;
   R.motions(); R.results(); R.voters();
   if (S.dbUpdate) return;
   finishPurges();
   healResults();
+  checkBoard();
 }
+
+// ----------------------------------------------------------------- board checks
+// Never writes on its own: if the stored board differs from what the motions
+// say for 10 seconds (and this laptop has nothing pending), a banner offers
+// "Fix it". This catches a board written by a laptop that was a second behind.
+let boardT = null, historyT = null;
+function checkBoard() {
+  if (!S.ready || S.dbUpdate || S.pending || S.offline) return;
+  if (boardIsCurrent()) { clearTimeout(boardT); boardT = null; setBanner("board", null); }
+  else if (!boardT) boardT = setTimeout(() => { boardT = null; if (!S.pending && !boardIsCurrent()) showFix("board"); }, 10000);
+  if (historyIsCurrent()) { clearTimeout(historyT); historyT = null; if (!S.historyFailed) setBanner("history", null); }
+  else if (!historyT && !S.historyDirty) historyT = setTimeout(() => { historyT = null; if (!S.pending && !historyIsCurrent()) showFix("history"); }, 10000);
+}
+R.checkBoard = checkBoard;
+function showFix(which) {
+  const text = which === "board" ? "The voters' screen is out of date." : "Past results for voters are out of date.";
+  setBanner(which, `${text} <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-fix="${which}">Fix it</button>`);
+}
+$("banners").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-fix]");
+  if (!b) return;
+  b.disabled = true;
+  // Past results: write them again now. The board: the heal (at most every 30 s).
+  if (b.dataset.fix === "history") { await flushHistory(); return; }
+  const r = await fixBoard();
+  if (r === "wait") toast("Just fixed. Try again in a moment if it is still out of date.");
+});
+async function fixBoard() {
+  try {
+    const r = await healBoard({ pending: S.pending });
+    if (r !== "wait" && r !== "pending") { S.historyFailed = false; setBanner("board", null); setBanner("history", null); }
+    return r;
+  } catch (e) { await actionFailed(e, "Not allowed: the database refused the voters' screen."); return "failed"; }
+}
+R.fixBoard = fixBoard;
+S.historyDirty = false; S.historyFailed = false;
+async function flushHistory() {
+  S.historyDirty = false;
+  try { await writeHistory(); S.historyFailed = false; setBanner("history", null); }
+  catch (e) {
+    // A history failure never blocks or undoes the action; the next heal retries.
+    console.warn("history", e);
+    S.historyFailed = true;
+    showFix("history");
+  }
+}
+// After an action: past results need writing, once the server has confirmed it.
+function historyChanged() {
+  S.historyDirty = true;
+  if (S.ready && !S.pending && !S.offline) flushHistory();
+}
+R.historyChanged = historyChanged;
 
 // ----------------------------------------------------------------- saving results
 // Old motions (closed before results were saved) are saved once, after the
@@ -219,6 +296,7 @@ async function runCatchUp() {
   try {
     const r = await saveMissingResults(S.polls);
     if (r.saved) {
+      healBoard({ force: true, pending: false }).then(() => historyChanged(), (e) => console.warn("board", e));
       toast(r.saved === 1 ? "Saved the result of 1 earlier motion. Nothing it shows has changed."
         : `Saved the results of ${r.saved} earlier motions. Nothing they show has changed.`);
       S.catchup = { kind: "ok", text: r.flagged.length ? "" : "No earlier motion's result could have been changed by the write-in quorum fix." };
@@ -299,7 +377,14 @@ async function closeFlow(id) {
       sheet.hint(""); sheet.actions([["OK", () => sheet.close()]]);
       return false;
     }
-    const why = classify(e) === "refused" ? await whyCloseRefused(id, seen.openedAt) : "no connection";
+    if (classify(e) !== "refused") {
+      // A transaction is never queued: nothing happened, voting is still open.
+      sheet.status("Not closed: no connection. Voting is still open.");
+      sheet.hint("");
+      sheet.actions([["Try again", () => { sheet.close(); closeFlow(id); }], ["Cancel", () => sheet.close()]]);
+      return false;
+    }
+    const why = await whyCloseRefused(id, seen.openedAt);
     sheet.status(`Could not close: ${why}${/[.]$/.test(why) ? "" : "."}`);
     sheet.hint("");
     sheet.actions([["OK", () => sheet.close()]]);
@@ -325,6 +410,7 @@ async function saveFlow(id) {
       sheet.actions([["OK", () => sheet.close()]]);
       return;
     }
+    historyChanged();
     sheet.close();
     toast("Motion closed. Result saved.");
   } catch (e) {
@@ -375,7 +461,7 @@ async function reopenFlow(id, reason) {
   S.busy += 1;
   try {
     const r = await reopenMotion(id, reason);
-    if (r === "reopened") { S.reopenFor = null; toast("Motion re-opened. Voters can vote again."); }
+    if (r === "reopened") { S.reopenFor = null; historyChanged(); toast("Motion re-opened. Voters can vote again."); }
     return true;
   } catch (e) {
     if (e && e.why === "replaced") toast("Not allowed: this motion was replaced by a re-vote. Re-open the re-vote instead.");
@@ -384,3 +470,27 @@ async function reopenFlow(id, reason) {
   } finally { S.busy -= 1; R.results(); }
 }
 R.reopenFlow = reopenFlow;
+
+// A clean re-vote: the original keeps its result, marked "Replaced by a re-vote".
+async function revoteFlow(id, reason) {
+  S.busy += 1;
+  try {
+    const newId = await revoteMotion(id, reason);
+    historyChanged();
+    S.revoteReady = newId;
+    toast("Re-vote ready. Open it when everyone is ready to vote again.");
+    return newId;
+  } catch (e) {
+    if (e && e.why === "replaced") toast("Not allowed: this motion was already replaced by a re-vote.");
+    else if (e && e.why === "unsaved") toast("Save the result first, then start the re-vote.");
+    // The page already checked the result is saved and not replaced, so a
+    // refusal here means the rules that allow re-votes are not published yet.
+    else if (classify(e) === "refused") toast("This page needs a database update that has not been published yet. Re-vote is off until it is.");
+    else await actionFailed(e, "Not allowed: the database refused the re-vote.");
+    return null;
+  } finally { S.busy -= 1; R.results(); }
+}
+R.revoteFlow = revoteFlow;
+
+// Your name for the change history: asked once per laptop, kept on it.
+try { setLogName(localStorage.getItem("mv_log_name") || ""); } catch (e) { /* private mode */ }

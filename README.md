@@ -94,9 +94,13 @@ the record.
    A saved result never changes, even if someone's category is changed later.
 5. Move to the next motion. If a motion was closed by mistake, **Re-open** it from the
    Results tab and type the reason (kept in the change history; no health or private
-   details). The earlier count is kept. Motion wording can be edited until the first vote
+   details). The earlier count is kept. If a result is contested after it was announced,
+   use **Re-vote** instead: everyone votes again on a copy, the original stays on record
+   marked "Replaced by a re-vote", and voters see the reason. **Settings** (top right)
+   has the change history and your name for it. Motion wording can be edited until the first vote
    is cast, then it locks.
-6. If the console shows a yellow line at the top, read it: "No connection" fixes itself
+6. If the console says "The voters' screen is out of date", tap **Fix it**.
+   If the console shows a yellow line at the top, read it: "No connection" fixes itself
    when the connection is back; "needs a database update" means the matching rules have
    not been published yet (see below), and Open and Close stay off until they are.
 7. Afterward, **Export** for the record.

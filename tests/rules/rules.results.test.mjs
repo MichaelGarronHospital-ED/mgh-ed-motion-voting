@@ -106,7 +106,8 @@ describe("closing and saving (the real closeMotion and saveResult)", () => {
     a.setKnownPolls([{ id: "m1", text: "Motion one", status: "open", openedAt: OPENED }]);   // out of date
     await assertSucceeds(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
     const first = await readRaw("polls/m1");
-    await assertFails(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
+    await assert.rejects(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));    // the page stops (step 2: the board shows it closed)
+    await assertFails(updateDoc(doc(leader(), "polls/m1"), { status: "closed", closedAt: serverTimestamp(), closeOfOpenedAt: OPENED }));   // and the rules refuse
     assert.ok((await readRaw("polls/m1")).closedAt.isEqual(first.closedAt));
     // the previous page's close (no closing time) of a closed motion still passes, as before
     await assertSucceeds(updateDoc(doc(leader(), "polls/m1"), { status: "closed", lockedGroups: { x: "1" } }));
@@ -285,5 +286,153 @@ describe("voters and the change log", () => {
     await assertFails(setDoc(doc(L, "log/n3"), { at: serverTimestamp(), action: "close", extra: 1 }));   // unknown field
     await assertFails(setDoc(doc(L, "log/n4"), { at: serverTimestamp(), action: "reopen", reason: "x".repeat(1001) }));
     await assertSucceeds(setDoc(doc(L, "log/n5"), { at: serverTimestamp(), action: "reopen", pollId: "m1", reason: "Fine.", by: "Kyle" }));
+  });
+});
+
+// ---- R2: re-vote and run-off, and the board written by the real page code ----
+describe("re-vote (R2) and the voters' board", () => {
+  async function withBoard() {
+    const a = await app();
+    as(leader());
+    const polls = async () => (await getDocs(collection(leader(), "polls"))).docs.map((d) => ({ id: d.id, ...d.data() }));
+    a.setKnownPolls(await polls());
+    a.forgetBoard();
+    await a.ensureBoard();
+    return { a, polls };
+  }
+  it("the real revoteMotion passes and links both motions", async () => {
+    await closeAndSave();
+    const { a, polls } = await withBoard();
+    a.setKnownPolls(await polls());
+    const newId = await a.revoteMotion("m1", "Two ballots were cast under the wrong name.");
+    const orig = await readRaw("polls/m1");
+    const copy = await readRaw(`polls/${newId}`);
+    assert.equal(orig.supersededBy, newId);
+    assert.equal(copy.revoteOf, "m1");
+    assert.equal(copy.status, "draft");
+    assert.equal(copy.round, 2);
+    const live = await readRaw("config/live");
+    assert.equal(live.results.m1.supersededBy, newId);
+    a.setKnownPolls([]);
+  });
+  it("supersededBy without a new revote or runoff log is refused; a runoff log is accepted", async () => {
+    await closeAndSave();
+    const L = leader();
+    await assertFails(updateDoc(doc(L, "polls/m1"), { supersededBy: "x" }));
+    const b1 = writeBatch(L);
+    const l1 = doc(collection(L, "log"));
+    b1.set(l1, { at: serverTimestamp(), action: "close", pollId: "m1" });
+    b1.update(doc(L, "polls/m1"), { supersededBy: "x", lastLog: l1.id });
+    await assertFails(b1.commit());
+    const b2 = writeBatch(L);
+    const l2 = doc(collection(L, "log"));
+    b2.set(l2, { at: serverTimestamp(), action: "runoff", pollId: "m1" });
+    b2.update(doc(L, "polls/m1"), { supersededBy: "x", lastLog: l2.id });
+    await assertSucceeds(b2.commit());
+  });
+  it("a re-vote link before the result is saved is refused", async () => {
+    const L = leader();
+    const b = writeBatch(L);
+    const l = doc(collection(L, "log"));
+    b.set(l, { at: serverTimestamp(), action: "revote", pollId: "old" });
+    b.update(doc(L, "polls/old"), { supersededBy: "x", lastLog: l.id });
+    await assertFails(b.commit());
+  });
+  it("open, close, save, re-open, close, save, archive, history: all with the board, no time inside an array", async () => {
+    const { a, polls } = await withBoard();
+    a.setKnownPolls(await polls());
+    await assertSucceeds(a.openPoll("d1"));
+    as(ed());
+    await assertSucceeds(a.castVote({ pollId: "d1", name: "Zed", slug: "zed", group: "1", weight: 1, isWriteIn: false, choice: "favour", sessionId: "dev-z" }));
+    as(leader());
+    let ps = await polls(); a.setKnownPolls(ps);
+    let d1 = ps.find((p) => p.id === "d1");
+    // m1 is open too in the seed: close it first, as the console does
+    await assertSucceeds(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
+    await a.saveResult("m1");
+    ps = await polls(); a.setKnownPolls(ps);
+    await assertSucceeds(a.closeMotion("d1", { openedAt: d1.openedAt, votes: [] }));
+    assert.equal(await a.saveResult("d1"), "saved");
+    let live = await readRaw("config/live");
+    let poll = await readRaw("polls/d1");
+    assert.ok(live.results.d1.closedAt instanceof Timestamp, "board closedAt is a real time");
+    assert.ok(live.results.d1.result.savedAt.isEqual(poll.result.savedAt));
+    assert.equal(live.open, null);
+    ps = await polls(); a.setKnownPolls(ps);
+    await assertSucceeds(a.reopenMotion("d1", "Closed early by mistake."));
+    live = await readRaw("config/live");
+    assert.equal(live.results.d1, undefined);
+    assert.equal(live.open.id, "d1");
+    ps = await polls(); a.setKnownPolls(ps);
+    d1 = ps.find((p) => p.id === "d1");
+    await assertSucceeds(a.closeMotion("d1", { openedAt: d1.openedAt, votes: [] }));
+    assert.equal(await a.saveResult("d1"), "saved");
+    ps = await polls(); a.setKnownPolls(ps);
+    // the console keeps its copy of the board current with a listener
+    const un = a.onLive(() => {});
+    await new Promise((r) => setTimeout(r, 300));
+    await assertSucceeds(a.setArchived("m1", true));
+    un();
+    ps = await polls(); a.setKnownPolls(ps);
+    await assertSucceeds(a.writeHistory());
+    const h = await readRaw("config/history");
+    assert.ok(Array.isArray(h.entries));
+    live = await readRaw("config/live");
+    assert.equal(live.results.m1, undefined, "archived motions leave the board");
+    a.setKnownPolls([]);
+  });
+  it("two laptops: a close or re-open from a laptop a step behind never writes its older copy of another motion", async () => {
+    const { a, polls } = await withBoard();
+    // laptop B closes and saves m1; laptop A still has the list from before (m1 open, no result)
+    const stale = await polls();
+    a.setKnownPolls(stale);
+    await a.closeMotion("m1", { openedAt: OPENED, votes: [] });
+    a.setKnownPolls(await polls());
+    assert.equal(await a.saveResult("m1"), "saved");
+    const saved = (await readRaw("config/live")).results.m1;
+    assert.ok(saved.result, "the board shows m1's saved result");
+    await seed("polls/x2", { text: "Another", order: 5, status: "open", voteCount: 0, archived: false, deleted: false, openedAt: OPENED });
+    // laptop A (out of date) closes x2, then re-opens it
+    a.setKnownPolls([...stale, { id: "x2", text: "Another", order: 5, status: "open", openedAt: OPENED }]);
+    await assertSucceeds(a.closeMotion("x2", { openedAt: OPENED, votes: [] }));
+    let live = await readRaw("config/live");
+    assert.deepEqual(live.results.m1.result.outcome, saved.result.outcome, "m1's saved result is still on the board");
+    assert.ok(live.results.m1.result, "not overwritten with null");
+    await seed("polls/x2", { ...(await readRaw("polls/x2")), result: { ...saved.result }, lockedGroups: {} });
+    a.setKnownPolls([...stale, { id: "x2", ...(await readRaw("polls/x2")) }]);
+    await assertSucceeds(a.reopenMotion("x2", "Closed early by mistake."));
+    live = await readRaw("config/live");
+    assert.ok(live.results.m1 && live.results.m1.result, "re-open leaves m1 alone too");
+    assert.equal(live.open.id, "x2");
+    a.setKnownPolls([]);
+  });
+  it("a close stops if the board already shows the motion closed by another laptop", async () => {
+    const { a, polls } = await withBoard();
+    const stale = await polls();
+    a.setKnownPolls(stale);
+    await a.closeMotion("m1", { openedAt: OPENED, votes: [] });
+    a.setKnownPolls(stale);                       // still thinks m1 is open
+    await assert.rejects(a.closeMotion("m1", { openedAt: OPENED, votes: [] }), (e) => e.why === "closed");
+    a.setKnownPolls([]);
+  });
+  it("a late close never clears another motion's open (laptop B opened Y meanwhile)", async () => {
+    const { a, polls } = await withBoard();
+    a.setKnownPolls(await polls());
+    // board shows d1 open (laptop B), m1 is closed by laptop A from an older view
+    await testEnv.withSecurityRulesDisabled(async (c) => updateDoc(doc(c.firestore(), "config/live"), "open", { id: "d1", text: "Draft" }));
+    await assertSucceeds(a.closeMotion("m1", { openedAt: OPENED, votes: [] }));
+    const live = await readRaw("config/live");
+    assert.equal(live.open.id, "d1");
+    a.setKnownPolls([]);
+  });
+  it("a voter can read the board, history and screen documents, and write none of them", async () => {
+    await seed("config/live", { v: 2, open: null, results: {} });
+    await seed("config/history", { v: 1, entries: [] });
+    await seed("config/screen", { showQr: true });
+    const E = ed();
+    for (const d of ["config/live", "config/history", "config/screen"]) {
+      await assertSucceeds(getDoc(doc(E, d)));
+      await assertFails(setDoc(doc(E, d), { v: 9 }));
+    }
   });
 });

@@ -397,19 +397,22 @@ class TestFailurePaths(Base):
         asked = pg.evaluate("() => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; }")
         self.assertFalse(asked)
 
-    def test_close_offline_shows_waiting_dialog_with_focus(self):
+    def test_close_offline_shows_not_closed_with_focus(self):
+        """From step 2 the close is a transaction: offline it fails at once, never queues."""
         pg = self.admin()
         seed_open(pg, ballots=h.GROUP1[:3])
         pg.wait_for_timeout(300)
         pg.evaluate("window.__store.offline(true)")
         h.tab(pg, "results")
         pg.click("#r-close")
-        pg.wait_for_selector("#sheet:not(.hide)")
-        self.assertEqual(pg.evaluate("document.activeElement.id"), "sheet-title")
+        pg.wait_for_function("() => document.querySelector('#sheet-status').textContent.includes('Not closed')")
         self.assertEqual(pg.get_attribute("#sheet .sheet", "role"), "dialog")
-        self.assertIn("waiting for the connection. Voting is still open", pg.inner_text("#sheet-status"))
+        self.assertTrue(pg.evaluate("document.querySelector('#sheet').contains(document.activeElement)"))
+        self.assertIn("Not closed: no connection. Voting is still open.", pg.inner_text("#sheet-status"))
         self.assertEqual(h.get(pg, "polls/p1")["status"], "open")
+        self.assertEqual(pg.evaluate("window.__store.pending()"), 0)       # nothing queued
         pg.evaluate("window.__store.offline(false)")
+        pg.click("#sheet-actions button:first-child")                     # Try again
         wait_result(pg)
 
     def test_purge_keeps_a_log_entry(self):
