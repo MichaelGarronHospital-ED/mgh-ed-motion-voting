@@ -38,6 +38,17 @@ class TestGateSafety(Base):
         self.assertNotIn("password", pg.url)
         self.assertEqual(pg.input_value("#gate-form input[autocomplete=username]"), "Leadership password")
 
+    def test_both_password_screens_say_what_to_do_on_iphone(self):
+        help_text = "Not working on iPhone? Clear the box, type the password by hand, then tap Save when your phone offers."
+        pg = self.page
+        pg.goto(f"{self.base}/index.html")
+        pg.wait_for_selector("#edpw")
+        self.assertIn(help_text, pg.inner_text("#edgate"))
+        self.assertEqual(pg.get_attribute("#edpw", "aria-describedby"), "edpw-help")
+        h.load_admin(pg, self.base)
+        self.assertIn(help_text, pg.inner_text("#gate-form"))
+        self.assertEqual(pg.get_attribute("#pass", "aria-describedby"), "pass-help")
+
     def test_voter_password_form_is_built_by_its_code(self):
         html = (h.REPO / "index.html").read_text()
         self.assertNotIn("<form", html)
