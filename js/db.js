@@ -655,8 +655,10 @@ export async function getOwnBallot(pollId, slug) {
 }
 
 // ---- the voter page's reads ------------------------------------------------------
-// Fallback while config/live does not exist yet (before the first leadership
-// sign-in after the upgrade): the open motion only (0 or 1 document).
+// No longer used by the voter page (it reads only the board). Kept exported for
+// one more release, so a phone that still has an older vote.js cached (pages
+// are cached for up to 10 minutes) does not fail to load. Remove next update.
+// It was the fallback while config/live did not exist yet: the open motion only.
 export function onOpenPolls(cb, onError) {
   return onSnapshot(query(pollsCol(), where("status", "==", "open")), (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted));
@@ -667,8 +669,8 @@ export async function getHistoryOnce() {
   const s = await getDoc(historyRef());
   return s.exists() ? s.data() : null;
 }
-// Fallback for earlier results while config/history does not exist: the closed
-// motions, read once.
+// No longer used (see onOpenPolls); kept exported for one more release. It was
+// the fallback for earlier results while config/history did not exist.
 export async function getClosedPollsOnce() {
   const snap = await getDocs(query(pollsCol(), where("status", "==", "closed")));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted);

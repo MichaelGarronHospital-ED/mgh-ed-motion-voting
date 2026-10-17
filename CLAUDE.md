@@ -120,9 +120,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   only by `healBoard` (on console load, "Save result now", and "Fix it"; never while
   writes are pending; at most every 30 s). A console never rewrites the board on its
   own: if it is out of date for 10 s it shows "Fix it". Never put a server time inside an
-  array (Firestore refuses it): `results` is a map keyed by motion id. Until
-  `config/live` exists, phones fall back to the open motion and a one-time read of closed
-  motions; remove that fallback in a later cleanup once the documents exist live.
+  array (Firestore refuses it): `results` is a map keyed by motion id. Phones have no
+  fallback: until the console first creates `config/live`, nothing is open for them.
 - **Re-vote** is the normal way to contest a saved result: a draft copy linked both
   ways (`revoteOf`, `supersededBy`), with a reason voters see. Re-open is for "closed by
   mistake".

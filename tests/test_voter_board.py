@@ -117,16 +117,16 @@ class TestVoterBoard(Base):
         pg.clock.run_for(60000)
         self.assertEqual(h.reads(pg, "polls/c1/votes"), 4)            # once only
 
-    def test_voter_falls_back_without_a_board(self):
+    def test_voter_waits_for_the_board_without_reading_motions(self):
+        """No fallback any more: before the board exists, nothing is open for
+        phones, and they never listen to the motions."""
         pg = self.voter()
         seed_open(pg, ballots=[])
         h.pick_voter(pg, h.GROUP1[1])
-        pg.wait_for_selector('button[data-c="favour"]')
-        self.assertIn("polls", pg.evaluate("window.__store.listenerPaths()"))
-        build_board(pg)
-        pg.wait_for_timeout(200)
+        pg.wait_for_selector("text=Voting starts once leadership's console has been opened.")
         self.assertNotIn("polls", pg.evaluate("window.__store.listenerPaths()"))
-        self.assertEqual(pg.locator('button[data-c="favour"]').count(), 1)
+        build_board(pg)
+        pg.wait_for_selector('button[data-c="favour"]')
 
     def test_voter_sees_replaced_and_reopened_wording(self):
         pg = self.voter()

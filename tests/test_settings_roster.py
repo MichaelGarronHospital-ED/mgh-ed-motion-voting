@@ -183,6 +183,7 @@ class TestSettings(Base):
         pg = self.voter()
         seed_open(pg, ballots=[], threshold="twoThirds",
                   rule={"v": 1, "weights": {"1": 1, "2": 0.5, "courtesy": 0}, "quorumPercent": 50, "threshold": "twoThirds", "tieRule": "tie"})
+        h.build_board(pg)
         h.pick_voter(pg, h.GROUP1[0])
         pg.wait_for_selector("text=Needs two-thirds of the points cast to pass.")
 

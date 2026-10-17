@@ -18,6 +18,7 @@ class TestSmoke(Base):
     def test_voter_page_reaches_the_ballot_and_votes(self):
         pg = self.voter()
         h.seed_poll(pg)
+        h.build_board(pg)
         h.pick_voter(pg, h.GROUP1[1])
         pg.click('button[data-c="favour"]')
         pg.wait_for_function("() => window.__store.get('polls/p1').voteCount === 1")
