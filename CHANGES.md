@@ -29,7 +29,7 @@ ballots and check their shape). With the old rules a question vote is refused wi
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-Tests: 203 browser tests (16 new), 114 rules tests (9 new, with the real vote code for
+Tests: 204 browser tests (16 new), 114 rules tests (9 new, with the real vote code for
 one and several picks).
 
 ## A meeting screen for the projector (voting upgrade step 5, Oct 2026)
