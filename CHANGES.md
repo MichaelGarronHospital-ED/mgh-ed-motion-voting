@@ -55,7 +55,7 @@ not available yet."; votes are not affected.
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-Tests: 216 browser tests (13 new), 124 rules tests (10 new).
+Tests: 217 browser tests (13 new), 124 rules tests (10 new).
 
 ## Questions and elections (voting upgrade step 6, Oct 2026)
 
@@ -82,7 +82,7 @@ ballots and check their shape). With the old rules a question vote is refused wi
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-Tests: 203 browser tests (16 new), 114 rules tests (9 new, with the real vote code for
+Tests: 204 browser tests (16 new), 114 rules tests (9 new, with the real vote code for
 one and several picks).
 
 ## A meeting screen for the projector (voting upgrade step 5, Oct 2026)
@@ -107,7 +107,7 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab. The projector screen also says "A newer version is available. Reload." after
 later updates.
 
-Tests: 187 browser tests (15 new). Rules: no change; 105 rules tests (11 new rows checking the projector can read what it needs).
+Tests: 188 browser tests (15 new). Rules: no change; 105 rules tests (11 new rows checking the projector can read what it needs).
 
 ## Meetings and agendas (voting upgrade step 4, Oct 2026)
 
@@ -143,7 +143,7 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab (an open step-3 console does not keep the voters' board up to date with
 meetings).
 
-Tests: 172 browser tests (28 new), 94 rules tests (19 new, including the real meeting
+Tests: 173 browser tests (28 new), 94 rules tests (19 new, including the real meeting
 code and calendar-year retention with Feb 29).
 
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)
@@ -165,6 +165,10 @@ code and calendar-year retention with Feb 29).
   person?"). Every change to the list is in the change history.
 - The records said "(uncategorized)" after a dash; they now say "Uncategorized".
 - No proxy votes, as decided: there is no proxy setting.
+- **Re-vote is now also on the motion card** in the Motions list, next to Re-open. It
+  shows only when the motion is closed, its result is saved and it has not been replaced
+  by a re-vote already. Tapping it opens the Results tab with the re-vote reason box
+  ready, the same as the Re-vote button there.
 
 **Publish the rules before merging this page** (they add the settings checks; the
 step-2 page never writes settings).
@@ -172,7 +176,7 @@ step-2 page never writes settings).
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console tab.
 
-Tests: 144 browser tests (23 new), 75 rules tests (8 new).
+Tests: 145 browser tests (24 new), 75 rules tests (8 new).
 
 ## Phones read results from one small board; re-vote (voting upgrade step 2, Oct 2026)
 
