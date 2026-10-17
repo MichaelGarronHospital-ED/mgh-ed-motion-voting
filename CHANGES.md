@@ -55,7 +55,7 @@ not available yet."; votes are not affected.
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-Tests: 215 browser tests (13 new), 124 rules tests (10 new).
+Tests: 216 browser tests (13 new), 124 rules tests (10 new).
 
 ## Questions and elections (voting upgrade step 6, Oct 2026)
 
@@ -82,7 +82,7 @@ ballots and check their shape). With the old rules a question vote is refused wi
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-Tests: 202 browser tests (16 new), 114 rules tests (9 new, with the real vote code for
+Tests: 203 browser tests (16 new), 114 rules tests (9 new, with the real vote code for
 one and several picks).
 
 ## A meeting screen for the projector (voting upgrade step 5, Oct 2026)
@@ -107,7 +107,7 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab. The projector screen also says "A newer version is available. Reload." after
 later updates.
 
-Tests: 186 browser tests (15 new). Rules: no change; 105 rules tests (11 new rows checking the projector can read what it needs).
+Tests: 187 browser tests (15 new). Rules: no change; 105 rules tests (11 new rows checking the projector can read what it needs).
 
 ## Meetings and agendas (voting upgrade step 4, Oct 2026)
 
@@ -143,7 +143,7 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab (an open step-3 console does not keep the voters' board up to date with
 meetings).
 
-Tests: 171 browser tests (28 new), 94 rules tests (19 new, including the real meeting
+Tests: 172 browser tests (28 new), 94 rules tests (19 new, including the real meeting
 code and calendar-year retention with Feb 29).
 
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)
@@ -172,7 +172,7 @@ step-2 page never writes settings).
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console tab.
 
-Tests: 143 browser tests (23 new), 75 rules tests (8 new).
+Tests: 144 browser tests (23 new), 75 rules tests (8 new).
 
 ## Phones read results from one small board; re-vote (voting upgrade step 2, Oct 2026)
 
@@ -198,6 +198,8 @@ to about 6,700.
   still open. Try again") instead of waiting, so a late close can never land after a
   re-open.
 - Archive, unarchive, trash and restore are now in the change history too.
+- **Both password screens** (voters and the console) now say: "Not working on iPhone?
+  Clear the box, type the password by hand, then tap Save when your phone offers."
 
 **Publish the rules before merging this page** (they add the re-vote link only; the
 step-1 page works the same with them). Until the first leadership sign-in creates the
@@ -207,8 +209,17 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab (an open step-1 console does not keep the voters' board up to date).
 Voting with a keyboard keeps its place after each tap.
 
-Tests: 120 browser tests (31 new), 67 rules tests (15 new, including the real close,
+Tests: 121 browser tests (32 new), 67 rules tests (15 new, including the real close,
 save, re-open, re-vote and history code writing the board in the emulator).
+
+---
+
+## Tests run on GitHub for every push (Oct 17 2026)
+
+- `.github/workflows/tests.yml` runs the database rules tests and the browser tests on every
+  push and pull request. No page, rule or test changed.
+
+---
 
 ## Results are saved when a motion closes (voting upgrade step 1, Oct 2026)
 
