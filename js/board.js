@@ -43,17 +43,23 @@ export function openEntry(p, number, main) {
     id: p.id, number: n(number !== undefined ? number : p.number), text: p.text, kind: p.kind || "motion", threshold: p.threshold || "majority",
     rule: n(p.rule), revoteOf: n(p.revoteOf), revoteReason: n(p.revoteReason), round: p.round || 1,
   };
+  if (p.kind === "choice") { e.options = p.options || []; e.optionIds = p.optionIds || []; e.seats = p.seats || 1; e.style = p.style || "question"; }
   if (main) { e.amendsNumber = n(main.number); e.amendsText = String(main.text || "").slice(0, 2000); }
   return e;
 }
 export function resultEntry(p, pos, number) {
-  return {
+  const e = {
     pos, number: n(number !== undefined ? number : p.number), text: p.text, kind: p.kind || "motion", threshold: p.threshold || "majority",
     result: p.status === "closed" && p.result ? p.result : null,
     closedAt: n(p.closedAt),
     revoteOf: n(p.revoteOf), revoteReason: n(p.revoteReason), supersededBy: n(p.supersededBy),
     reopenCount: p.reopenCount || 0, priorOutcome: priorOutcome(p),
   };
+  if (p.kind === "choice") {
+    e.seats = p.seats || 1; e.style = p.style || "question";
+    if (!e.result) e.options = p.options || [];     // labels only until the result (which has them) is saved
+  }
+  return e;
 }
 
 // When a motion closed, in milliseconds. opts.justClosed is a motion this
@@ -142,6 +148,7 @@ export function buildHistory(polls, meetings, board) {
       meetingTitle: p.meetingId && mById[p.meetingId] ? mById[p.meetingId].title || "" : null,
       meetingDate: (p.meetingId && mById[p.meetingId] && mById[p.meetingId].date) || localDate(t(p)) || null,
       number: n(nums[p.id] !== undefined ? nums[p.id] : p.number), text: String(p.text || "").slice(0, 500), kind: p.kind || "motion",
+      seats: p.kind === "choice" ? p.seats || 1 : null, style: p.kind === "choice" ? p.style || "question" : null,
       result: p.result, revoteOf: n(p.revoteOf), revoteReason: n(p.revoteReason), supersededBy: n(p.supersededBy),
       reopenCount: p.reopenCount || 0, priorOutcome: priorOutcome(p),
     };

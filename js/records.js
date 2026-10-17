@@ -9,7 +9,7 @@ import {
   resultOf, outcomeWords, sortMotions, currentRule, liveEligible, quorumNeededFor, weightIn,
   currentMeetings, agendaOrder, getLogForMeeting, tsMillis,
 } from "./db.js";
-import { escapeHtml, labelOf, fmt, toast } from "./util.js";
+import { escapeHtml, labelOf, fmt, toast, voteWords } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
 import { $, S, R, catLabel, groupLabel, download, meetingLabel, niceDate } from "./admin-state.js";
 
@@ -42,16 +42,16 @@ function recordTables(recs) {
   const roster = resolvedRoster();
   const motions = [["#", "Motion", "Status", "Archived", "Result",
     "In favour (pts)", "Against (pts)", "Abstain (pts)", "In favour (votes)", "Against (votes)", "Abstain (votes)",
-    "Ballots", "Eligible who voted", "Quorum needed", "Write-ins", "Flagged for review"]];
+    "Ballots", "Eligible who voted", "Quorum needed", "Write-ins", "Flagged for review", "Options (points, votes)"]];
   const ballots = [["#", "Motion", "Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "Write-in"]];
   recs.forEach((r) => {
     const { poll: p, t } = r;
     motions.push([r.n, p.text, statusWord(p), p.archived ? "Yes" : "", r.result,
       t.weight.favour, t.weight.against, t.weight.abstain, t.count.favour, t.count.against, t.count.abstain,
-      t.totalVotes, t.quorumCount, r.quorum, t.writeIns, t.flags]);
+      t.totalVotes, t.quorumCount, r.quorum, t.writeIns, t.flags, optionsText(t)]);
     [...r.votes].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => ballots.push([
       r.n, p.text, v.name, v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, p)), weightForVote(v, p),
-      labelOf(v.choice), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""]));
+      voteWords(v, p), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""]));
   });
   const rosterRows = [["Name", "Category", "Points per vote"]];
   const rule = currentRule();
@@ -98,8 +98,9 @@ async function printAll() {
       <p class="pr-line"><b>${escapeHtml(r.result)}</b> &middot; ${escapeHtml(statusWord(p))}${p.archived ? " (archived)" : ""}
         &middot; Quorum ${tt.quorumCount} of ${r.quorum} &middot; ${tt.totalVotes} ballot${tt.totalVotes === 1 ? "" : "s"}</p>
       <table><thead><tr><th>Vote</th><th>Points</th><th>Votes</th></tr></thead><tbody>
-        <tr><td>In favour</td><td>${fmt(tt.weight.favour)}</td><td>${tt.count.favour}</td></tr>
-        <tr><td>Against</td><td>${fmt(tt.weight.against)}</td><td>${tt.count.against}</td></tr>
+        ${tt.kind === "choice" ? (tt.options || []).map((o) => `<tr><td>${escapeHtml(o.label)}</td><td>${fmt(o.weight)}</td><td>${o.count}</td></tr>`).join("")
+          : `<tr><td>In favour</td><td>${fmt(tt.weight.favour)}</td><td>${tt.count.favour}</td></tr>
+        <tr><td>Against</td><td>${fmt(tt.weight.against)}</td><td>${tt.count.against}</td></tr>`}
         <tr><td>Abstain</td><td>${fmt(tt.weight.abstain)}</td><td>${tt.count.abstain}</td></tr>
       </tbody></table></section>`;
   }).join("");
@@ -118,6 +119,11 @@ export function showPrint(html) {
   window.addEventListener("afterprint", done);
   window.print();
   setTimeout(done, 1000);
+}
+
+// A question's or election's options with their points and votes.
+function optionsText(t) {
+  return t.kind === "choice" ? (t.options || []).map((o) => `${o.label}: ${o.weight} pts, ${o.count} votes`).join("; ") : "";
 }
 
 // ---- one meeting's records -------------------------------------------------------
@@ -155,7 +161,7 @@ function meetingTables({ m, recs, log }) {
     ["Exported", new Date().toLocaleString()]];
   const motions = [["Number", "Motion", "Amendment of", "Type", "Mover", "Seconder", "Opened", "Closed", "Pass rule", "Result",
     "In favour (pts)", "Against (pts)", "Abstain (pts)", "In favour (votes)", "Against (votes)", "Abstain (votes)", "Quorum",
-    "Re-vote or re-open", "Notes"]];
+    "Re-vote or re-open", "Notes", "Options (points, votes)"]];
   recs.forEach((r) => {
     const p = r.poll, t = r.t;
     const notes = [];
@@ -165,12 +171,12 @@ function meetingTables({ m, recs, log }) {
     motions.push([r.number, p.text, p.amends ? (numOf[p.amends] || "") : "", p.amends ? "Amendment" : "Motion", p.mover || "", p.seconder || "",
       when(p.openedAt), p.status === "closed" ? when(p.closedAt) : "", ruleWords(t.rule), r.result,
       t.weight.favour, t.weight.against, t.weight.abstain, t.count.favour, t.count.against, t.count.abstain,
-      `${t.quorumCount} of ${t.quorumNeeded}`, notes.join("; "), p.notes || ""]);
+      `${t.quorumCount} of ${t.quorumNeeded}`, notes.join("; "), p.notes || "", optionsText(t)]);
   });
   const ballots = [["Number", "Motion", "Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "Write-in"]];
   recs.forEach((r) => [...r.votes].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => ballots.push([
     r.number, r.poll.text, v.name, v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, r.poll)), weightForVote(v, r.poll),
-    labelOf(v.choice), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""])));
+    voteWords(v, r.poll), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""])));
   const attendance = [["Name", "Category", "Checked in as", "Motions voted on"]];
   [...people.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((e) =>
     attendance.push([e.name, e.group === "writein" ? "Write-in" : catLabel(e.group), "Voted, did not check in", e.motions.join(", ")]));
@@ -206,8 +212,9 @@ export async function printMeeting(meetingId) {
       ${p.mover || p.seconder ? `<p class="pr-line">Moved by ${escapeHtml(p.mover || "(not recorded)")}; seconded by ${escapeHtml(p.seconder || "(not recorded)")}</p>` : ""}
       <p class="pr-line"><b>${escapeHtml(r.result)}</b> &middot; Quorum ${t.quorumCount} of ${t.quorumNeeded} &middot; ${t.totalVotes} ballot${t.totalVotes === 1 ? "" : "s"}${p.revoteOf ? ` &middot; Re-vote (${escapeHtml(p.revoteReason || "")})` : ""}${p.supersededBy ? " &middot; Replaced by a re-vote" : ""}</p>
       <table><thead><tr><th>Vote</th><th>Points</th><th>Votes</th></tr></thead><tbody>
-        <tr><td>In favour</td><td>${fmt(t.weight.favour)}</td><td>${t.count.favour}</td></tr>
-        <tr><td>Against</td><td>${fmt(t.weight.against)}</td><td>${t.count.against}</td></tr>
+        ${t.kind === "choice" ? (t.options || []).map((o) => `<tr><td>${escapeHtml(o.label)}</td><td>${fmt(o.weight)}</td><td>${o.count}</td></tr>`).join("")
+          : `<tr><td>In favour</td><td>${fmt(t.weight.favour)}</td><td>${t.count.favour}</td></tr>
+        <tr><td>Against</td><td>${fmt(t.weight.against)}</td><td>${t.count.against}</td></tr>`}
         <tr><td>Abstain</td><td>${fmt(t.weight.abstain)}</td><td>${t.count.abstain}</td></tr>
       </tbody></table>${p.notes ? `<p class="pr-line">Notes: ${escapeHtml(p.notes)}</p>` : ""}</section>`;
   }).join("");

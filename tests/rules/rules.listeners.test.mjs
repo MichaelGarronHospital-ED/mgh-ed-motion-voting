@@ -17,6 +17,7 @@
 //  Step 5 (projector): the console adds config/screen; the projector (ED or
 //  leadership sign-in) reads config/live, config/screen, config/roster, the
 //  open motion's ballots, and one motion with its ballots (a late result).
+//  Step 6 (questions and elections): no new source.
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -65,7 +66,7 @@ const SOURCES = {
   ],
 };
 
-describe("step 5 pages read only what the rules allow", () => {
+describe("step 6 pages read only what the rules allow", () => {
   for (const [name, read] of SOURCES.console) {
     it(`console (Leadership) can read ${name}`, async () => { await assertSucceeds(read(leader())); });
   }

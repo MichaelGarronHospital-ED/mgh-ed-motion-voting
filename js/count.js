@@ -119,11 +119,12 @@ export function computeResult(poll, votes, ctx) {
   const rule = ruleFor(poll, ctx.settings);
   const frozen = poll.status === "closed" && poll.lockedGroups ? poll.lockedGroups : null;
   const groupOf = (v) => (frozen && Object.prototype.hasOwnProperty.call(frozen, v.slug) ? frozen[v.slug] : ctx.groupOf(v.slug));
-  const t = tallyMotion(votes, groupOf, rule);
   const eligible = frozen
     ? Object.values(frozen).filter((g) => weightIn(rule, g) > 0).length
     : ctx.liveEligible(rule);
   const quorumNeeded = quorumNeededFor(eligible, rule.quorumPercent);
+  if ((poll.kind || "motion") === "choice") return computeChoice(poll, votes, groupOf, rule, eligible, quorumNeeded);
+  const t = tallyMotion(votes, groupOf, rule);
   return {
     v: 1, kind: "motion",
     outcome: decide(t, rule, quorumNeeded),
@@ -134,9 +135,84 @@ export function computeResult(poll, votes, ctx) {
   };
 }
 
+// ---- questions and elections (voting upgrade, step 6) -------------------------------
+// A ballot picks up to `seats` options (or abstains). Each pick adds the voter's
+// full points to that option. Options are ranked by points. Winners are the
+// top `seats` options with more than 0 points; an option with 0 points never
+// wins. "tie" only when an option outside the top `seats` has the same points
+// as the last winner (options level with each other but all inside the
+// winners are simply winners). Fewer options with points than seats: decided,
+// with fewer winners and a note. No option with points: "none". "More than half"
+// (one pick): the leader needs over half of the points cast for options
+// (abstentions not counted), else "noMajority". No quorum always wins.
+export function tallyChoice(votes, groupOf, rule, poll) {
+  const opts = (poll.options || []).map((o) => ({ id: o.id, label: o.label, u: 0, count: 0 }));
+  const byId = Object.fromEntries(opts.map((o) => [o.id, o]));
+  const abst = { u: 0, count: 0 };
+  const t = tallyVotes(votes, (v) => {
+    const u = units(weightIn(rule, groupOf(v)));
+    if (v.choice === "abstain") { abst.u += u; abst.count += 1; }
+    else if (v.choice === "pick" && Array.isArray(v.picks)) {
+      [...new Set(v.picks)].forEach((id) => { if (byId[id]) { byId[id].u += u; byId[id].count += 1; } });
+    }
+    return u / 100;
+  });
+  return { t, opts, abst };
+}
+function computeChoice(poll, votes, groupOf, rule, eligible, quorumNeeded) {
+  const { t, opts, abst } = tallyChoice(votes, groupOf, rule, poll);
+  const seats = Math.max(1, poll.seats || 1);
+  const ranked = opts.map((o, i) => ({ ...o, i })).sort((a, b) => b.u - a.u || a.i - b.i);
+  const scoring = ranked.filter((o) => o.u > 0);
+  let outcome, winners = [], tied = [], note = "";
+  if (t.quorumCount < quorumNeeded) outcome = "noq";
+  else if (!scoring.length) outcome = "none";
+  else if (scoring.length <= seats) {
+    outcome = "decided"; winners = scoring.map((o) => o.id);
+    if (scoring.length < seats) note = `Only ${scoring.length} option${scoring.length === 1 ? "" : "s"} received points.`;
+  } else {
+    const last = scoring[seats - 1].u;
+    if (scoring[seats].u === last) {
+      outcome = "tie";
+      winners = scoring.filter((o) => o.u > last).map((o) => o.id);
+      tied = scoring.filter((o) => o.u === last).map((o) => o.id);
+    } else {
+      outcome = "decided"; winners = scoring.slice(0, seats).map((o) => o.id);
+    }
+  }
+  const cast = opts.reduce((n, o) => n + o.u, 0);
+  if (outcome === "decided" && seats === 1 && rule.threshold === "majority" && !(scoring[0].u * 2 > cast)) {
+    outcome = "noMajority"; winners = [];
+  }
+  return {
+    v: 1, kind: "choice", seats, style: poll.style || "question", outcome,
+    options: ranked.map((o) => ({ id: o.id, label: o.label, weight: o.u / 100, count: o.count })),
+    abstain: { weight: abst.u / 100, count: abst.count }, winners, tied, note,
+    weight: { favour: 0, against: 0, abstain: abst.u / 100 }, count: { favour: 0, against: 0, abstain: abst.count },
+    totalVotes: t.totalVotes, quorumCount: t.quorumCount, quorumNeeded, eligible,
+    writeIns: t.writeIns, flags: t.flags, rule: copyRule(rule),
+  };
+}
+// "Dr A and Dr B", "Dr A, Dr B and Dr C".
+function andList(xs) { return xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`; }
+function choiceWords(r) {
+  const label = (id) => ((r.options || []).find((o) => o.id === id) || {}).label || id;
+  const election = r.style === "election";
+  switch (r.outcome) {
+    case "decided": return `${election ? "Elected" : "Chosen"}: ${(r.winners || []).map(label).join(", ")}`;
+    case "tie": return (r.winners || []).length || (r.seats || 1) > 1
+      ? `Tie for the last seat: ${andList((r.tied || []).map(label))}` : `Tie for first place: ${andList((r.tied || []).map(label))}`;
+    case "noMajority": return `No option has more than half. ${label((r.options || [])[0] && r.options[0].id)} leads.`;
+    case "none": return "No choice made";
+    case "noq": return "No quorum";
+    default: return "";
+  }
+}
+
 // The words for an outcome, always from the result's own rule (never today's
 // settings). audience: "console" (present tense) or "voter" / "record" (past).
 export function outcomeWords(result, audience = "voter") {
+  if (result && result.kind === "choice") return choiceWords(result);
   const now = audience === "console";
   const r = (result && result.rule) || LEGACY_RULE;
   const two = r.threshold === "twoThirds";
@@ -155,7 +231,7 @@ export function outcomeWords(result, audience = "voter") {
 // The verdict style (pass | fail | tie | noq) for an outcome.
 export function outcomeKind(result) {
   const o = result && result.outcome;
-  return o === "pass" || o === "decided" ? "pass" : o === "fail" || o === "noMajority" || o === "none" ? "fail" : o === "tie" ? "tie" : "noq";
+  return o === "pass" || o === "decided" ? "pass" : o === "fail" || o === "none" ? "fail" : o === "tie" || o === "noMajority" ? "tie" : "noq";
 }
 
 // ---- times -------------------------------------------------------------------

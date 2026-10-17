@@ -642,31 +642,37 @@ export async function countOnce(pollId, pollData) {
 // Stores ONE row per name per poll (clean tally), but tracks every submission
 // so leadership can flag duplicates. Re-voting from the SAME device = changing
 // your mind. The same name from a DIFFERENT device = flagged for review.
-export async function castVote({ pollId, name, slug, group, weight, isWriteIn, choice, sessionId }) {
+// A question or election ballot also has `picks` (option ids, in the
+// question's option order, so the same picks in another order is not a new
+// submission); its choice is "pick" or "abstain". A motion ballot never has picks.
+// Returns the ballot's submission count.
+export async function castVote({ pollId, name, slug, group, weight, isWriteIn, choice, sessionId, picks }) {
   const ref = doc(db, "polls", pollId, "votes", slug);
   const pRef = pollRef(pollId);
-  await runTransaction(db, async (tx) => {
+  const hasPicks = Array.isArray(picks);
+  return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) {
-      tx.set(ref, {
+      const b = {
         name, slug, group, weight, isWriteIn: !!isWriteIn, choice,
         sessionIds: [sessionId], submissionCount: 1, flagged: false,
         firstAt: serverTimestamp(), lastAt: serverTimestamp(),
-      });
+      };
+      if (hasPicks) b.picks = picks;
+      tx.set(ref, b);
       tx.update(pRef, { voteCount: increment(1) });   // distinct-voter count: edit lock
-    } else {
-      const d = snap.data();
-      const sessions = d.sessionIds || [];
-      const sessionIds = sessions.includes(sessionId) ? sessions : [...sessions, sessionId];
-      const changed = d.choice !== choice;   // re-tapping the SAME choice is a no-op for the count
-      tx.update(ref, {
-        choice,
-        submissionCount: (d.submissionCount || 1) + (changed ? 1 : 0),
-        sessionIds,
-        flagged: sessionIds.length > 1,   // same name, 2+ devices: review
-        lastAt: serverTimestamp(),
-      });
+      return 1;
     }
+    const d = snap.data();
+    const sessions = d.sessionIds || [];
+    const sessionIds = sessions.includes(sessionId) ? sessions : [...sessions, sessionId];
+    // re-tapping the SAME choice (and picks) is a no-op for the count
+    const changed = d.choice !== choice || (hasPicks && JSON.stringify(d.picks || []) !== JSON.stringify(picks));
+    const count = (d.submissionCount || 1) + (changed ? 1 : 0);
+    const u = { choice, submissionCount: count, sessionIds, flagged: sessionIds.length > 1, lastAt: serverTimestamp() };
+    if (hasPicks) u.picks = picks;
+    tx.update(ref, u);
+    return count;
   });
 }
 
@@ -702,7 +708,8 @@ function resultSummary(r) {
 }
 
 // ---- admin actions ---------------------------------------------------------
-export async function addPoll(text, threshold, meetingId, amends) {
+// choice (questions and elections): { kind: "choice", style, options: [{id, label}], seats }.
+export async function addPoll(text, threshold, meetingId, amends, choice) {
   const siblings = knownPolls.filter((p) => (meetingId ? p.meetingId === meetingId : !p.meetingId) && (p.amends || null) === (amends || null));
   const order = siblings.reduce((m, p) => Math.max(m, Number(p.order) || 0), -1) + 1;
   const ref = doc(pollsCol());
@@ -713,6 +720,7 @@ export async function addPoll(text, threshold, meetingId, amends) {
   };
   if (meetingId) d.meetingId = meetingId;
   if (amends) d.amends = amends;
+  if (choice) Object.assign(d, choiceFields(choice));
   await setDoc(ref, d);
   return ref.id;
 }
@@ -945,7 +953,10 @@ function commitResult(pollId, votes, b0, opts) {
     tx.update(pollRef(pollId), patch);
     // The board shows it: fill in its result there too (only that one field).
     if (ls.exists() && ls.data().results && ls.data().results[pollId]) {
-      tx.update(liveRef(), new FieldPath("results", pollId, "result"), result, "changedAt", serverTimestamp());
+      // Option labels now live in the result: the entry's own copy goes.
+      const args = [new FieldPath("results", pollId, "result"), result];
+      if ("options" in ls.data().results[pollId]) args.push(new FieldPath("results", pollId, "options"), deleteField());
+      tx.update(liveRef(), ...args, "changedAt", serverTimestamp());
     }
     const wi = newWriteins(votes, pollId);
     if (Object.keys(wi).length) tx.set(rosterRef(), { writeins: wi }, { merge: true });
@@ -1045,6 +1056,37 @@ export async function reopenMotion(pollId, reason) {
     writeOps(tx, ops);
     return "reopened";
   }));
+}
+
+// The stored fields of a question or election.
+export function choiceFields(c) {
+  const options = c.options.map((o, i) => ({ id: o.id || `o${i + 1}`, label: String(o.label).trim().slice(0, 120) }));
+  return { kind: "choice", style: c.style === "election" ? "election" : "question", options,
+    optionIds: options.map((o) => o.id), seats: Math.max(1, Math.min(options.length - 1, Math.round(c.seats || 1))) };
+}
+// Run-off of a question nobody won with more than half: a new question with
+// the top two, linked like a re-vote (a "runoff" log entry).
+export async function runoffMotion(pollId, reason) {
+  const p = knownPolls.find((x) => x.id === pollId);
+  if (!p || !p.result || p.result.kind !== "choice") throw Object.assign(new Error("not saved"), { code: "failed-precondition", why: "unsaved" });
+  if (p.supersededBy) throw Object.assign(new Error("replaced"), { code: "failed-precondition", why: "replaced" });
+  const top = p.result.options.slice(0, 2).map((o) => ({ id: o.id, label: o.label }));
+  const ref = doc(pollsCol());
+  const copy = {
+    text: p.text, order: (Number(p.order) || 0) + 0.5, status: "draft", voteCount: 0, archived: false, deleted: false,
+    createdAt: serverTimestamp(), revoteOf: pollId, round: (p.round || 1) + 1, revoteReason: String(reason).slice(0, 1000),
+    threshold: "majority", ...choiceFields({ style: p.style, options: top, seats: 1 }),
+  };
+  if (p.meetingId) copy.meetingId = p.meetingId;
+  await withBoard(async () => {
+    const b = writeBatch(db);
+    b.set(ref, copy);
+    const logId = writeLog(b, { action: "runoff", pollId, text: p.text, reason, before: resultSummary(p.result), after: { newPollId: ref.id } });
+    b.update(pollRef(pollId), { supersededBy: ref.id, lastLog: logId });
+    patchBoard(b, live, buildBoard(simulate({ [pollId]: { supersededBy: ref.id } }), knownMeetings));
+    await b.commit();
+  });
+  return ref.id;
 }
 
 // A clean re-vote of a closed motion with a saved result (the normal way to

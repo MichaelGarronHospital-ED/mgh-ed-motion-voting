@@ -3,7 +3,7 @@ import {
   onVotesFor, clearVote, weightForVote, groupForVote, resultOf, outcomeWords, outcomeKind, clockTime,
   classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor,
 } from "./db.js";
-import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar } from "./util.js";
+import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar, choiceBars, voteWords } from "./util.js";
 import { $, S, R, STATUS_WORD, statusPill, groupLabel, download } from "./admin-state.js";
 import { tsMillis } from "./count.js";
 
@@ -105,7 +105,10 @@ export function renderResults() {
 export function resultLine(r) {
   return `${outcomeWords(r, "voter")}, ${fmt(r.weight.favour)} to ${fmt(r.weight.against)} points, quorum ${r.quorumCount} of ${r.quorumNeeded}`;
 }
-function ruleHint(rule) {
+function ruleHint(rule, r) {
+  if (r && r.kind === "choice") {
+    return `Each pick adds the voter's points. ${(r.seats || 1) > 1 ? `The top ${r.seats} with points are elected.` : rule && rule.threshold === "majority" ? "The winner needs more than half of the points cast for options." : "The option with the most points wins."} Abstentions count only toward quorum.`;
+  }
   const pass = rule && rule.threshold === "twoThirds"
     ? "Passes with at least two-thirds of the weighted votes for or against; abstentions count only toward quorum."
     : "Passes when weighted In favour beats weighted Against; abstentions count only toward quorum.";
@@ -156,7 +159,8 @@ function paintResults(el, poll, votes, loaded) {
     actions = `<p class="ed-hint">Re-open the re-vote instead.</p>`;
   } else {
     actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" aria-expanded="${S.reopenFor === poll.id}" aria-controls="reopen-form" ${ready ? "" : "disabled"}>Re-open voting</button>`
-      + (saved ? `<button type="button" class="ed-btn ed-btn-tinted" id="r-revote" aria-expanded="${S.revoteFor === poll.id}" aria-controls="revote-form" ${ready ? "" : "disabled"}>Re-vote</button>` : "");
+      + (saved ? `<button type="button" class="ed-btn ed-btn-tinted" id="r-revote" aria-expanded="${S.revoteFor === poll.id}" aria-controls="revote-form" ${ready ? "" : "disabled"}>Re-vote</button>` : "")
+      + (saved && saved.outcome === "noMajority" ? `<button type="button" class="ed-btn ed-btn-tinted" id="r-runoff" ${ready ? "" : "disabled"}>Run-off with the top two</button>` : "");
   }
   if (S.revoteReady && S.revoteReady === poll.supersededBy && replacedBy && replacedBy.status === "draft") {
     actions += `<button type="button" class="ed-btn ed-btn-filled" id="revote-open" ${ready ? "" : "disabled"}>Open the re-vote now</button>`;
@@ -185,14 +189,14 @@ function paintResults(el, poll, votes, loaded) {
   const history = poll.status !== "draft" ? `<details class="about" id="motion-history"><summary>History</summary><ul class="plain-list" id="motion-history-list"></ul></details>` : "";
   el.innerHTML = `${top}
     ${verdictHTML(outcomeKind(r), escapeHtml(outcomeWords(r, "console")))}
-    ${bars(r)}
+    ${r.kind === "choice" ? choiceBars(r) : bars(r)}
     <div class="quorum ${quorumMet ? "met" : "short"}">
       <div class="spread"><span class="q-label">Quorum${poll.status === "closed" ? `${icon("lock", 16)}<span class="ed-muted">frozen at close</span>` : ""}</span>
         <span class="q-state">${icon(quorumMet ? "check" : "alert", 18)}${r.quorumCount} of ${quorum} ${quorumMet ? "met" : "not met"}</span></div>
       <div class="bar" aria-hidden="true"><span class="${quorumMet ? "favour" : "short"}" style="width:${quorum > 0 ? Math.min(100, (r.quorumCount / quorum) * 100) : 0}%"></span></div>
       ${!quorumMet ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
     </div>
-    <p class="ed-hint">${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"} · ${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"} · ${r.flags} flagged. ${ruleHint(r.rule)}</p>
+    <p class="ed-hint">${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"} · ${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"} · ${r.flags} flagged. ${ruleHint(r.rule, r)}</p>
     ${savedLine}${links}${priorLine}
     <div class="row">${actions}</div>${form}${revoteForm}${history}`;
   const c = $("r-close"), o = $("r-open"), sv = $("r-save");
@@ -203,6 +207,15 @@ function paintResults(el, poll, votes, loaded) {
     S.revoteFor = S.revoteFor === poll.id ? null : poll.id; S.reopenFor = null;
     renderResults();
     if ($("revote-reason")) $("revote-reason").focus();
+  });
+  const rr = $("r-runoff");
+  if (rr) rr.addEventListener("click", async () => {
+    const top = saved.options.slice(0, 2).map((o) => o.label).join(" and ");
+    if (!confirm(`Start a run-off between ${top}? It is a new question, linked to this one; this result stays on record, marked "Replaced by a re-vote".`)) return;
+    rr.disabled = true;
+    const id = await R.runoffFlow(poll.id, "Run-off: no option had more than half of the points.");
+    if (!id) rr.disabled = false;
+    renderResults();
   });
   const ro = $("revote-open");
   if (ro) ro.addEventListener("click", async () => {
@@ -360,7 +373,7 @@ function paintVoters(poll, votes) {
       <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
       <td class="cat">${g}</td>
       <td class="num">${fmt(ew)}</td>
-      <td class="choice">${escapeHtml(labelOf(v.choice))}</td>
+      <td class="choice">${escapeHtml(voteWords(v, poll))}</td>
       <td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>
       ${frozen ? "" : `<td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${escapeHtml(v.id)}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>`}
     </tr>`;
@@ -387,16 +400,20 @@ function exportCsv() {
   [...list].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => {
     lines.push([
       csv(v.name), v.isWriteIn ? "write-in" : groupLabel(groupForVote(v, poll)), weightForVote(v, poll),
-      v.choice, v.submissionCount || 1, v.flagged ? "YES" : "", v.isWriteIn ? "YES" : "",
+      csv(v.choice === "pick" ? voteWords(v, poll) : v.choice), v.submissionCount || 1, v.flagged ? "YES" : "", v.isWriteIn ? "YES" : "",
     ].join(","));
   });
   lines.push("");
   lines.push(csv("MOTION:") + "," + csv(poll.text));
-  lines.push(`In favour (pts),${t.weight.favour}`);
-  lines.push(`Against (pts),${t.weight.against}`);
+  if (t.kind === "choice") (t.options || []).forEach((o) => lines.push(`${csv(o.label)} (pts),${o.weight}`));
+  else {
+    lines.push(`In favour (pts),${t.weight.favour}`);
+    lines.push(`Against (pts),${t.weight.against}`);
+  }
   lines.push(`Abstain (pts),${t.weight.abstain}`);
   lines.push(`Quorum,${t.quorumCount} of ${t.quorumNeeded}`);
-  lines.push(`Result,${outcomeWords(t, "console").toUpperCase().replace("NO QUORUM: CANNOT PASS", "NO QUORUM")}`);
+  const words = outcomeWords(t, "console").toUpperCase().replace("NO QUORUM: CANNOT PASS", "NO QUORUM");
+  lines.push(`Result,${t.kind === "choice" ? csv(words) : words}`);
   download(new Blob([lines.join("\n")], { type: "text/csv" }), "motion-result.csv");
 }
 

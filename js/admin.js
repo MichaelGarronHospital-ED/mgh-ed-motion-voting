@@ -9,7 +9,7 @@ import {
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
-  historyIsCurrent, revoteMotion, setLogName, currentLive, onMeetings, currentMeetings,
+  historyIsCurrent, revoteMotion, runoffMotion, setLogName, currentLive, onMeetings, currentMeetings,
 } from "./db.js";
 import { toast, icon, escapeHtml } from "./util.js";
 import { $, S, R } from "./admin-state.js";
@@ -539,6 +539,22 @@ async function revoteFlow(id, reason) {
   } finally { S.busy -= 1; R.results(); }
 }
 R.revoteFlow = revoteFlow;
+// Run-off of a question nobody won with more than half: the top two.
+async function runoffFlow(id, reason) {
+  S.busy += 1;
+  try {
+    const newId = await runoffMotion(id, reason);
+    historyChanged();
+    S.revoteReady = newId;
+    toast("Run-off ready. Open it when everyone is ready to vote again.");
+    return newId;
+  } catch (e) {
+    if (classify(e) === "refused") toast("This page needs a database update that has not been published yet. Run-off is off until it is.");
+    else await actionFailed(e, "Not allowed: the database refused the run-off.");
+    return null;
+  } finally { S.busy -= 1; R.results(); }
+}
+R.runoffFlow = runoffFlow;
 
 // Your name for the change history: asked once per laptop, kept on it.
 try { setLogName(localStorage.getItem("mv_log_name") || ""); } catch (e) { /* private mode */ }

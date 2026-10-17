@@ -70,3 +70,27 @@ export function toast(msg) {
   clearTimeout(toastT);
   toastT = setTimeout(() => el.classList.add("hide"), 2200);
 }
+
+// Ranked bars for a question or election result (options sorted by points):
+// one row per option with its points and votes; winners marked.
+export function choiceBars(r) {
+  const opts = r.options || [];
+  const max = Math.max(0, ...opts.map((o) => o.weight));
+  const won = new Set(r.winners || []);
+  const row = (o) => `<li class="${won.has(o.id) ? "won" : ""}">
+      <div class="spread"><span class="lbl">${won.has(o.id) ? icon("check", 16) : ""}${escapeHtml(o.label)}</span>
+        <span class="num"><strong>${fmt(o.weight)} pts</strong> · ${o.count} ${o.count === 1 ? "vote" : "votes"}</span></div>
+      <div class="bar" aria-hidden="true"><span class="${won.has(o.id) ? "favour" : "abstain"}" style="width:${max > 0 ? (o.weight / max) * 100 : 0}%"></span></div>
+    </li>`;
+  const ab = r.abstain || { weight: 0, count: 0 };
+  return `<ul class="choice-bars">${opts.map(row).join("")}</ul>
+    <p class="ed-hint">Abstain: ${fmt(ab.weight)} pts · ${ab.count} ${ab.count === 1 ? "vote" : "votes"}${r.note ? `. ${escapeHtml(r.note)}` : ""}</p>`;
+}
+// What a ballot says, in words (a motion's choice, or a question's picks).
+export function voteWords(v, poll) {
+  if (v.choice === "pick") {
+    const labels = Object.fromEntries(((poll && poll.options) || []).map((o) => [o.id, o.label]));
+    return (v.picks || []).map((id) => labels[id] || id).join(", ");
+  }
+  return labelOf(v.choice);
+}

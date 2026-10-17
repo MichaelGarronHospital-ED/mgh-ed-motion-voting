@@ -14,7 +14,7 @@ import {
   watchMember, voterSignIn, isWrongPassword, onLive, onScreen, onRosterOverrides, onVotesFor, classify,
   resultOf, outcomeWords, outcomeKind, liveEligible, quorumNeededFor, clockTime, countOnce, withTimeout, LEGACY_RULE,
 } from "./db.js";
-import { escapeHtml, icon, verdictHTML, stackedBar, fmt } from "./util.js";
+import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js";
 import { watchVersion } from "./version.js";
 
 document.title = ORG_NAME + " · Meeting screen";
@@ -123,7 +123,8 @@ function openHTML(open) {
   const amend = open.amendsNumber ? `<p class="screen-sub">Amendment to motion ${escapeHtml(open.amendsNumber)}</p>` : "";
   let turnout = `<p class="screen-sub">Counting votes...</p>`, quorum = "", split = "";
   if (votesLoaded) {
-    const r = resultOf({ id: open.id, status: "open", rule, threshold: open.threshold }, votes);
+    const r = resultOf({ id: open.id, status: "open", rule, threshold: open.threshold, kind: open.kind,
+      options: open.options, optionIds: open.optionIds, seats: open.seats, style: open.style }, votes);
     const need = r.quorumNeeded, have = r.quorumCount, met = have >= need;
     turnout = `<div class="screen-count"><span class="screen-num">${have}</span>
       <span>of ${r.eligible} eligible voters have voted</span></div>`;
@@ -131,9 +132,11 @@ function openHTML(open) {
       <div class="spread"><span>Quorum: ${need} needed.</span><strong>${met ? "Met." : `${need - have} more needed`}</strong></div>
       <div class="bar" aria-hidden="true"><span class="${met ? "favour" : "short"}" style="width:${need > 0 ? Math.min(100, (have / need) * 100) : 0}%"></span></div>
     </div>`;
-    if (controls && controls.showTally) split = barsHTML(r);
+    if (controls && controls.showTally) split = r.kind === "choice" ? choiceBars(r) : barsHTML(r);
   }
-  const two = (open.threshold || rule.threshold) === "twoThirds" ? `<p class="screen-sub">Needs two-thirds of the points cast to pass.</p>` : "";
+  const two = open.kind === "choice"
+    ? `<p class="screen-sub">${escapeHtml((open.options || []).map((o) => o.label).join(", "))}. ${(open.seats || 1) > 1 ? `Pick up to ${open.seats}.` : "Pick 1."}</p>`
+    : (open.threshold || rule.threshold) === "twoThirds" ? `<p class="screen-sub">Needs two-thirds of the points cast to pass.</p>` : "";
   return `<section class="screen-main">
     <p class="screen-status"><span class="ed-pill ed-pill-good"><span class="dot"></span>${title}</span></p>
     ${amend}<h1 class="screen-motion">${escapeHtml(open.text)}</h1>${two}
@@ -178,7 +181,7 @@ function closedHTML(id, e) {
     <p class="screen-status"><span class="ed-pill ed-pill-quiet">${e.number ? `Motion ${escapeHtml(e.number)}. ` : ""}Closed</span></p>
     <h1 class="screen-motion">${escapeHtml(e.text)}</h1>
     <div class="screen-verdict" aria-live="polite">${verdictHTML(outcomeKind(r), escapeHtml(outcomeWords(r, "voter")))}</div>
-    ${barsHTML(r)}
+    ${r.kind === "choice" ? choiceBars(r) : barsHTML(r)}
     <p class="screen-sub">Quorum: ${r.quorumCount} of ${r.quorumNeeded} ${met ? "met" : "not met"}.${e.closedAt ? ` Closed at ${escapeHtml(clockTime(e.closedAt))}.` : ""}</p>
     ${note}
   </section>`;

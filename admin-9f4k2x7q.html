@@ -124,10 +124,31 @@
     <section id="tab-motions" class="hide">
       <div class="card stack">
         <h2>Add a motion</h2>
-        <label class="ed-label" for="new-motion">One at a time
+        <div class="stack-sm">
+          <span class="ed-label" id="new-kind-label">Type</span>
+          <div class="ed-seg kind-seg" id="new-kind" role="group" aria-labelledby="new-kind-label">
+            <button type="button" data-kind="motion" aria-pressed="true">Motion</button><button type="button" data-kind="question" aria-pressed="false">Question</button><button type="button" data-kind="election" aria-pressed="false">Election</button>
+          </div>
+        </div>
+        <label class="ed-label" for="new-motion"><span id="new-motion-label">One at a time</span>
           <textarea class="ed-field" id="new-motion" rows="3" placeholder="For example: Motion to approve the proposed summer schedule as circulated."></textarea>
         </label>
-        <label class="ed-label" for="new-threshold">Pass rule
+        <div id="choice-fields" class="stack-sm hide">
+          <label class="ed-label" for="new-options"><span id="new-options-label">Options, one per line</span>
+            <textarea class="ed-field" id="new-options" rows="4"></textarea>
+          </label>
+          <p class="ed-hint">2 to 20, each up to 120 characters. They cannot change once voting starts.</p>
+          <label class="ed-label" for="new-seats"><span id="new-seats-label">How many can each person pick?</span>
+            <input class="ed-field narrow" id="new-seats" type="number" min="1" max="19" step="1" value="1" inputmode="numeric" />
+          </label>
+          <label class="ed-label" for="new-winner" id="new-winner-wrap">Winner needs
+            <select class="ed-field" id="new-winner">
+              <option value="plurality">Most points</option>
+              <option value="majority">More than half of the points</option>
+            </select>
+          </label>
+        </div>
+        <label class="ed-label" for="new-threshold" id="new-threshold-wrap">Pass rule
           <select class="ed-field" id="new-threshold">
             <option value="majority">More points in favour than against</option>
             <option value="twoThirds">At least two-thirds of the points cast</option>

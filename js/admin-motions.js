@@ -15,14 +15,28 @@ const expanded = { agenda: true, arch: false, trash: false };   // others: folde
 let pendingFocus = null;       // [act, id] to focus after a redraw (Move up / down)
 
 export function wireMotions() {
+  // Type: Motion, Question or Election.
+  $("new-kind").querySelectorAll("button[data-kind]").forEach((b) => b.addEventListener("click", () => {
+    newKind = b.dataset.kind;
+    $("new-kind").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    syncKind();
+  }));
+  $("new-seats").addEventListener("input", syncKind);
   $("add-motion").addEventListener("click", async () => {
     const text = $("new-motion").value.trim();
-    if (text.length < 3) { toast("Type the motion first."); return; }
+    if (text.length < 3) { toast(newKind === "motion" ? "Type the motion first." : "Type the question first."); return; }
+    let choice = null;
+    if (newKind !== "motion") {
+      const c = readChoice();
+      if (c.problem) { toast(c.problem); return; }
+      choice = c.value;
+    }
     try {
       const meetingId = await R.meetingForNewMotion();
-      await addPoll(text, $("new-threshold").value, meetingId);
-      $("new-motion").value = "";
-      toast("Motion added");
+      const threshold = choice ? (choice.seats === 1 ? $("new-winner").value : "plurality") : $("new-threshold").value;
+      await addPoll(text, threshold, meetingId, null, choice);
+      $("new-motion").value = ""; $("new-options").value = ""; $("new-seats").value = "1";
+      toast(choice ? (newKind === "election" ? "Election added" : "Question added") : "Motion added");
     } catch (e) { R.actionFailed(e, "Not allowed: the database refused the new motion."); }
   });
   $("agenda-preview").addEventListener("click", previewAgenda);
@@ -32,6 +46,30 @@ export function wireMotions() {
   }, 0));
   syncDefaultThreshold();
 }
+let newKind = "motion";
+function syncKind() {
+  const choice = newKind !== "motion";
+  const election = newKind === "election";
+  $("choice-fields").classList.toggle("hide", !choice);
+  $("new-threshold-wrap").classList.toggle("hide", choice);
+  $("new-motion-label").textContent = choice ? (election ? "What the election is for" : "The question") : "One at a time";
+  $("new-options-label").textContent = election ? "Candidates, one per line" : "Options, one per line";
+  $("new-seats-label").textContent = election ? "Seats (fewer than the number of candidates)" : "How many can each person pick?";
+  $("new-winner-wrap").classList.toggle("hide", Number($("new-seats").value) !== 1);
+}
+// The options typed for a question or election, checked.
+function readChoice() {
+  const lines = $("new-options").value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const seats = Number($("new-seats").value);
+  const word = newKind === "election" ? "candidates" : "options";
+  if (lines.length < 2 || lines.length > 20) return { problem: `Type 2 to 20 ${word}, one per line.` };
+  if (lines.some((l) => l.length > 120)) return { problem: `Each of the ${word} can be up to 120 characters.` };
+  if (new Set(lines.map((l) => l.toLowerCase())).size !== lines.length) return { problem: `Two of the ${word} are the same.` };
+  if (!Number.isInteger(seats) || seats < 1 || seats > lines.length - 1)
+    return { problem: newKind === "election" ? "Seats must be fewer than the number of candidates." : "People must be able to pick at least 1, and fewer than all the options." };
+  return { value: { style: newKind === "election" ? "election" : "question", seats, options: lines.map((label, i) => ({ id: `o${i + 1}`, label })) } };
+}
+
 // The Add form's pass rule starts at the default from Settings.
 let thresholdTouched = false;
 export function syncDefaultThreshold() {
@@ -142,7 +180,7 @@ function motionRow(p, agenda) {
       <label class="ed-label">Motion wording
         <textarea class="ed-field" data-edit="${id}" rows="3">${escapeHtml(p.text)}</textarea>
       </label>
-      ${p.status === "draft" ? THRESH_SELECT(id, p.threshold) : ""}
+      ${p.status === "draft" && p.kind !== "choice" ? THRESH_SELECT(id, p.threshold) : ""}
       <div class="row"><button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="save" data-id="${id}">Save</button>
         <button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="cancel" data-id="${id}">Cancel</button></div></div>`;
   }
@@ -172,8 +210,9 @@ function motionRow(p, agenda) {
         <div><button type="submit" class="ed-btn ed-btn-tinted btn-sm">Save details</button></div>
       </form></details>`;
   return `<div class="poll-item depth-${agenda ? agenda.depth : 0}">
-    <div class="text"><div class="meta">${num ? `<span class="agenda-num">${escapeHtml(num)}</span>` : ""}${statusPill(p.status)}${p.amends ? '<span class="ed-pill ed-pill-quiet">Amendment</span>' : ""}${(p.threshold || (p.rule && p.rule.threshold)) === "twoThirds" ? '<span class="ed-pill ed-pill-quiet">Two-thirds</span>' : ""}${locked ? `<span class="locknote">${icon("lock", 16)}${p.result ? "Result saved" : "Locked: voting started"}</span>` : ""}</div>
+    <div class="text"><div class="meta">${num ? `<span class="agenda-num">${escapeHtml(num)}</span>` : ""}${statusPill(p.status)}${p.amends ? '<span class="ed-pill ed-pill-quiet">Amendment</span>' : ""}${p.kind === "choice" ? `<span class="ed-pill ed-pill-quiet">${p.style === "election" ? "Election" : "Question"}</span>` : ""}${(p.threshold || (p.rule && p.rule.threshold)) === "twoThirds" ? '<span class="ed-pill ed-pill-quiet">Two-thirds</span>' : ""}${locked ? `<span class="locknote">${icon("lock", 16)}${p.result ? "Result saved" : "Locked: voting started"}</span>` : ""}</div>
       <p>${escapeHtml(p.text)}</p>
+      ${p.kind === "choice" ? `<p class="ed-hint">${p.style === "election" ? "Election" : "Question"}: ${escapeHtml((p.options || []).map((o) => o.label).join(", "))}. ${p.seats > 1 ? `Pick up to ${p.seats}.` : "Pick 1."}${p.seats === 1 && p.threshold === "majority" ? " Winner needs more than half." : ""}</p>` : ""}
       ${amendPassed ? `<p class="ed-hint">An amendment to this motion passed. Edit this motion's wording to include it before opening.</p>` : ""}
       ${details}</div>
     <div class="row">
