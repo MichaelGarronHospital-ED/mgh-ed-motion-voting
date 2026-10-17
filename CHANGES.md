@@ -26,7 +26,7 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab. The projector screen also says "A newer version is available. Reload." after
 later updates.
 
-Tests: 186 browser tests (15 new). Rules: no change; 105 rules tests (11 new rows checking the projector can read what it needs).
+Tests: 187 browser tests (15 new). Rules: no change; 105 rules tests (11 new rows checking the projector can read what it needs).
 
 ## Meetings and agendas (voting upgrade step 4, Oct 2026)
 
