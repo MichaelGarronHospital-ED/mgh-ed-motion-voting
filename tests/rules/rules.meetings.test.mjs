@@ -136,3 +136,25 @@ describe("meeting delete with an open motion (the real page code)", () => {
     a.setKnownPolls([]); a.setKnownMeetings([]);
   });
 });
+
+describe("opening a motion in a planned meeting (the real page code)", () => {
+  it("starts the meeting once, even from a laptop that has not seen another laptop start it", async () => {
+    await seed("polls/a1", { text: "First", order: 0, status: "draft", voteCount: 0, meetingId: "m1", archived: false, deleted: false });
+    await seed("polls/a2", { text: "Second", order: 1, status: "draft", voteCount: 0, meetingId: "m1", archived: false, deleted: false });
+    const a = await app();
+    as(leader());
+    const polls = async () => (await getDocs(collection(leader(), "polls"))).docs.map((d) => ({ id: d.id, ...d.data() }));
+    const planned = [{ id: "m1", ...(await readRaw("meetings/m1")) }];
+    a.forgetBoard(); a.setKnownPolls(await polls()); a.setKnownMeetings(planned);
+    await a.ensureBoard();
+    await assertSucceeds(a.openPoll("a1"));          // starts the meeting
+    const started = (await readRaw("meetings/m1")).startedAt;
+    await assertSucceeds(a.closeMotion("a1", { openedAt: (await readRaw("polls/a1")).openedAt, votes: [] }));
+    a.setKnownPolls(await polls()); a.setKnownMeetings(planned);   // still thinks it is planned
+    await assertSucceeds(a.openPoll("a2"));
+    assert.ok((await readRaw("meetings/m1")).startedAt.isEqual(started), "started once");
+    const starts = (await getDocs(collection(leader(), "log"))).docs.map((d) => d.data()).filter((e) => e.action === "meeting");
+    assert.equal(starts.length, 1);
+    a.setKnownPolls([]); a.setKnownMeetings([]);
+  });
+});

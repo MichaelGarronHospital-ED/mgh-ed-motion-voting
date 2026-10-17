@@ -386,7 +386,7 @@ function simulate(changes) {
 // The board built from the motions (no meetings yet).
 export function builtBoard(polls, opts) { return buildBoard(polls || knownPolls, knownMeetings, opts); }
 // The board built from these motions (and meetings, from step 4).
-function boardFrom(polls, opts) { return buildBoard(polls, knownMeetings, opts); }
+function boardFrom(polls, opts, meetings) { return buildBoard(polls, meetings || knownMeetings, opts); }
 // Write field-path changes ([path, value], undefined = delete) to the board.
 function writeOps(target, ops) {
   if (!ops.length) return false;
@@ -813,18 +813,30 @@ export async function openPoll(pollId) {
   if (startIt && knownMeetings.some((x) => x.status === "open" && !x.deleted && x.id !== m.id)) {
     throw Object.assign(new Error("another meeting is open"), { code: "failed-precondition", why: "meeting-open" });
   }
-  await withBoard(async () => {
-    const b = writeBatch(db);
-    b.update(pollRef(pollId), patch);
-    writeLog(b, { action: "open", pollId, text: p.text });
-    if (startIt) {
-      b.update(meetingRef(m.id), { status: "open", startedAt: serverTimestamp() });
-      writeLog(b, { action: "meeting", meetingId: m.id, text: `Meeting started: ${m.title || ""}` });
+  if (!startIt) {
+    await withBoard(async () => {
+      const b = writeBatch(db);
+      b.update(pollRef(pollId), patch);
+      writeLog(b, { action: "open", pollId, text: p.text });
+      patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), knownMeetings));
+      await b.commit();
+    });
+    return;
+  }
+  // A transaction that reads the meeting: it is started (with its time and log
+  // entry) only if it is still planned, so two laptops never start it twice.
+  await withBoard(() => runTransaction(db, async (tx) => {
+    const ms = await tx.get(meetingRef(m.id));
+    const stillPlanned = ms.exists() && ms.data().status === "planned";
+    tx.update(pollRef(pollId), patch);
+    writeLog(tx, { action: "open", pollId, text: p.text });
+    if (stillPlanned) {
+      tx.update(meetingRef(m.id), { status: "open", startedAt: serverTimestamp() });
+      writeLog(tx, { action: "meeting", meetingId: m.id, text: `Meeting started: ${m.title || ""}` });
     }
-    const meetings = startIt ? simulateMeetings({ [m.id]: { status: "open", startedAt: Date.now() } }) : knownMeetings;
-    patchBoard(b, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), meetings));
-    await b.commit();
-  });
+    const meetings = simulateMeetings({ [m.id]: ms.exists() ? { ...ms.data(), ...(stillPlanned ? { status: "open", startedAt: Date.now() } : {}) } : {} });
+    patchBoard(tx, live, buildBoard(simulate({ [pollId]: { ...patch, openedAt: null } }), meetings));
+  }));
 }
 
 // Close, step 1: freeze the motion. From this moment the rules refuse every
@@ -846,6 +858,9 @@ export async function closeMotion(pollId, seen) {
     const ls = await tx.get(liveRef());
     if (!ls.exists()) throw notFound("board");
     const cur = ls.data();
+    // The motion's meeting as the server has it now (is it the board's meeting?).
+    const md = p.meetingId ? await tx.get(meetingRef(p.meetingId)) : null;
+    const meetingsNow = md && md.exists() ? simulateMeetings({ [p.meetingId]: md.data() }) : knownMeetings;
     tx.update(pollRef(pollId), {
       status: "closed", closedAt: serverTimestamp(),
       closeOfOpenedAt: seen && seen.openedAt !== undefined ? seen.openedAt : (p.openedAt === undefined ? null : p.openedAt),
@@ -859,7 +874,7 @@ export async function closeMotion(pollId, seen) {
     // Only this motion's part of the board is written, from the board read in
     // this transaction: this laptop's list of motions may be a second behind,
     // and must never write its older copy of another motion back.
-    const mine = boardFrom(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), { justClosed: pollId, now: Date.now() });
+    const mine = boardFrom(simulate({ [pollId]: { status: "closed", closedAt: null, lockedGroups } }), { justClosed: pollId, now: Date.now() }, meetingsNow);
     const ops = [];
     if (isOpenHere) ops.push([["open"], null]);              // never clears another motion's open
     ops.push([["lastClosedId"], pollId]);
