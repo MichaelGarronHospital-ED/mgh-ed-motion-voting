@@ -32,7 +32,10 @@ the meeting is open, under its own name, with nothing else). With the old rules 
 console's Attendance card says "needs a database update" and phones say "Check-in is
 not available yet."; votes are not affected.
 
-Tests: 198 browser tests (12 new), 123 rules tests (10 new).
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console and projector tab.
+
+Tests: 210 browser tests (13 new), 123 rules tests (10 new).
 
 ## Questions and elections (voting upgrade step 6, Oct 2026)
 

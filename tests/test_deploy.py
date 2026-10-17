@@ -70,6 +70,31 @@ class TestConsoleListeners(Base):
         self.assertEqual(sorted(set(pg.evaluate("window.__store.listenerPaths()"))),
                          sorted(EXPECTED_CONSOLE))
 
+    def test_console_and_projector_listen_to_the_open_meetings_attendance(self):
+        """Step 7: with an open meeting (check-in on), both add its attendance."""
+        pg = self.page
+        h.load_admin(pg, self.base)
+        h.seed(pg, "meetings/m1", {"title": "ED department meeting", "date": "2026-11-20", "status": "open", "checkIn": True,
+                                   "archived": False, "deleted": False})
+        seed_open(pg, ballots=h.GROUP1[:2], meetingId="m1")
+        h.unlock_admin(pg)
+        pg.wait_for_selector("#console:not(.hide)")
+        pg.wait_for_timeout(400)
+        self.assertEqual(sorted(set(pg.evaluate("window.__store.listenerPaths()"))),
+                         sorted(EXPECTED_CONSOLE + ["meetings/m1/attendance"]))
+        pg2 = self.browser.new_page()
+        errs = []
+        h.wire(pg2, errs)
+        pg2.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        h.open_screen(pg2, self.base)
+        for k, v in h.store(pg).items():
+            h.seed(pg2, k, v)
+        pg2.wait_for_selector(".screen-count")
+        self.assertEqual(sorted(set(pg2.evaluate("window.__store.listenerPaths()"))),
+                         sorted(EXPECTED_PROJECTOR + ["meetings/m1/attendance"]))
+        self.assertEqual(errs, [])
+        pg2.close()
+
     def test_projector_listens_only_to_what_the_rules_allow(self):
         pg = self.page
         pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
