@@ -92,6 +92,7 @@
       </div>
       <p class="ed-hint" id="roster-summary"></p>
       </div>
+      <div class="card stack hide" id="attendance-card"></div>
       <div class="card stack" id="projector-card">
         <h2>Projector</h2>
         <p class="ed-hint">A screen for the room: the QR code, turnout and quorum while voting is open, and the result after. Open it on the computer connected to the projector; it uses that browser's sign-in (the ED password if it has none).</p>
@@ -196,7 +197,8 @@
           <summary>What the flags mean</summary>
           <p class="ed-hint"><strong>Needs review:</strong> the same name voted from two or more devices.
             <strong>Shared device:</strong> one device voted under more than one name.
-            <strong>Submissions</strong> is how many times a flagged person changed their vote; it is still one ballot in the tally.</p>
+            <strong>Submissions</strong> is how many times a flagged person changed their vote; it is still one ballot in the tally.
+            <strong>Remote:</strong> they checked in to this meeting as remote. <strong>Receipt</strong> is the code that person's phone showed when it voted: if they show you a different one, the vote under their name was changed after.</p>
         </details>
         <div class="tablebox"><table id="voters-table" class="ed-table"></table></div>
       </div>
@@ -290,6 +292,7 @@
               <option value="fails">Tie: does not pass</option>
             </select>
           </label>
+          <label class="check"><input type="checkbox" id="check-in" /> Check-in at meetings: phones ask "In the room or remote?" (optional for voters)</label>
           <label class="ed-label" for="keep-years">Keep the change history at least (years)
             <input class="ed-field narrow" id="keep-years" type="number" min="7" max="50" step="1" inputmode="numeric" />
           </label>

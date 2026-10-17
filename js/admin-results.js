@@ -4,6 +4,7 @@ import {
   classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar, choiceBars, voteWords } from "./util.js";
+import { ballotReceipt } from "./count.js";
 import { $, S, R, STATUS_WORD, statusPill, groupLabel, download } from "./admin-state.js";
 import { tsMillis } from "./count.js";
 
@@ -364,22 +365,26 @@ function paintVoters(poll, votes) {
   $("voters-note").textContent = `${votes.length} ${votes.length === 1 ? "ballot" : "ballots"} · ${reviewCount} to review · `
     + (poll.status === "closed" ? "Closed: ballots are locked and kept with the result." : "set categories under Physicians");
   const frozen = poll.status === "closed";
+  // Who checked in remotely to this motion's meeting.
+  const att = poll.meetingId && R.attendanceFor ? R.attendanceFor(poll.meetingId) : null;
+  const remote = new Set(att ? att.list.filter((a) => a.mode === "remote").map((a) => a.slug) : []);
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   const rows = sorted.map((v) => {
     const ew = weightForVote(v, poll);
     const g = v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, poll));
     const shared = sharedDevice.has(v.slug);
     return `<tr class="${v.flagged || shared ? "flagged" : ""}">
-      <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
+      <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}${remote.has(v.slug) ? ' <span class="ed-pill ed-pill-quiet">Remote</span>' : ""}</td>
       <td class="cat">${g}</td>
       <td class="num">${fmt(ew)}</td>
       <td class="choice">${escapeHtml(voteWords(v, poll))}</td>
       <td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>
+      <td class="receipt"><code>${escapeHtml(ballotReceipt(poll.id, v))}</code></td>
       ${frozen ? "" : `<td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${escapeHtml(v.id)}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>`}
     </tr>`;
   }).join("");
   $("voters-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th class="num">Weight${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th><th class="num">Submissions</th>${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${frozen ? 5 : 6}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category</th><th class="num">Weight${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th><th class="num">Submissions</th><th>Receipt</th>${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${frozen ? 6 : 7}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
   $("voters-table").querySelectorAll("button[data-del]").forEach((b) =>
     b.addEventListener("click", () => {
       if (!confirm("Remove this vote? This changes the result for this motion.")) return;
@@ -395,12 +400,12 @@ function exportCsv() {
   if (!d.loaded) { toast("Still loading ballots. Try again in a moment."); return; }
   const poll = d.poll, list = d.votes || [];
   const t = poll.status === "closed" && poll.result ? poll.result : resultOf(poll, list);
-  const header = ["Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "WriteIn"];
+  const header = ["Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "WriteIn", "Receipt"];
   const lines = [header.join(",")];
   [...list].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => {
     lines.push([
       csv(v.name), v.isWriteIn ? "write-in" : groupLabel(groupForVote(v, poll)), weightForVote(v, poll),
-      csv(v.choice === "pick" ? voteWords(v, poll) : v.choice), v.submissionCount || 1, v.flagged ? "YES" : "", v.isWriteIn ? "YES" : "",
+      csv(v.choice === "pick" ? voteWords(v, poll) : v.choice), v.submissionCount || 1, v.flagged ? "YES" : "", v.isWriteIn ? "YES" : "", ballotReceipt(poll.id, v),
     ].join(","));
   });
   lines.push("");

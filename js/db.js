@@ -289,6 +289,12 @@ export async function purgeMeeting(id) {
     if (!p.deleted) await trashPoll(p.id);       // the board and the change history hear of it
     await purgePoll(p.id);
   }
+  // attendance next (a half-finished delete can be finished: the rules let
+  // leadership delete attendance at any time)
+  try {
+    const att = await getDocs(attendanceCol(id));
+    await Promise.all(att.docs.map((d) => deleteDoc(d.ref)));
+  } catch (e) { if (classify(e) !== "refused") throw e; }
   const b = writeBatch(db);
   writeLog(b, { action: "purge", meetingId: id, text: `Meeting deleted permanently: ${m.title || ""}, ${m.date || ""}` });
   b.delete(meetingRef(id));
@@ -606,6 +612,46 @@ export function onScreen(cb, onError) {
 }
 export async function setScreen(patch) {
   await setDoc(doc(db, "config", "screen"), { ...patch, changedAt: serverTimestamp() }, { merge: true });
+}
+
+// ---- attendance (meetings/{m}/attendance/{slug}) ---------------------------------
+// A check-in is a claim made with the shared ED password: who said they are at
+// the meeting, in the room or remote. Leadership can add someone ("Present, no
+// phone") or remove a mistaken check-in. It is a record for the minutes, never
+// a lock: voting never needs it.
+const attendanceCol = (m) => collection(db, "meetings", m, "attendance");
+export function onAttendance(meetingId, cb, onError) {
+  return onSnapshot(attendanceCol(meetingId), (snap) => {
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }, (e) => { if (onError) onError(e); else console.error(e); });
+}
+export async function checkIn(meetingId, person, mode, sessionId) {
+  await setDoc(doc(db, "meetings", meetingId, "attendance", person.slug), {
+    name: String(person.name).slice(0, 200), slug: person.slug, mode, sessionId, at: serverTimestamp(),
+  });
+}
+export async function addAttendance(meetingId, person, mode, note) {
+  const b = writeBatch(db);
+  const d = { name: String(person.name).slice(0, 200), slug: person.slug, mode, by: "leadership", at: serverTimestamp() };
+  if (note) d.note = String(note).slice(0, 300);
+  b.set(doc(db, "meetings", meetingId, "attendance", person.slug), d);
+  writeLog(b, { action: "attendance", meetingId, text: `Added to attendance: ${person.name} (${mode === "remote" ? "remote" : "in the room"})` });
+  await b.commit();
+}
+export async function removeAttendance(meetingId, slug, name) {
+  const b = writeBatch(db);
+  b.delete(doc(db, "meetings", meetingId, "attendance", slug));
+  writeLog(b, { action: "attendance", meetingId, text: `Removed from attendance: ${name || slug}` });
+  await b.commit();
+}
+export async function getAttendanceOnce(meetingId) {
+  const snap = await getDocs(attendanceCol(meetingId));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+// One ballot, from the server ("Check my recorded vote": 1 read).
+export async function getOwnBallot(pollId, slug) {
+  const s = await getDocFromServer(doc(db, "polls", pollId, "votes", slug));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
 }
 
 // ---- the voter page's reads ------------------------------------------------------

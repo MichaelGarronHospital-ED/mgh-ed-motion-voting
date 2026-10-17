@@ -11,7 +11,7 @@
 // ============================================================================
 import { ORG_NAME } from "./config.js";
 import {
-  watchMember, voterSignIn, isWrongPassword, onLive, onScreen, onRosterOverrides, onVotesFor, classify,
+  watchMember, voterSignIn, isWrongPassword, onLive, onScreen, onRosterOverrides, onVotesFor, classify, onAttendance,
   resultOf, outcomeWords, outcomeKind, liveEligible, quorumNeededFor, clockTime, countOnce, withTimeout, LEGACY_RULE,
 } from "./db.js";
 import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js";
@@ -64,8 +64,19 @@ function start() {
   onRosterOverrides(() => render());
   setInterval(() => { if (timer) render(); }, 1000);
 }
+// The open meeting's check-ins (when check-in is on): "Checked in: 31 (in the room 25, remote 6)".
+let att = null, attFor = null, attUnsub = null;
+function followAttendance() {
+  const m = board && board.meeting;
+  const id = m && m.status === "open" && m.checkIn ? m.id : null;
+  if (id === attFor) return;
+  if (attUnsub) { attUnsub(); attUnsub = null; }
+  attFor = id; att = null;
+  if (id) attUnsub = onAttendance(id, (list) => { att = list; render(); }, (e) => console.warn("attendance", e && e.code));
+}
 // Listen to the open motion's ballots (turnout), and only that motion's.
 function followOpen() {
+  followAttendance();
   const open = board && board.open;
   const id = open ? open.id : null;
   if (id === votesFor) return;
@@ -114,6 +125,7 @@ function waitingHTML() {
     <img class="screen-qr" src="voter-qr.png" alt="QR code to the voting page" width="360" height="360" />
     <p class="screen-big">Scan to vote. You need the ED password.</p>
     <p class="screen-link">${escapeHtml(shortLink())}</p>
+    ${att ? `<p class="screen-sub">Checked in: ${att.length} (in the room ${att.filter((a) => a.mode === "room").length}, remote ${att.filter((a) => a.mode === "remote").length})</p>` : ""}
   </section>`;
 }
 

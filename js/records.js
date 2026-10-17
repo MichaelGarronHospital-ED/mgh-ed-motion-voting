@@ -7,7 +7,7 @@ import { ORG_NAME } from "./config.js";
 import {
   weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
   resultOf, outcomeWords, sortMotions, currentRule, liveEligible, quorumNeededFor, weightIn,
-  currentMeetings, agendaOrder, getLogForMeeting, tsMillis,
+  currentMeetings, agendaOrder, getLogForMeeting, tsMillis, getAttendanceOnce, ballotReceipt,
 } from "./db.js";
 import { escapeHtml, labelOf, fmt, toast, voteWords } from "./util.js";
 import { buildXlsx, XLSX_MIME } from "./xlsx.js";
@@ -135,17 +135,19 @@ async function gatherMeeting(meetingId) {
   const m = currentMeetings().find((x) => x.id === meetingId);
   const rows = agendaOrder(S.polls.filter((p) => p.meetingId === meetingId));
   const votes = await Promise.all(rows.map((r) => getVotesFor(r.poll.id)));
-  let log = [];
+  let log = [], attendance = [];
   try { log = await getLogForMeeting(meetingId); } catch (e) { console.warn(e); }
+  try { attendance = await getAttendanceOnce(meetingId); } catch (e) { console.warn(e); }
   const recs = rows.map((r, i) => {
     const p = r.poll, vs = votes[i];
     const t = p.status === "closed" && p.result ? p.result : resultOf(p, vs);
     const verdict = !t.totalVotes ? (p.status === "draft" ? "Not yet voted" : "No ballots") : outcomeWords(t, "record");
     return { number: r.number, poll: p, votes: vs, t, result: p.status === "open" && vs.length ? `${verdict} (voting still open)` : verdict };
   });
-  return { m, recs, log };
+  return { m, recs, log, attendance };
 }
-function meetingTables({ m, recs, log }) {
+function meetingTables({ m, recs, log, attendance = [] }) {
+  const att = Object.fromEntries(attendance.map((a) => [a.slug, a]));
   const numOf = Object.fromEntries(recs.map((r) => [r.poll.id, r.number]));
   const people = new Map();   // slug -> { name, group, motions }
   recs.forEach((r) => r.votes.forEach((v) => {
@@ -157,6 +159,8 @@ function meetingTables({ m, recs, log }) {
   const meeting = [["Item", "Value"],
     ["Meeting", m.title || ""], ["Date", niceDate(m.date)], ["Status", m.status === "open" ? "Open" : m.status === "closed" ? "Ended" : "Planned"],
     ["Started", when(m.startedAt)], ["Ended", when(m.endedAt)], ["Chair", m.chair || ""], ["Notes", m.notes || ""],
+    ["Checked in", attendance.length], ["In the room", attendance.filter((a) => a.mode === "room").length],
+    ["Remote", attendance.filter((a) => a.mode === "remote").length],
     ["Voted at this meeting", people.size], ["Motions", recs.length], ["Pass rules used", rules.join(" | ")],
     ["Exported", new Date().toLocaleString()]];
   const motions = [["Number", "Motion", "Amendment of", "Type", "Mover", "Seconder", "Opened", "Closed", "Pass rule", "Result",
@@ -173,16 +177,23 @@ function meetingTables({ m, recs, log }) {
       t.weight.favour, t.weight.against, t.weight.abstain, t.count.favour, t.count.against, t.count.abstain,
       `${t.quorumCount} of ${t.quorumNeeded}`, notes.join("; "), p.notes || "", optionsText(t)]);
   });
-  const ballots = [["Number", "Motion", "Name", "Category", "Weight", "Vote", "Submissions", "Flagged", "Write-in"]];
+  const ballots = [["Number", "Motion", "Name", "Category", "Weight", "Vote", "Remote", "Receipt", "Submissions", "Flagged", "Write-in"]];
   recs.forEach((r) => [...r.votes].sort((a, b) => a.name.localeCompare(b.name)).forEach((v) => ballots.push([
     r.number, r.poll.text, v.name, v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, r.poll)), weightForVote(v, r.poll),
-    voteWords(v, r.poll), v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""])));
-  const attendance = [["Name", "Category", "Checked in as", "Motions voted on"]];
-  [...people.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((e) =>
-    attendance.push([e.name, e.group === "writein" ? "Write-in" : catLabel(e.group), "Voted, did not check in", e.motions.join(", ")]));
+    voteWords(v, r.poll), att[v.slug] && att[v.slug].mode === "remote" ? "Yes" : "", ballotReceipt(r.poll.id, v),
+    v.submissionCount || 1, v.flagged ? "Yes" : "", v.isWriteIn ? "Yes" : ""])));
+  // Everyone who checked in, was added, or voted.
+  const sheet = [["Name", "Category", "Checked in as", "Time", "Motions voted on", "Note"]];
+  const slugs = new Set([...Object.keys(att), ...people.keys()]);
+  [...slugs].map((s) => {
+    const a = att[s], e = people.get(s);
+    const name = (a && a.name) || (e && e.name) || s;
+    const how = a ? `${a.mode === "remote" ? "Remote" : "In the room"}${a.by === "leadership" ? " (added by leadership)" : ""}` : "Voted, did not check in";
+    return [name, e ? (e.group === "writein" ? "Write-in" : catLabel(e.group)) : "", how, a ? when(a.at) : "", e ? e.motions.join(", ") : "", (a && a.note) || ""];
+  }).sort((x, y) => x[0].localeCompare(y[0])).forEach((row) => sheet.push(row));
   const changes = [["Time", "Change", "By", "Details", "Reason"]];
   log.forEach((e) => changes.push([when(e.at), R.logAction ? R.logAction(e.action) : e.action, e.by || "", e.text || "", e.action === "catch-up" ? "" : (e.reason || "")]));
-  return { meeting, motions, ballots, attendance, changes };
+  return { meeting, motions, ballots, attendance: sheet, changes };
 }
 export async function exportMeeting(meetingId) {
   const btn = $("meeting-export");

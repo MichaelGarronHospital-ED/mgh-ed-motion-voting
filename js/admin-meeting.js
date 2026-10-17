@@ -2,10 +2,11 @@
 // (title, date, chair, notes), Start and End, the link and QR code for voters,
 // this meeting's records, and meetings in the Trash.
 import {
-  onScreen, setScreen, createMeeting, updateMeeting, startMeeting, endMeeting, setMeetingDeleted, purgeMeeting, currentMeetings,
+  onScreen, setScreen, onAttendance, addAttendance, removeAttendance, rosterPerson, createMeeting, updateMeeting, startMeeting, endMeeting, setMeetingDeleted, purgeMeeting, currentMeetings,
   resolvedRoster, todayLocal, clockTime, serverTimestamp,
 } from "./db.js";
 import { escapeHtml, toast, icon } from "./util.js";
+import { slugify } from "./roster.js";
 import { $, S, R, niceDate, meetingLabel } from "./admin-state.js";
 import { exportMeeting, printMeeting } from "./records.js";
 
@@ -73,6 +74,7 @@ export function renderMeeting() {
         <label class="ed-label" for="meeting-date">Date<input class="ed-field narrow-date" id="meeting-date" type="date" value="${escapeHtml(m.date || "")}" /></label>
         <label class="ed-label" for="meeting-chair">Chair<input class="ed-field" id="meeting-chair" type="text" maxlength="200" list="roster-names" value="${escapeHtml(m.chair || "")}" /></label>
         <label class="ed-label" for="meeting-notes">Notes<textarea class="ed-field" id="meeting-notes" rows="2" maxlength="2000">${escapeHtml(m.notes || "")}</textarea></label>
+        <label class="check"><input type="checkbox" id="meeting-checkin" ${m.checkIn !== false ? "checked" : ""} /> Ask phones to check in (in the room or remote)</label>
         <div><button type="submit" class="ed-btn ed-btn-tinted btn-sm">Save details</button></div>
       </form>
       <div class="row">
@@ -99,7 +101,8 @@ export function renderMeeting() {
   if (f) f.addEventListener("submit", async (e) => {
     e.preventDefault();
     const patch = { title: $("meeting-title").value.trim() || "ED department meeting", date: $("meeting-date").value || m.date,
-      chair: $("meeting-chair").value.trim().slice(0, 200), notes: $("meeting-notes").value.slice(0, 2000) };
+      chair: $("meeting-chair").value.trim().slice(0, 200), notes: $("meeting-notes").value.slice(0, 2000),
+      checkIn: $("meeting-checkin").checked };
     try { await updateMeeting(m.id, patch); toast("Meeting details saved."); }
     catch (err) { R.actionFailed(err, "Not allowed: the database refused the change."); }
   });
@@ -115,6 +118,72 @@ export function renderMeeting() {
     }
   });
   renderMeetingTrash();
+  renderAttendance();
+}
+
+// ---- attendance: who checked in (a claim, never a lock), plus who leadership added
+const attendance = new Map();     // meetingId -> { list, loaded, unsub, failed }
+export function attendanceFor(meetingId) {
+  if (!meetingId) return null;
+  if (!attendance.has(meetingId)) {
+    const a = { list: [], loaded: false, failed: null };
+    attendance.set(meetingId, a);
+    a.unsub = onAttendance(meetingId, (list) => { a.list = list; a.loaded = true; renderAttendance(); R.voters(); },
+      (e) => { a.failed = e; renderAttendance(); });
+    // keep at most the two meetings on screen (Meeting tab and Voters tab)
+    if (attendance.size > 2) {
+      const [old] = [...attendance.keys()].filter((k) => k !== meetingId && k !== (selectedMeeting() || {}).id);
+      if (old) { attendance.get(old).unsub(); attendance.delete(old); }
+    }
+  }
+  return attendance.get(meetingId);
+}
+R.attendanceFor = attendanceFor;
+let addOpen = false;
+function renderAttendance() {
+  const el = $("attendance-card");
+  const m = selectedMeeting();
+  el.classList.toggle("hide", !m);
+  if (!m) return;
+  if (el.contains(document.activeElement) && document.activeElement.matches("input, textarea, select")) return;
+  const a = attendanceFor(m.id);
+  if (a.failed) {
+    el.innerHTML = `<h2>Attendance</h2><p class="notice">${icon("alert", 20)}<span>${a.failed.code && String(a.failed.code).includes("permission") ? "This page needs a database update that has not been published yet. Attendance shows once it is." : "Could not load attendance. Check your connection."}</span></p>`;
+    return;
+  }
+  const list = a.list.slice().sort((x, y) => x.name.localeCompare(y.name));
+  const room = list.filter((x) => x.mode === "room").length, remote = list.filter((x) => x.mode === "remote").length;
+  el.innerHTML = `<h2>Attendance</h2>
+    <p>${a.loaded ? `Checked in: <strong>${list.length}</strong> (in the room ${room}, remote ${remote})` : "Loading attendance..."}</p>
+    <p class="ed-hint">A check-in is what someone said on a phone (one tap; never needed to vote). Anyone who votes is listed as present in the meeting's Excel file even without one.</p>
+    ${list.length ? `<ul class="removed-list">${list.map((x) => `<li><span>${escapeHtml(x.name)} <span class="ed-muted">${x.mode === "remote" ? "remote" : "in the room"}${x.by === "leadership" ? ", added by leadership" : ""}${x.note ? `: ${escapeHtml(x.note)}` : ""}</span></span>
+      <button type="button" class="ed-btn btn-quiet btn-sm" data-att-remove="${escapeHtml(x.slug)}" data-name="${escapeHtml(x.name)}" aria-label="Remove ${escapeHtml(x.name)} from attendance">Remove</button></li>`).join("")}</ul>` : ""}
+    ${addOpen ? `<form id="att-form" class="card-inset stack-sm">
+      <label class="ed-label" for="att-name">Name<input class="ed-field" id="att-name" type="text" list="roster-names" autocomplete="off" /></label>
+      <div class="row" role="radiogroup" aria-label="Where"><label class="check"><input type="radio" name="att-mode" value="room" checked /> In the room</label>
+        <label class="check"><input type="radio" name="att-mode" value="remote" /> Remote</label></div>
+      <label class="ed-label" for="att-note">Note (optional)<input class="ed-field" id="att-note" type="text" maxlength="300" placeholder="Present, did not use a phone" /></label>
+      <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm">Add</button><button type="button" id="att-cancel" class="ed-btn ed-btn-plain btn-sm">Cancel</button></div>
+    </form>` : `<div><button type="button" id="att-add" class="ed-btn ed-btn-tinted btn-sm">Add someone</button></div>`}`;
+  const add = $("att-add"); if (add) add.addEventListener("click", () => { addOpen = true; renderAttendance(); $("att-name").focus(); });
+  const cancel = $("att-cancel"); if (cancel) cancel.addEventListener("click", () => { addOpen = false; renderAttendance(); });
+  const f = $("att-form");
+  if (f) f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("att-name").value.trim().replace(/\s+/g, " ");
+    if (name.length < 3) { toast("Type the name first."); return; }
+    const slug = slugify(name);
+    const p = rosterPerson(slug);
+    try {
+      await addAttendance(m.id, { name: p ? p.name : name, slug }, f.querySelector("input[name=att-mode]:checked").value, $("att-note").value.trim());
+      addOpen = false; toast("Added to attendance."); renderAttendance();
+    } catch (err) { R.actionFailed(err, "Not allowed: the database refused the change."); }
+  });
+  el.querySelectorAll("[data-att-remove]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm(`Remove ${b.dataset.name} from this meeting's attendance? Their votes are not affected.`)) return;
+    try { await removeAttendance(m.id, b.dataset.attRemove, b.dataset.name); toast("Removed from attendance."); }
+    catch (err) { R.actionFailed(err, "Not allowed: the database refused the change."); }
+  }));
 }
 
 function renderMeetingTrash() {

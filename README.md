@@ -114,6 +114,13 @@ the record.
    If the console shows a yellow line at the top, read it: "No connection" fixes itself
    when the connection is back; "needs a database update" means the matching rules have
    not been published yet (see below), and Open and Close stay off until they are.
+   **Check-in:** when a meeting is open, phones ask "In the room or Remote?" (one tap,
+   optional, never needed to vote; turn it off in Settings or for one meeting). The
+   Meeting tab's **Attendance** card lists who checked in; **Add someone** for a person
+   without a phone, **Remove** for a mistake. After each vote a phone shows a short
+   **receipt** code; the Voters tab shows the same code next to that ballot, and a voter
+   can tap **Check my recorded vote** after the motion closes. A receipt shows what was
+   recorded under a name, not who tapped.
 7. **At the end:** Meeting tab → **End meeting** (it closes any open motion first), then
    **Download this meeting (Excel)** for the record, or **Print this meeting** (minutes,
    without names).
