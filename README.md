@@ -99,10 +99,10 @@ the record.
    **Result saved** (on an iPad or iPhone especially).
 4. The result appears to everyone the moment you close the motion; voters can also review all past results under their **Results** tab.
    A saved result never changes, even if someone's category is changed later.
-5. Move to the next motion. If a motion was closed by mistake, **Re-open** it from the
-   Results tab and type the reason (kept in the change history; no health or private
+5. Move to the next motion. If a motion was closed by mistake, **Re-open** it (on its
+   motion card or the Results tab) and type the reason (kept in the change history; no health or private
    details). The earlier count is kept. If a result is contested after it was announced,
-   use **Re-vote** instead: everyone votes again on a copy, the original stays on record
+   use **Re-vote** (same two places) instead: everyone votes again on a copy, the original stays on record
    marked "Replaced by a re-vote", and voters see the reason. **Settings** (top right)
    has the change history and your name for it.
 6. If the console says "The voters' screen is out of date", tap **Fix it**.

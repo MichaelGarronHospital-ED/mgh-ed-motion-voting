@@ -475,6 +475,42 @@ class TestRevote(Base):
         pg.wait_for_function(f"() => window.__store.get('polls/{new_id}').status === 'open'")
         self.assertEqual(h.get(pg, "config/live")["open"]["revoteOf"], "p1")
 
+    def test_motions_list_has_re_vote_only_when_allowed_and_it_works(self):
+        """Re-vote also sits on the motion card (where Re-open is), only when closed, saved and not replaced."""
+        pg = self.admin()
+        seed_closed_saved(pg, "s1", NOW - 3600000, text="Saved motion", order=0, ballots=30)
+        seed_closed_saved(pg, "s2", NOW - 3500000, text="Replaced motion", order=1, supersededBy="s3")
+        h.seed(pg, "polls/s3", {"text": "Replaced motion", "order": 2, "status": "draft", "voteCount": 0,
+                                "archived": False, "deleted": False, "createdAt": h.ts(NOW - 3400000),
+                                "revoteOf": "s2", "revoteReason": "Wrong names."})
+        h.seed(pg, "polls/s4", {"text": "Closed, not saved", "order": 3, "status": "closed", "voteCount": 0,
+                                "archived": False, "deleted": False, "closedAt": h.ts(NOW - 3300000),
+                                "openedAt": h.ts(NOW - 3360000), "createdAt": h.ts(NOW - 3399999),
+                                "lockedGroups": roster_locked(), "rule": RULE})
+        build_board(pg)
+        pg.wait_for_timeout(300)
+        h.tab(pg, "motions")
+        btn = '#motion-list button[data-act="revote"]'
+        pg.wait_for_selector(btn)
+        self.assertEqual(pg.locator(btn).count(), 1)           # only the saved, not-replaced motion
+        self.assertEqual(pg.get_attribute(btn, "data-id"), "s1")
+        pg.wait_for_function(f"() => !document.querySelector('{btn}').disabled")
+        pg.click(btn)
+        pg.wait_for_selector("#revote-form")
+        self.assertTrue(pg.is_visible("#tab-results"))         # switched to Results with this motion
+        self.assertEqual(pg.evaluate("document.activeElement.id"), "revote-reason")
+        self.assertIn("Saved motion", pg.inner_text("#results-body"))
+        pg.fill("#revote-reason", "Two ballots were cast under the wrong name.")
+        pg.click("#revote-go")
+        pg.wait_for_function("() => window.__store.get('polls/s1').supersededBy")
+        new_id = h.get(pg, "polls/s1")["supersededBy"]
+        copy = h.get(pg, f"polls/{new_id}")
+        self.assertEqual(copy["revoteOf"], "s1")
+        self.assertEqual(copy["status"], "draft")
+        h.tab(pg, "motions")
+        pg.wait_for_timeout(200)
+        self.assertEqual(pg.locator(btn).count(), 0)           # replaced now, so no second re-vote
+
     def test_revote_on_rules_without_it_says_database_update(self):
         """Step-2 page on the step-1 rules (R1): the re-vote link is refused."""
         pg = self.admin()
