@@ -38,7 +38,7 @@ After the update: check in a private window, or wait 10 minutes. Close and reope
 console tab (an open step-3 console does not keep the voters' board up to date with
 meetings).
 
-Tests: 171 browser tests (28 new), 94 rules tests (19 new, including the real meeting
+Tests: 172 browser tests (28 new), 94 rules tests (19 new, including the real meeting
 code and calendar-year retention with Feb 29).
 
 ## Voting rules in Settings; paste the physician list; write-ins always shown (voting upgrade step 3, Oct 2026)
