@@ -1,13 +1,13 @@
 // Leadership console: the Physicians tab (categories, add, remove, restore,
 // write-ins to review, and updating the list by pasting).
-import { ROSTER_BY_SLUG } from "./roster.js";
+import { ROSTER_BY_SLUG } from "./roster.js?v=voting-9";
 import {
   setPersonGroup, resolvedRoster, effectiveGroup, addPhysician, removePhysician, restorePhysician,
   removedRoster, rosterPerson, isRemoved, rosterWriteins, dismissWritein, applyRosterChanges, currentRule,
   liveEligible, quorumNeededFor, weightIn, parseRoster,
-} from "./db.js";
-import { escapeHtml, fmt, csv, toast } from "./util.js";
-import { $, S, R, catLabel, uiCat, download } from "./admin-state.js";
+} from "./db.js?v=voting-9";
+import { escapeHtml, fmt, csv, toast } from "./util.js?v=voting-9";
+import { $, S, R, catLabel, uiCat, download } from "./admin-state.js?v=voting-9";
 
 let rosterFilter = "";
 const knownWriteins = {};   // slug -> name, from ballots seen this session (also kept in config/roster.writeins)

@@ -13,6 +13,6 @@ export async function resolve(spec, ctx, next) {
   return next(spec, ctx);
 }
 export async function load(url, ctx, next) {
-  if (/\/js\/[a-z0-9-]+\.js$/.test(url) && !url.includes("node_modules")) return next(url, { ...ctx, format: "module" });
+  if (/\/js\/[a-z0-9-]+\.js(\?v=[^/]*)?$/.test(url) && !url.includes("node_modules")) return next(url, { ...ctx, format: "module" });
   return next(url, ctx);
 }

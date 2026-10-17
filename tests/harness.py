@@ -77,6 +77,11 @@ def serve():
             httpd.shutdown()
 
 
+def version():
+    """The site version (js/version.js); every module URL carries ?v=<it>."""
+    return re.search(r'export const VERSION = "([^"]+)";', (REPO / "js/version.js").read_text()).group(1)
+
+
 def wire(page, errors):
     """Route the Firebase CDN to the stubs; collect console/page errors.
 
@@ -95,6 +100,9 @@ def wire(page, errors):
             r.abort()
 
     page.route("https://www.gstatic.com/firebasejs/**", route)
+    # Tests import page modules with the same ?v= as the page, so they share its
+    # module instances (a different URL is a separate copy with its own state).
+    page.add_init_script("window.__V = '%s';" % version())
     page.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}")
             if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
@@ -228,7 +236,7 @@ def build_board(page):
     """Write config/live and config/history as the console builds them (the
     voter page and the projector read only these, never the motions)."""
     page.evaluate("""async () => {
-        const b = await import('./js/board.js');
+        const b = await import('./js/board.js?v=' + window.__V);
         const st = window.__store.dump();
         const list = (re) => Object.entries(st).filter(([k]) => re.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
         const polls = list(/^polls[/][^/]+$/), ms = list(/^meetings[/][^/]+$/);

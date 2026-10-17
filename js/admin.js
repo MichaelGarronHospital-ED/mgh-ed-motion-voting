@@ -3,23 +3,23 @@
 //  gate, the banners, and the close / save / open / re-open flows.
 //  Each tab lives in its own module; they share state through admin-state.js.
 // ============================================================================
-import { ORG_NAME } from "./config.js";
+import { ORG_NAME } from "./config.js?v=voting-9";
 import {
   onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, isLeader,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
   historyIsCurrent, revoteMotion, runoffMotion, setLogName, currentLive, onMeetings, currentMeetings,
-} from "./db.js";
-import { toast, icon, escapeHtml } from "./util.js";
-import { $, S, R } from "./admin-state.js";
-import { watchVersion } from "./version.js";
-import { wireMotions } from "./admin-motions.js";
-import { wireResults } from "./admin-results.js";
-import { wireRoster } from "./admin-roster.js";
-import { wireRecords } from "./records.js";
-import { wireSettings } from "./admin-settings.js";
-import { wireMeeting } from "./admin-meeting.js";
+} from "./db.js?v=voting-9";
+import { toast, icon, escapeHtml } from "./util.js?v=voting-9";
+import { $, S, R } from "./admin-state.js?v=voting-9";
+import { watchVersion } from "./version.js?v=voting-9";
+import { wireMotions } from "./admin-motions.js?v=voting-9";
+import { wireResults } from "./admin-results.js?v=voting-9";
+import { wireRoster } from "./admin-roster.js?v=voting-9";
+import { wireRecords } from "./records.js?v=voting-9";
+import { wireSettings } from "./admin-settings.js?v=voting-9";
+import { wireMeeting } from "./admin-meeting.js?v=voting-9";
 
 document.title = ORG_NAME + " · Leadership";
 // The code loaded: the "Starting..." line (there in case a browser mixes old

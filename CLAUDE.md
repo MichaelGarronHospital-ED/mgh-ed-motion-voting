@@ -41,9 +41,14 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   browser tests in Chromium) on every push to any branch and every pull request. Free on a
   public repo. Actions are pinned by commit hash; runner image `ubuntu-24.04`.
 - **Deploy the site:** push to `main`; GitHub Pages is live about a minute later. Rules
-  first, then the page. Bump `version.txt` and `js/version.js` together with every
-  update (open consoles then say "A newer version is available. Reload."). Pages are
-  cached up to 10 minutes: check a deploy in a private window, or wait 10 minutes.
+  first, then the page. Every update: `python3 tests/set_version.py --snapshot` before
+  changing `js/` (records what the live release imports), then
+  `python3 tests/set_version.py voting-N` (writes `version.txt`, `js/version.js` and
+  `?v=voting-N` on every module import and each page's script and stylesheet tags;
+  `tests/test_versions.py` checks). Open consoles then say "A newer version is available.
+  Reload." Never remove an export in the release that stops using it (a cached module of
+  the live release may still import it). Pages are cached up to 10 minutes: check a
+  deploy in a private window, or wait 10 minutes.
 - **Accounts:** repo owned by the `MichaelGarronHospital-ED` org (department login
   `MGH-ED-Admin`). Firebase project `ed-motion-voting-99b96` is owned by the Google
   account on MGHEmergencyDepartmentAdministration@tehn.ca (second Owner: dralvinyang@gmail.com,
@@ -91,7 +96,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
 - **A role is known by uid, never by email.** Rules (`isAccount`) and pages (`isMember`,
   `isLeader` in `js/db.js`) compare `uid` with `LEADER_UID` / `ED_UID`; emails are only for
   `signInWithEmailAndPassword`. `tests/test_accounts.py` keeps config and rules equal and
-  refuses any `.email ===` check in page code. **Never delete a role account** (a new one
+  refuses any `.email ===` check in page code. While the emails move (`.app` to
+  `.invalid`), `signInAs` tries the email that last worked on the device (localStorage
+  `mv_signin_email`: "old" or "new"), else the old one, and the other once only on a
+  refusal; it accepts only the pinned uid. **Never delete a role account** (a new one
   has a new uid).
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.

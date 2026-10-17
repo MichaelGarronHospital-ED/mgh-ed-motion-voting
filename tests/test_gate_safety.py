@@ -6,6 +6,7 @@ it posts nowhere, so the password never lands in the address bar, the history
 or server logs. The voter page and the meeting screen build their password
 forms in JavaScript, with the handler attached at once.
 """
+import re
 import unittest
 
 import harness as h
@@ -17,7 +18,7 @@ class TestGateSafety(Base):
 
     def test_console_form_is_disabled_until_its_code_runs(self):
         pg = self.page
-        pg.route("**/js/admin.js", lambda r: r.abort())      # the code never arrives
+        pg.route(re.compile(r"/js/admin\.js(\?|$)"), lambda r: r.abort())   # the code never arrives
         pg.goto(f"{self.base}/admin-9f4k2x7q.html")
         pg.wait_for_selector("#gate-form")
         self.assertTrue(pg.is_disabled("#pass"))

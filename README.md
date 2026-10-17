@@ -169,8 +169,8 @@ Firestore only answers two shared accounts (see `firestore.rules`):
 
 - **An account is recognised by its uid, never by its email** (since voting step 9). The
   rules (`isAccount`) and the pages (`isMember`, `isLeader` in `js/db.js`) compare the uid,
-  which never changes, so a signed-in phone stays in when an account's email is changed,
-  and a stranger who makes an account with a freed old email gets nothing. The emails are
+  which never changes, so the rules and pages stay right when an account's email is changed
+  (Firebase itself signs every device out then, so each asks for the password once), and a stranger who makes an account with a freed old email gets nothing. The emails are
   used only to sign in. The uids are public (they are in the rules too); a test keeps
   `js/config.js` and `firestore.rules` the same.
 - **Never delete either account.** A new account gets a new uid, and the rules and pages
@@ -179,8 +179,10 @@ Firestore only answers two shared accounts (see `firestore.rules`):
   password sign-in counts. Anonymous sign-in is not accepted by the rules.
 - The emails are moving from `*.ed-motion-voting.app` (a domain nobody owns, so anyone
   could buy it and reset a password) to `*.mgh-ed-voting.invalid` (reserved, can never be
-  registered). Step 9 still signs in with the old emails; step 10 switches them, merged
-  right after the emails are changed.
+  registered). Since step 9 each password screen signs in with the email that last worked
+  on the device and, only if that is refused, tries the other one once, so the right
+  password works before, during and after the change with no page update in the window.
+  Step 10 (a few weeks after the change) drops the old emails.
 
 **Rollback:** if newly published rules misbehave, put the previous version back:
 Firebase console → Firestore Database → **Rules** lists every published version, so
@@ -209,6 +211,9 @@ the new rules, so nothing breaks in between.
 
 - Close and reopen every console and projector tab after an update reaches the site.
   An open console also says "A newer version is available. Reload."
+- After the account email change, every phone and the console ask for the password
+  once: the ED password for voters, the Leadership password for the console. Then it is
+  back to normal.
 - Browsers keep the site's files for up to 10 minutes, so for a short time a page can
   mix old and new files and stay on "Starting...": reload it. To check a new
   version straight away, use a private window, or wait 10 minutes.

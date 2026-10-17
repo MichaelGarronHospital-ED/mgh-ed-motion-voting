@@ -12,23 +12,36 @@ can never be registered (`*.mgh-ed-voting.invalid`).
 
 - **The rules and the pages now recognise the ED and Leadership accounts by their uid**
   (the account's fixed id), not by their email. A uid never changes, so the rules and the
-  pages stay right before, during and after the email change, and a phone or console that
-  is signed in stays in. Someone who made a new account with a freed old email would get a
-  different uid and nothing else.
+  pages stay right before, during and after the email change (Firebase itself still asks
+  each device for the password once after the change). Someone who made a new account
+  with a freed old email would get a different uid and nothing else.
 - Only a password sign-in counts (the rules also check the sign-in method).
-- The pages still sign in with the old emails. Step 10 switches them, and is merged right
-  after the emails are changed.
+- **The right password works before, during and after the email change, with no page
+  update in the window.** The voting page, the projector and the console sign in with the
+  email that last worked on this device (the old one on a new device); only if that is
+  refused do they try the other email, once, at the moment Continue is tapped. So a
+  password screen left open across the change, or a page still in the browser's cache,
+  works too. Only the account's own uid is accepted. A wrong password still shows one
+  "Incorrect password". The device remembers only "old" or "new", never an email or a
+  password.
+- **After the change, every phone and the console ask for the password once** (changing
+  an account's email signs every device out): voters type the ED password, the console
+  the Leadership password. Then it is back to normal.
+- **The site's files now carry the version** (`?v=voting-9` on every module and
+  stylesheet), so a browser never mixes a cached old file with a new one, which could
+  leave the console blank for up to 10 minutes. Names older pages still use (such as
+  `LEADER_EMAIL`) stay for one more release.
 - Never delete either account: a new one has a new uid, which the rules and pages refuse.
 - How to change the passwords now points to the ED tools passwords page.
 - Tests only: the test stand-in for Firebase sign-in now answers a moment later, as
-  Firebase does, so a console that starts already signed in is tested too.
+  Firebase does, and knows which emails the accounts have, so the move can be tested.
 
 **Publish the rules before merging this page** (the step-8 page works with them, since
 it signs in to the same two accounts).
 
 After the update: check in a private window, or wait 10 minutes.
 
-Tests: 225 browser tests (8 new), 131 rules tests (9 new: the right uid with the old or the
+Tests: 240 browser tests (23 new), 131 rules tests (9 new: the right uid with the old or the
 new email is let in; the right email with another uid, a non-password sign-in, or the ED
 account acting as Leadership is refused).
 
