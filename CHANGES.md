@@ -35,7 +35,7 @@ not available yet."; votes are not affected.
 After the update: check in a private window, or wait 10 minutes. Close and reopen every
 console and projector tab.
 
-Tests: 216 browser tests (13 new), 124 rules tests (10 new).
+Tests: 217 browser tests (13 new), 124 rules tests (10 new).
 
 ## Questions and elections (voting upgrade step 6, Oct 2026)
 
