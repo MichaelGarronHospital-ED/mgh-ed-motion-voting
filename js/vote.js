@@ -156,8 +156,9 @@ function gateHTML() {
     <form id="edgate" class="gate-form" autocomplete="on">
       <input class="pw-user" type="text" name="username" autocomplete="username" value="ED password" tabindex="-1" aria-hidden="true" />
       <label class="ed-label" for="edpw">ED password
-        <input class="ed-field" id="edpw" name="password" type="password" autocomplete="current-password" required />
+        <input class="ed-field" id="edpw" name="password" type="password" autocomplete="current-password" aria-describedby="edpw-help" required />
       </label>
+      <p class="ed-hint" id="edpw-help">Not working on iPhone? Clear the box, type the password by hand, then tap Save when your phone offers.</p>
       <p id="ederr" class="ed-error err hide" role="alert"></p>
       <button id="edgo" class="ed-btn ed-btn-filled" type="submit">Continue</button>
       <p class="ed-hint">This device remembers it, so you only enter it once.</p>
