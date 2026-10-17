@@ -35,7 +35,7 @@ class TestChoiceCounting(Base):
     def count(self, seats, threshold, ballots, style="election"):
         """ballots: list of (group, picks or None for abstain)."""
         return self.page.evaluate("""async ([seats, threshold, ballots, style]) => {
-            const c = await import('./js/count.js');
+            const c = await import('./js/count.js?v=' + window.__V);
             const poll = { kind: 'choice', status: 'open', seats, style, threshold,
               options: [{ id: 'o1', label: 'Dr A' }, { id: 'o2', label: 'Dr B' }, { id: 'o3', label: 'Dr C' }],
               rule: { ...c.LEGACY_RULE, threshold } };

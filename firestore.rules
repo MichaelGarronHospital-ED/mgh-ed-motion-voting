@@ -1,9 +1,9 @@
 rules_version = '2';
 // MOTION VOTING RULES. The server-side access boundary for the whole tool.
 //
-//   • Only two shared Firebase accounts get in at all (emails below, same as
-//     js/config.js): ed@ (the ED password, every voter) and leadership@ (the
-//     Leadership password, the console). Anyone else reads and writes nothing.
+//   • Only two shared Firebase accounts get in at all, recognised by uid (below,
+//     same as js/config.js): ed@ (the ED password, every voter) and leadership@
+//     (the Leadership password, the console). Anyone else reads and writes nothing.
 //   • A voter (the ED account) may read everything, and while a motion is open
 //     may cast or change a ballot of exactly the shape js/db.js castVote writes,
 //     and add exactly one to that motion's voteCount.
@@ -27,15 +27,21 @@ rules_version = '2';
 // everyone, not even for a minute: the ballots carry names.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Signed in with one of the two shared passwords: the ED password (account
-    // ed@…, voters) or the Leadership password (leadership@…). An anonymous or
-    // any other account is refused, so the ED password is enforced here, by the
-    // server, and not only by the screen. Keep the emails identical to config.js.
-    function signedIn() {
-      return request.auth != null
-        && request.auth.token.email in ['ed@ed-motion-voting.app', 'leadership@ed-motion-voting.app'];
+    // Signed in with one of the two shared passwords: the ED password (voters)
+    // or the Leadership password (the console). Each account is recognised by
+    // its uid, never its email: a uid never changes, so these rules stay right
+    // when an account's email is changed, and a new account made with a freed
+    // old email gets a different uid and nothing else. Only a password sign-in
+    // counts. An anonymous or any other account is refused, so the ED password
+    // is enforced here, by the server, and not only by the screen.
+    // Keep the uids identical to LEADER_UID and ED_UID in js/config.js (a test
+    // checks). Never delete either account (a new one has a new uid).
+    function isAccount(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'password';
     }
-    function isLeader() { return signedIn() && request.auth.token.email == 'leadership@ed-motion-voting.app'; }
+    function isLeader() { return isAccount('3eigCLaK0RQ5PmVhxfDgI0qoYzQ2'); }   // leadership@
+    function signedIn() { return isAccount('CXyo7yciWpc78J1TQYRzrPpu77C3') || isLeader(); }   // ed@ or leadership@
     function pollPath(poll) { return /databases/$(database)/documents/polls/$(poll); }
     function pollIsOpen(poll) {
       return get(pollPath(poll)).data.status == 'open';

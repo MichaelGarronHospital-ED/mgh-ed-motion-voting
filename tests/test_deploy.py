@@ -85,7 +85,7 @@ class TestConsoleListeners(Base):
         pg2 = self.browser.new_page()
         errs = []
         h.wire(pg2, errs)
-        pg2.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        pg2.add_init_script(h.auth_init(h.ED_EMAIL))
         h.open_screen(pg2, self.base)
         for k, v in h.store(pg).items():
             h.seed(pg2, k, v)
@@ -97,7 +97,7 @@ class TestConsoleListeners(Base):
 
     def test_projector_listens_only_to_what_the_rules_allow(self):
         pg = self.page
-        pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        pg.add_init_script(h.auth_init(h.ED_EMAIL))
         h.open_screen(pg, self.base)
         seed_open(pg, ballots=h.GROUP1[:2])
         h.build_board(pg)
@@ -107,7 +107,7 @@ class TestConsoleListeners(Base):
     def test_projector_says_starting_and_a_newer_version(self):
         self.assertIn("Starting... If this message stays, reload the page.", (h.REPO / "screen.html").read_text())
         pg = self.page
-        pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        pg.add_init_script(h.auth_init(h.ED_EMAIL))
         pg.route("**/version.txt", lambda r: r.fulfill(status=200, body="voting-99\n"))
         h.open_screen(pg, self.base)
         pg.wait_for_selector(".screen-head")

@@ -10,41 +10,90 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, LEADER_EMAIL, ED_EMAIL } from "./config.js";
-import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js";
+import { firebaseConfig, LEADER_EMAIL, ED_EMAIL, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-9";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-9";
 import {
   tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
-} from "./count.js";
-import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js";
-import { agendaOrder, agendaNumbers } from "./count.js";
+} from "./count.js?v=voting-9";
+import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-9";
+import { agendaOrder, agendaNumbers } from "./count.js?v=voting-9";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
 // ---- auth ------------------------------------------------------------------
-// Two shared accounts, one per password (config.js): ED_EMAIL for voters (the ED
-// password) and LEADER_EMAIL for leadership (the Leadership password). The rules
-// accept only these two, so the password is enforced by the server, not just by
-// the screen. Firebase keeps the sign-in on the device, so a phone that has
+// Two shared accounts, one per password (config.js): ED for voters (the ED
+// password) and LEADER for leadership (the Leadership password). Who is signed
+// in is decided by the account's uid, never its email (an email can change, so a
+// page and the server could disagree; a uid cannot). The rules accept only these
+// two, so the password is enforced by the server, not just by the screen. Firebase keeps the sign-in on the device, so a phone that has
 // entered the ED password once goes straight to the ballot afterwards.
 //
 // Firebase keeps ONE sign-in per browser for the whole site, shared by every tab.
 // A leadership session therefore also counts as a member on the voter page (a
 // chair voting on the console laptop must not be signed out of the console).
 export function watchAuth(cb) { return onAuthStateChanged(auth, cb); }
-export const isMember = (u) => !!u && !u.isAnonymous && (u.email === ED_EMAIL || u.email === LEADER_EMAIL);
+export const isLeader = (u) => !!u && !u.isAnonymous && u.uid === LEADER_UID;
+export const isMember = (u) => !!u && !u.isAnonymous && (u.uid === ED_UID || u.uid === LEADER_UID);
 // Calls cb(user) whenever the member state changes: the user when signed in as
 // ED or leadership, null otherwise (signed out, or an old anonymous session).
-export function watchMember(cb) { return onAuthStateChanged(auth, (u) => cb(isMember(u) ? u : null)); }
-export function voterSignIn(password) { return signInWithEmailAndPassword(auth, ED_EMAIL, password); }
-export function leaderSignIn(password) { return signInWithEmailAndPassword(auth, LEADER_EMAIL, password); }
+// "Not a member" is passed on once, not again for each non-member change (a
+// sign-in that reaches some other account and is signed out again must not
+// redraw the password screen and lose its message).
+export function watchMember(cb) {
+  let last;
+  return onAuthStateChanged(auth, (u) => {
+    const m = isMember(u) ? u : null;
+    if (m === null && last === null) return;
+    last = m; cb(m);
+  });
+}
+
+// Signing in while the account emails move (old *.app to new *.invalid): the
+// account may have either email, and a page left open, or cached, cannot know
+// which. So each sign-in, at the moment it is tapped, tries the email that last
+// worked on this device (else the old one), and only on a refusal (wrong
+// password or no such account) tries the other one once. Offline or throttled:
+// no second try, the person is told. Only the account's own uid is accepted;
+// anything else is signed out again and counts as a refusal. One tap is one
+// "Incorrect password", however many emails were tried. This device remembers
+// only "old" or "new", never an email or a password.
+const ACCOUNTS = {
+  ed: { uid: ED_UID, old: ED_EMAIL, new: ED_EMAIL_NEW },
+  leader: { uid: LEADER_UID, old: LEADER_EMAIL, new: LEADER_EMAIL_NEW },
+};
+const WORKED_KEY = "mv_signin_email";
+function lastWorked() { try { return localStorage.getItem(WORKED_KEY) === "new" ? "new" : "old"; } catch (e) { return "old"; } }
+function remember(which) { try { localStorage.setItem(WORKED_KEY, which); } catch (e) { /* private mode */ } }
+const refused = () => Object.assign(new Error("Incorrect password."), { code: "auth/invalid-credential" });
+const worthOtherEmail = (e) => isWrongPassword(e) || (((e && e.code) || "").includes("invalid-email"));
+async function signInAs(role, password) {
+  const a = ACCOUNTS[role];
+  const first = lastWorked();
+  let refusal = null;
+  for (const which of [first, first === "new" ? "old" : "new"]) {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, a[which], password);
+      if (cred && cred.user && cred.user.uid === a.uid) { remember(which); return cred; }
+      await signOut(auth);              // some other account under that email: never ours
+      refusal = refusal || refused();
+    } catch (e) {
+      if (!worthOtherEmail(e)) throw e;
+      if (!refusal || isWrongPassword(e)) refusal = isWrongPassword(e) ? e : refused();
+    }
+  }
+  throw refusal;
+}
+export function voterSignIn(password) { return signInAs("ed", password); }
+export function leaderSignIn(password) { return signInAs("leader", password); }
 export function leaderSignOut() { return signOut(auth); }
 // Was this a wrong password (as opposed to no connection, or throttling)?
 export function isWrongPassword(e) {
   const c = (e && e.code) || "";
   return c.includes("wrong-password") || c.includes("invalid-credential") || c.includes("user-not-found") || c.includes("invalid-login");
 }
+// Kept for one more release: a cached page from before step 9 imports these.
 export { LEADER_EMAIL, ED_EMAIL };
 
 // References are made when used (not once at load), so the rules tests can
@@ -1266,6 +1315,6 @@ export function weightForVote(v, poll) {
 export function tally(votes, poll) {
   return tallyVotes(votes, (v) => weightForVote(v, poll));
 }
-export * from "./count.js";
+export * from "./count.js?v=voting-9";
 
 export { serverTimestamp, copyRule };

@@ -21,9 +21,26 @@ TOOL = HERE.parent
 REPO = TOOL
 STUBS = HERE / "stubs"
 
-# Must match LEADER_EMAIL in js/config.js.
-LEADER_EMAIL = "leadership@ed-motion-voting.app"
-ED_EMAIL = "ed@ed-motion-voting.app"   # must match ED_EMAIL in js/config.js
+# The two shared accounts. The pages recognise them by uid (js/config.js
+# LEADER_UID, ED_UID, the same as firestore.rules; test_accounts.py checks all
+# copies agree). The emails are only what the page signs in with.
+LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2"
+ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3"
+LEADER_EMAIL = "leadership@ed-motion-voting.app"   # must match LEADER_EMAIL in js/config.js
+ED_EMAIL = "ed@ed-motion-voting.app"               # must match ED_EMAIL in js/config.js
+# The emails the accounts move to (design passwords.md, Phase A).
+NEW_LEADER_EMAIL = "leadership@mgh-ed-voting.invalid"
+NEW_ED_EMAIL = "ed@mgh-ed-voting.invalid"
+
+
+def uid_for(email):
+    return LEADER_UID if email and email.startswith("leadership") else ED_UID
+
+
+def auth_init(email, uid=None):
+    """Init script: the page starts already signed in (another tab, or a reload)."""
+    return ("window.__authInitial = { uid: '%s', isAnonymous: false, email: '%s' };"
+            % (uid or uid_for(email), email))
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -60,6 +77,11 @@ def serve():
             httpd.shutdown()
 
 
+def version():
+    """The site version (js/version.js); every module URL carries ?v=<it>."""
+    return re.search(r'export const VERSION = "([^"]+)";', (REPO / "js/version.js").read_text()).group(1)
+
+
 def wire(page, errors):
     """Route the Firebase CDN to the stubs; collect console/page errors.
 
@@ -78,6 +100,9 @@ def wire(page, errors):
             r.abort()
 
     page.route("https://www.gstatic.com/firebasejs/**", route)
+    # Tests import page modules with the same ?v= as the page, so they share its
+    # module instances (a different URL is a separate copy with its own state).
+    page.add_init_script("window.__V = '%s';" % version())
     page.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}")
             if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
@@ -119,8 +144,8 @@ def unlock_admin(page, read=None, then=None):
     body = then or (f"return document.querySelector('{read}').innerText;"
                     if read else "return null;")
     return page.evaluate(
-        "() => { window.__auth.force({ uid: 'leader-uid', email: '%s' });"
-        " %s }" % (LEADER_EMAIL, body))
+        "() => { window.__auth.force({ uid: '%s', isAnonymous: false, email: '%s' });"
+        " %s }" % (LEADER_UID, LEADER_EMAIL, body))
 
 
 def open_admin(page, base):
@@ -211,7 +236,7 @@ def build_board(page):
     """Write config/live and config/history as the console builds them (the
     voter page and the projector read only these, never the motions)."""
     page.evaluate("""async () => {
-        const b = await import('./js/board.js');
+        const b = await import('./js/board.js?v=' + window.__V);
         const st = window.__store.dump();
         const list = (re) => Object.entries(st).filter(([k]) => re.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
         const polls = list(/^polls[/][^/]+$/), ms = list(/^meetings[/][^/]+$/);

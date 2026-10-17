@@ -31,7 +31,7 @@ def save_rules(pg, **fields):
 
 class TestSettings(Base):
     def unit(self, body):
-        return self.page.evaluate("async () => { const c = await import('./js/count.js'); %s }" % body)
+        return self.page.evaluate("async () => { const c = await import('./js/count.js?v=' + window.__V); %s }" % body)
 
     def test_decide_table(self):
         self.admin()
@@ -347,7 +347,7 @@ class TestWriteins(Base):
 
     def test_uncategorized_has_no_dash(self):
         pg = self.admin()
-        label = pg.evaluate("async () => (await import('./js/admin-state.js')).catLabel('writein')")
+        label = pg.evaluate("async () => (await import('./js/admin-state.js?v=' + window.__V)).catLabel('writein')")
         self.assertEqual(label, "Uncategorized")
 
 

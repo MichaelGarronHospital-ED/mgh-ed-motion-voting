@@ -21,7 +21,7 @@ class Screen(Base):
         if clock:
             pg.clock.install()
         if signed_in_as:
-            pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % signed_in_as)
+            pg.add_init_script(h.auth_init(signed_in_as))
         h.open_screen(pg, self.base)
         return pg
 

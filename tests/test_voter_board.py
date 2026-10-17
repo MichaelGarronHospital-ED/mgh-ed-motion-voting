@@ -38,7 +38,7 @@ def seed_closed_saved(pg, pid, ms, text=None, order=0, ballots=0, **extra):
 def build_board(pg):
     """Write config/live and config/history as the console would build them."""
     pg.evaluate("""async () => {
-        const b = await import('./js/board.js');
+        const b = await import('./js/board.js?v=' + window.__V);
         const st = window.__store.dump();
         const polls = Object.entries(st).filter(([k]) => /^polls\\/[^/]+$/.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
         const bd = b.buildBoard(polls, []);
@@ -430,7 +430,7 @@ class TestConsoleBoard(Base):
     def test_history_is_capped_by_size(self):
         pg = self.admin()
         r = pg.evaluate("""async () => {
-            const b = await import('./js/board.js');
+            const b = await import('./js/board.js?v=' + window.__V);
             const opts = Array.from({ length: 20 }, (_, i) => ({ id: 'o' + i, label: 'Candidate ' + 'x'.repeat(110) + i, weight: i, count: i }));
             const polls = Array.from({ length: 300 }, (_, i) => ({ id: 'e' + i, text: 'Election ' + 'y'.repeat(480), status: 'closed',
                 archived: false, deleted: false, order: i, closedAt: window.__store.ts(1000000 + i * 1000),

@@ -14,7 +14,7 @@ from test_meetings import seed_meeting
 
 
 def board(pg):
-    pg.evaluate("""async () => { const b = await import('./js/board.js'); const st = window.__store.dump();
+    pg.evaluate("""async () => { const b = await import('./js/board.js?v=' + window.__V); const st = window.__store.dump();
         const polls = Object.entries(st).filter(([k]) => /^polls[/][^/]+$/.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
         const ms = Object.entries(st).filter(([k]) => /^meetings[/][^/]+$/.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
         window.__store.set('config/live', b.buildBoard(polls, ms)); }""")
@@ -100,7 +100,7 @@ class TestReceipts(Base):
         self.assertIn("Recorded: Against. Receipt", pg.inner_text(".receipt-line"))
         ballot = h.get(pg, f"polls/p1/votes/{h.slugify(h.GROUP1[0])}")
         # what the console computes from the stored ballot
-        console = pg.evaluate("async (v) => (await import('./js/count.js')).ballotReceipt('p1', v)", ballot)
+        console = pg.evaluate("async (v) => (await import('./js/count.js?v=' + window.__V)).ballotReceipt('p1', v)", ballot)
         self.assertEqual(console, code)
         pg.click('button[data-c="favour"]')                 # a change: a new receipt
         pg.wait_for_function(f"() => document.querySelector('.receipt-line').textContent.includes('In favour')")
@@ -126,7 +126,7 @@ class TestReceipts(Base):
         pg.wait_for_selector(".receipt-line")
         self.assertNotIn("not sent", pg.inner_text("#app"))
         self.assertEqual(pg.evaluate("localStorage.getItem('ed_bound')"), slug)
-        expected = pg.evaluate("async (v) => (await import('./js/count.js')).ballotReceipt('p1', v)", h.get(pg, f"polls/p1/votes/{slug}"))
+        expected = pg.evaluate("async (v) => (await import('./js/count.js?v=' + window.__V)).ballotReceipt('p1', v)", h.get(pg, f"polls/p1/votes/{slug}"))
         self.assertEqual(pg.inner_text(".receipt-line .receipt-code"), expected)
 
     def test_check_my_vote_detects_a_change(self):
@@ -215,7 +215,7 @@ class TestLeadershipAttendance(Base):
 class TestProjectorCheckIns(Base):
     def test_screen_shows_check_in_counts_while_waiting(self):
         pg = self.page
-        pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        pg.add_init_script(h.auth_init(h.ED_EMAIL))
         h.open_screen(pg, self.base)
         seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
         for i, mode in enumerate(["room", "room", "remote"]):

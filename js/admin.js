@@ -3,23 +3,23 @@
 //  gate, the banners, and the close / save / open / re-open flows.
 //  Each tab lives in its own module; they share state through admin-state.js.
 // ============================================================================
-import { ORG_NAME } from "./config.js";
+import { ORG_NAME } from "./config.js?v=voting-9";
 import {
-  onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, LEADER_EMAIL,
+  onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, isLeader,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
   historyIsCurrent, revoteMotion, runoffMotion, setLogName, currentLive, onMeetings, currentMeetings,
-} from "./db.js";
-import { toast, icon, escapeHtml } from "./util.js";
-import { $, S, R } from "./admin-state.js";
-import { watchVersion } from "./version.js";
-import { wireMotions } from "./admin-motions.js";
-import { wireResults } from "./admin-results.js";
-import { wireRoster } from "./admin-roster.js";
-import { wireRecords } from "./records.js";
-import { wireSettings } from "./admin-settings.js";
-import { wireMeeting } from "./admin-meeting.js";
+} from "./db.js?v=voting-9";
+import { toast, icon, escapeHtml } from "./util.js?v=voting-9";
+import { $, S, R } from "./admin-state.js?v=voting-9";
+import { watchVersion } from "./version.js?v=voting-9";
+import { wireMotions } from "./admin-motions.js?v=voting-9";
+import { wireResults } from "./admin-results.js?v=voting-9";
+import { wireRoster } from "./admin-roster.js?v=voting-9";
+import { wireRecords } from "./records.js?v=voting-9";
+import { wireSettings } from "./admin-settings.js?v=voting-9";
+import { wireMeeting } from "./admin-meeting.js?v=voting-9";
 
 document.title = ORG_NAME + " · Leadership";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
@@ -39,7 +39,7 @@ $("gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryEnter(
 // Only now can the form be used (see the comment in admin-9f4k2x7q.html).
 $("gate-fields").disabled = false;
 // The Leadership password is checked by Firebase itself (it is the password of
-// the LEADER_EMAIL account); nothing about it is stored in this public code, and
+// the Leadership account); nothing about it is stored in this public code, and
 // the console opens only on a real sign-in, so writes are always authorised.
 async function tryEnter() {
   const typed = $("pass").value.trim(), err = $("gate-err");   // passwords never start or end with a space
@@ -63,7 +63,7 @@ try {
   }
 } catch (e) { /* private mode */ }
 // Auto-unlock on reload if a leadership session is already persisted.
-watchAuth((user) => { if (user && user.email === LEADER_EMAIL) unlock(); });
+watchAuth((user) => { if (isLeader(user)) unlock(); });
 $("lock").addEventListener("click", async (e) => {
   e.preventDefault();
   if (S.busy > 0) {

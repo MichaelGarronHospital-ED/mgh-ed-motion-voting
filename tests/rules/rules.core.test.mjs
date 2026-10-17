@@ -102,10 +102,16 @@ function castVote(db, poll, slug, choice, sessionId) {
   });
 }
 
-// These emails must match ED_EMAIL and LEADER_EMAIL in js/config.js and the
-// list in firestore.rules. Rename one place and not the others, and these fail.
-const ed        = () => testEnv.authenticatedContext("u-ed",       { email: "ed@ed-motion-voting.app" }).firestore();
-const leader    = () => testEnv.authenticatedContext("u-leader",   { email: "leadership@ed-motion-voting.app" }).firestore();
+// The two accounts by uid (the same as js/config.js and firestore.rules;
+// tests/test_accounts.py checks), signed in with a password as a real token is.
+const LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2";
+const ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3";
+const OLD = { ed: "ed@ed-motion-voting.app", leader: "leadership@ed-motion-voting.app" };
+const NEW = { ed: "ed@mgh-ed-voting.invalid", leader: "leadership@mgh-ed-voting.invalid" };
+const account = (uid, email, provider = "password") =>
+  testEnv.authenticatedContext(uid, { email, firebase: { sign_in_provider: provider, identities: {} } }).firestore();
+const ed        = () => account(ED_UID, OLD.ed);
+const leader    = () => account(LEADER_UID, OLD.leader);
 // the shape of a phone still holding a pre-switch anonymous session
 const anonUser  = () => testEnv.authenticatedContext("u-anon").firestore();
 const stranger  = () => testEnv.authenticatedContext("u-stranger", { email: "someone@example.com" }).firestore();
@@ -134,6 +140,45 @@ describe("who gets in at all", () => {
       await assertFails(updateDoc(doc(who(), "polls/open"), { voteCount: 3 }));
     });
   }
+});
+
+// Phase A of the passwords design: the account emails move from *.app to
+// *.invalid. The rules know each account by uid, so either email works, and a
+// stranger's account that takes a freed old email gets nothing.
+describe("accounts are known by uid, never by email", () => {
+  const canVote = (db) => castNew(db, "open", "someone", newBallot("someone", "favour"));
+  for (const [when, emails] of [["old email", OLD], ["new email", NEW]]) {
+    it(`ED with the right uid and the ${when} reads and votes`, async () => {
+      await assertSucceeds(getDoc(doc(account(ED_UID, emails.ed), "config/roster")));
+      await assertSucceeds(canVote(account(ED_UID, emails.ed)));
+    });
+    it(`Leadership with the right uid and the ${when} reads the change log`, async () => {
+      await assertSucceeds(getDocs(collection(account(LEADER_UID, emails.leader), "log")));
+      await assertSucceeds(setDoc(doc(account(LEADER_UID, emails.leader), "polls/new"), { text: "Motion C", status: "draft" }));
+    });
+    it(`the right ${when} with another uid is refused`, async () => {
+      for (const email of [emails.ed, emails.leader]) {
+        const db = account("someone-else", email);
+        await assertFails(getDoc(doc(db, "config/roster")));
+        await assertFails(getDocs(collection(db, "log")));
+        await assertFails(canVote(account("someone-else", email)));
+      }
+    });
+  }
+  for (const provider of ["anonymous", "custom"]) {
+    it(`the right uid signed in by ${provider} (not a password) is refused`, async () => {
+      for (const [uid, email] of [[ED_UID, OLD.ed], [LEADER_UID, OLD.leader]]) {
+        await assertFails(getDoc(doc(account(uid, email, provider), "config/roster")));
+      }
+      await assertFails(getDocs(collection(account(LEADER_UID, OLD.leader, provider), "log")));
+    });
+  }
+  it("the ED account cannot act as Leadership, even with Leadership's email", async () => {
+    for (const email of [OLD.leader, NEW.leader]) {
+      await assertFails(getDocs(collection(account(ED_UID, email), "log")));
+      await assertFails(setDoc(doc(account(ED_UID, email), "polls/new"), { text: "Motion C", status: "draft" }));
+    }
+  });
 });
 
 describe("ED password (voters)", () => {

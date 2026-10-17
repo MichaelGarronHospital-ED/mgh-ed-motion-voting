@@ -174,7 +174,7 @@ class TestMeetings(Console):
         pg.click("#meeting-trash-btn")
         pg.wait_for_selector("text=Close the open motion first.")
         self.assertFalse(h.get(pg, "meetings/m1")["deleted"])
-        r = pg.evaluate("async () => { const m = await import('./js/db.js'); try { await m.purgeMeeting('m1'); return 'deleted'; } catch (e) { return e.why; } }")
+        r = pg.evaluate("async () => { const m = await import('./js/db.js?v=' + window.__V); try { await m.purgeMeeting('m1'); return 'deleted'; } catch (e) { return e.why; } }")
         self.assertEqual(r, "open")
         self.assertIsNotNone(h.get(pg, "polls/p1"))
 
@@ -264,7 +264,7 @@ class TestMeetings(Console):
     def test_board_meeting_ignores_trashed_meetings(self):
         pg = self.page
         h.load_admin(pg, self.base)
-        r = pg.evaluate("""async () => { const b = await import('./js/board.js'); const ts = window.__store.ts;
+        r = pg.evaluate("""async () => { const b = await import('./js/board.js?v=' + window.__V); const ts = window.__store.ts;
             const ms = [{ id: 'a', title: 'A', date: '2026-11-01', status: 'closed', endedAt: ts(5000), deleted: true },
                         { id: 'b', title: 'B', date: '2026-10-01', status: 'closed', endedAt: ts(4000) },
                         { id: 'c', title: 'C', date: '2026-12-01', status: 'open', archived: true }];
@@ -448,7 +448,7 @@ class TestAgenda(Console):
 
     def test_parse_agenda_unit(self):
         pg = self.console()
-        r = pg.evaluate("""async () => { const c = await import('./js/count.js');
+        r = pg.evaluate("""async () => { const c = await import('./js/count.js?v=' + window.__V);
             const p = c.parseAgenda('a. First\\nAmendment to the amendment: orphan\\nb) Second\\nAmendment: x');
             return p.rows.map((x) => [x.number, x.depth, x.problem]); }""")
         self.assertEqual(r, [["1", 0, None], ["", 2, "Amendment to an amendment with no amendment above it"], ["2", 0, None], ["2a", 1, "Too short"]])
@@ -462,7 +462,7 @@ class TestVoterMeeting(Base):
                     closedAt=h.ts(NOW - 30000), result=None)
         seed_motion(pg, "a", "Amendment: add Dec 24.", amends="m", status="open", openedAt=h.ts(NOW - 1000))
         build_board(pg)
-        pg.evaluate("""async () => { const b = await import('./js/board.js'); const st = window.__store.dump();
+        pg.evaluate("""async () => { const b = await import('./js/board.js?v=' + window.__V); const st = window.__store.dump();
             const polls = Object.entries(st).filter(([k]) => /^polls[/][^/]+$/.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
             const ms = Object.entries(st).filter(([k]) => /^meetings[/][^/]+$/.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
             window.__store.set('config/live', b.buildBoard(polls, ms)); }""")

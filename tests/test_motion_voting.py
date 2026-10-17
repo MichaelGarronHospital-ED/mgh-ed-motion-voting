@@ -550,16 +550,15 @@ class TestSignIn(Base):
     (or on the chair's own laptop) silently loses its write access."""
 
     def test_voter_page_keeps_an_existing_leadership_session(self):
-        self.page.add_init_script(
-            "window.__authInitial = { uid: 'leader-uid', isAnonymous: false,"
-            " email: '%s' };" % h.LEADER_EMAIL)
+        self.page.add_init_script(h.auth_init(h.LEADER_EMAIL))
         p = self.voter()
-        self.assertEqual(p.evaluate("() => window.__auth.current().email"), h.LEADER_EMAIL)
+        self.assertEqual(p.evaluate("() => window.__auth.current().uid"), h.LEADER_UID)
 
     def test_voter_page_asks_for_the_ed_password_and_signs_in_as_ed(self):
         # self.voter() goes through the ED-password screen (harness.open_voter)
         p = self.voter()
-        self.assertEqual(p.evaluate("() => window.__auth.current().email"), h.ED_EMAIL)
+        self.assertEqual(p.evaluate("() => window.__auth.current().uid"), h.ED_UID)
+        self.assertEqual(p.evaluate("() => window.__lastEmail"), h.ED_EMAIL)   # signs in with the email of today
         self.assertFalse(p.evaluate("() => window.__auth.current().isAnonymous"))
 
     def test_voter_page_shows_the_password_screen_after_a_sign_out_elsewhere(self):

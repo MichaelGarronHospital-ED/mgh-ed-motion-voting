@@ -103,7 +103,7 @@ class TestClosing(Base):
         h.seed_roster(pg, groups={WRITEIN: "1"})
         pg.wait_for_timeout(200)
         before, after = pg.evaluate("""async () => {
-            const m = await import('./js/db.js');
+            const m = await import('./js/db.js?v=' + window.__V);
             const lg = m.snapshotGroupsFor([]);
             return [m.eligibleCount({ status: 'open' }), m.eligibleCount({ status: 'closed', lockedGroups: lg })]; }""")
         self.assertEqual(before, h.ELIGIBLE + 1)
