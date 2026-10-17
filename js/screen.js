@@ -15,6 +15,7 @@ import {
   resultOf, outcomeWords, outcomeKind, liveEligible, quorumNeededFor, clockTime, countOnce, withTimeout, LEGACY_RULE,
 } from "./db.js";
 import { escapeHtml, icon, verdictHTML, stackedBar, fmt } from "./util.js";
+import { watchVersion } from "./version.js";
 
 document.title = ORG_NAME + " · Meeting screen";
 const root = document.getElementById("screen");
@@ -25,6 +26,8 @@ let board, controls = null, votes = [], votesFor = null, votesLoaded = false, vo
 let offline = false, slow = false;
 let timer = null;               // { pollId, endsAt (this screen's clock), seconds }
 let lastTimerKey = null, firstControls = true;
+let newer = false;              // a newer version is on the site
+watchVersion(() => { newer = true; render(); });
 const lateCount = new Map();    // motion id -> { result, state }
 
 watchMember((u) => {
@@ -81,7 +84,8 @@ function failed(e) {
 function render() {
   if (!authKnown) { root.innerHTML = ""; return; }
   if (!member) { root.innerHTML = gateHTML(); wireGate(); return; }
-  const note = offline || slow ? `<p class="screen-note" role="status">${icon("alert", 18)}No connection. May be out of date.</p>` : "";
+  const note = (offline || slow ? `<p class="screen-note" role="status">${icon("alert", 18)}No connection. May be out of date.</p>` : "")
+    + (newer ? `<p class="screen-note" role="status">${icon("alert", 18)}A newer version is available. <button type="button" class="ed-btn ed-btn-tinted btn-sm" id="screen-reload">Reload</button></p>` : "");
   if (board === undefined) { root.innerHTML = `${note}<p class="screen-wait">Connecting...</p>`; return; }
   const m = board && board.meeting;
   const head = `<header class="screen-head"><span class="ed-badge" aria-hidden="true">ED</span>
@@ -96,6 +100,7 @@ function render() {
   const corner = (open || closed) && (!controls || controls.showQr !== false)
     ? `<div class="screen-qr-small"><img src="voter-qr.png" alt="QR code to vote" width="160" height="160" /><span>${escapeHtml(shortLink())}</span></div>` : "";
   root.innerHTML = `${note}${head}${body}${corner}`;
+  const rl = document.getElementById("screen-reload"); if (rl) rl.addEventListener("click", () => location.reload());
 }
 function niceDate(d) {
   if (!d) return "";

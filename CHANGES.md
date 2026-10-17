@@ -22,7 +22,11 @@ Running log of what changed and why, newest first.
 
 No new database rules. Phones do not read the projector's settings.
 
-Tests: 170 browser tests (13 new). Rules: no change; 104 rules tests (11 new rows checking the projector can read what it needs).
+After the update: check in a private window, or wait 10 minutes. Close and reopen every
+console tab. The projector screen also says "A newer version is available. Reload." after
+later updates.
+
+Tests: 181 browser tests (15 new). Rules: no change; 104 rules tests (11 new rows checking the projector can read what it needs).
 
 ## Meetings and agendas (voting upgrade step 4, Oct 2026)
 

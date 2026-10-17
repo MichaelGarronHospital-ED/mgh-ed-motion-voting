@@ -70,11 +70,34 @@ class TestConsoleListeners(Base):
         self.assertEqual(sorted(set(pg.evaluate("window.__store.listenerPaths()"))),
                          sorted(EXPECTED_CONSOLE))
 
+    def test_projector_listens_only_to_what_the_rules_allow(self):
+        pg = self.page
+        pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        h.open_screen(pg, self.base)
+        seed_open(pg, ballots=h.GROUP1[:2])
+        h.build_board(pg)
+        pg.wait_for_selector(".screen-count")
+        self.assertEqual(sorted(set(pg.evaluate("window.__store.listenerPaths()"))), sorted(EXPECTED_PROJECTOR))
+
+    def test_projector_says_starting_and_a_newer_version(self):
+        self.assertIn("Starting... If this stays blank, reload the page.", (h.REPO / "screen.html").read_text())
+        pg = self.page
+        pg.add_init_script("window.__authInitial = { uid: 'u', isAnonymous: false, email: '%s' };" % h.ED_EMAIL)
+        pg.route("**/version.txt", lambda r: r.fulfill(status=200, body="voting-99\n"))
+        h.open_screen(pg, self.base)
+        pg.wait_for_selector(".screen-head")
+        self.assertNotIn("Starting...", pg.inner_text("#screen"))
+        pg.evaluate("window.dispatchEvent(new Event('focus'))")
+        pg.wait_for_selector("text=A newer version is available.")
+
 
 # Step 1: motions, the open motion's ballots, the roster and the settings.
 # Step 2: + the voters' board and past results.
-# Step 4: + meetings.
-EXPECTED_CONSOLE = ["polls", "polls/p1/votes", "config/roster", "config/settings", "config/live", "config/history", "meetings"]
+# Step 4: + meetings. Step 5: + the projector's controls.
+EXPECTED_CONSOLE = ["polls", "polls/p1/votes", "config/roster", "config/settings", "config/live", "config/history", "meetings",
+                    "config/screen"]
+# The projector (step 5): the board, its controls, the names, the open motion's ballots.
+EXPECTED_PROJECTOR = ["config/live", "config/screen", "config/roster", "polls/p1/votes"]
 
 
 if __name__ == "__main__":

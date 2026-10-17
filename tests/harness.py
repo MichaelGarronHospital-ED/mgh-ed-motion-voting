@@ -207,6 +207,20 @@ def writes(page, prefix=""):
     return page.evaluate("p => window.__store.writes(p)", prefix)
 
 
+def build_board(page):
+    """Write config/live and config/history as the console builds them (the
+    voter page and the projector read only these, never the motions)."""
+    page.evaluate("""async () => {
+        const b = await import('./js/board.js');
+        const st = window.__store.dump();
+        const list = (re) => Object.entries(st).filter(([k]) => re.test(k)).map(([k, v]) => ({ id: k.split('/')[1], ...v }));
+        const polls = list(/^polls[/][^/]+$/), ms = list(/^meetings[/][^/]+$/);
+        const bd = b.buildBoard(polls, ms);
+        window.__store.set('config/live', bd);
+        window.__store.set('config/history', b.buildHistory(polls, ms, bd));
+    }""")
+
+
 def store(page):
     return page.evaluate("window.__store.dump()")
 
