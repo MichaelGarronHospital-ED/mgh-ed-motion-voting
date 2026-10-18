@@ -230,13 +230,17 @@
     </section>
 
     <!-- SETTINGS (the gear): the voting rules and the change history -->
-    <section id="tab-settings" class="hide">
+    <section id="tab-settings" class="hide" aria-labelledby="settings-title">
+      <div class="settings-head">
+        <h2 id="settings-title" tabindex="-1">Settings</h2>
+        <button type="button" id="settings-done" class="ed-btn ed-btn-tinted btn-sm">Done</button>
+      </div>
       <div class="card stack">
         <div class="card-head"><h2>Voting rules</h2>
           <span data-info="They apply to motions opened from now on. Closed motions keep their results; the open motion keeps the rules it opened with. Eligible means points per vote above 0." data-about="the voting rules"></span></div>
         <form id="rules-form" class="stack" novalidate>
           <fieldset class="plain-fieldset stack-sm">
-            <legend class="field-label">Points per vote (0 to 1, in steps of 0.05)</legend>
+            <legend class="field-label legend-row">Points per vote <span data-info="From 0 to 1, in steps of 0.05." data-about="points per vote"></span></legend>
             <div class="rules-grid">
               <label class="ed-label" for="w-1">Full vote
                 <input class="ed-field" id="w-1" type="number" min="0" max="1" step="0.05" inputmode="decimal" />

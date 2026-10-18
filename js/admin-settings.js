@@ -17,7 +17,12 @@ const store = {
 };
 
 export function wireSettings() {
-  $("open-settings").addEventListener("click", () => { R.showTab("settings"); renderSettings(); });
+  // The gear opens Settings; the gear again, or Done, goes back to the tab you came from.
+  $("open-settings").addEventListener("click", () => {
+    if (!$("tab-settings").classList.contains("hide")) { R.leaveSettings(); return; }
+    R.showTab("settings"); renderSettings(); $("settings-title").focus();
+  });
+  $("settings-done").addEventListener("click", () => R.leaveSettings());
   wireNameChip();
   $("history-load").addEventListener("click", () => loadHistory(false));
   $("history-more").addEventListener("click", () => loadHistory(true));

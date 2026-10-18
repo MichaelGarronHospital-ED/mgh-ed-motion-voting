@@ -34,7 +34,16 @@ rule works exactly as before, and nothing stored changed.
   behind (i). The "nothing could have changed" catch-up note no longer shows.
 - **Who voted:** Name, Category, Vote, Remove (Submissions only when someone is flagged).
   The Weight and Receipt columns are gone; the receipt code is the vote's hover text. The
-  CSV and Excel files keep every column, receipts included.
+  CSV and Excel files keep every column, receipts included. The line under the heading
+  shows only what needs a look (to review, write-ins).
+- **Settings** has its own heading and a **Done** button (or the gear again) that goes back
+  to the tab you came from. "Points per vote" keeps its range on an (i).
+- **Empty states:** the very first visit shows one step, "Add your first meeting" (the QR
+  and projector appear once there is a meeting or a motion). Motions shows just the Add form
+  until there is something to list. Results says "No results yet" in one line, a draft shows
+  "Not open yet" with Open voting (never a verdict), and the records card appears once the
+  meeting has a motion. Zero counts ("Checked in: 0", "0" on an empty agenda) are gone.
+- The Results picker reads "Motion: The open motion, or the latest one".
 
 ---
 

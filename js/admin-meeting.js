@@ -55,6 +55,10 @@ export function renderMeeting() {
   const m = selectedMeeting();
   const ms = live().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   renderRecords(m);
+  // Before the first meeting or motion, adding the meeting is the only thing on this tab.
+  const firstRun = !ms.length && !S.polls.some((p) => !p.deleted);
+  $("share-card").classList.toggle("hide", firstRun);
+  $("projector-card").classList.toggle("hide", firstRun);
   // Keep typing in the details form when another device changes something.
   if (el.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
   const names = resolvedRoster().map((p) => `<option value="${escapeHtml(p.name)}"></option>`).join("");
@@ -62,7 +66,7 @@ export function renderMeeting() {
   const picker = ms.length > 1 ? `<label class="sr" for="meeting-pick">Meeting</label>
       <select class="ed-field" id="meeting-pick">${ms.map((x) => `<option value="${escapeHtml(x.id)}" ${m && x.id === m.id ? "selected" : ""}>${escapeHtml(meetingLabel(x))} (${STATUS[x.status] || x.status})</option>`).join("")}</select>`
     : m ? `<p class="meeting-name">${escapeHtml(meetingLabel(m))}</p>`
-    : `<p class="ed-hint">No meetings yet. Add one, or just add a motion: today's meeting is made for you.</p>`;
+    : `<div class="card-head"><p class="ed-hint">Add your first meeting.</p>${infoButton("Or just add a motion on the Motions tab: today's meeting is made for you.", "meetings")}</div>`;
   const newForm = newOpen || !ms.length ? `<form id="meeting-new-form" class="card-inset stack-sm">
       <label class="ed-label" for="meeting-new-title">Title
         <input class="ed-field" id="meeting-new-title" type="text" maxlength="200" value="ED department meeting" /></label>
@@ -74,12 +78,12 @@ export function renderMeeting() {
   const newBtn = newOpen || !ms.length ? "" : `<button type="button" id="meeting-new" class="ed-btn ed-btn-tinted btn-sm">${icon("plus", 18)}New meeting</button>`;
   let details = "";
   if (m) {
-    const when = m.status === "open" ? `Open since ${escapeHtml(clockTime(m.startedAt))}` : m.status === "closed" ? `Ended${m.endedAt ? " at " + escapeHtml(clockTime(m.endedAt)) : ""}${m.startedAt ? ` (started ${escapeHtml(clockTime(m.startedAt))})` : ""}` : "";
+    const when = m.status === "open" ? `Open since ${escapeHtml(clockTime(m.startedAt))}` : m.status === "closed" ? (m.endedAt ? `Ended at ${escapeHtml(clockTime(m.endedAt))}` : "") : "";
     // Collapsed once the meeting has a title (every saved meeting has one).
     const editOpen = editFor === m.id || !m.title;
     details = `<div class="meeting-status">
         <span class="ed-pill ${m.status === "open" ? "ed-pill-good" : m.status === "closed" ? "ed-pill-quiet" : "ed-pill-info"}">${m.status === "open" ? '<span class="dot"></span>' : ""}${STATUS[m.status] || m.status}</span>${when ? `<span class="ed-hint">${when}</span>` : ""}
-        ${infoButton("Start the meeting when it begins: voters then see its title, and this meeting's results. End it at the end: any open motion is closed and its result saved first.", "starting and ending")}
+        ${m.status !== "closed" ? infoButton("Start the meeting when it begins: voters then see its title, and this meeting's results. End it at the end: any open motion is closed and its result saved first.", "starting and ending") : ""}
       </div>
       <div class="row">
         ${m.status === "open" ? `<button type="button" id="meeting-end" class="ed-btn ed-btn-filled" ${R.canOpenClose() ? "" : "disabled"}>End meeting</button>`
@@ -177,7 +181,7 @@ function renderAttendance() {
   const list = a.list.slice().sort((x, y) => x.name.localeCompare(y.name));
   const room = list.filter((x) => x.mode === "room").length, remote = list.filter((x) => x.mode === "remote").length;
   el.innerHTML = `${head}
-    <p>${a.loaded ? `Checked in: <strong>${list.length}</strong>${list.length ? ` (${[room ? `in the room ${room}` : "", remote ? `remote ${remote}` : ""].filter(Boolean).join(", ")})` : ""}` : "Loading attendance..."}</p>
+    <p>${a.loaded && !list.length ? "No check-ins yet." : a.loaded ? `Checked in: <strong>${list.length}</strong>${list.length ? ` (${[room ? `in the room ${room}` : "", remote ? `remote ${remote}` : ""].filter(Boolean).join(", ")})` : ""}` : "Loading attendance..."}</p>
     ${list.length ? `<ul class="removed-list">${list.map((x) => `<li><span>${escapeHtml(x.name)} <span class="ed-muted">${x.mode === "remote" ? "remote" : "in the room"}${x.by === "leadership" ? ", added in the Admin console" : ""}${x.note ? `: ${escapeHtml(x.note)}` : ""}</span></span>
       ${iconBtn("x", `Remove ${x.name} from attendance`, `data-att-remove="${escapeHtml(x.slug)}" data-name="${escapeHtml(x.name)}"`, "btn-quiet")}</li>`).join("")}</ul>` : ""}
     ${addOpen ? `<form id="att-form" class="card-inset stack-sm">
@@ -234,7 +238,9 @@ function renderMeetingTrash() {
 
 // The Results tab's "Records of this meeting": the meeting on screen here.
 function renderRecords(m) {
-  $("meeting-records").classList.toggle("hide", !m);
+  // Only once the meeting has a motion: an empty file helps nobody.
+  const has = m && S.polls.some((p) => p.meetingId === m.id && !p.deleted);
+  $("meeting-records").classList.toggle("hide", !has);
   $("records-meeting").textContent = m ? meetingLabel(m) : "";
 }
 

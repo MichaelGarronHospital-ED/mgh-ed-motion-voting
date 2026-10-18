@@ -83,7 +83,9 @@ $("lock").addEventListener("click", async (e) => {
 window.addEventListener("beforeunload", (e) => { if (S.busy > 0) { e.preventDefault(); e.returnValue = ""; } });
 
 // ----------------------------------------------------------------- tabs
+let lastTab = "meeting";      // the tab Settings' Done goes back to
 function showTab(name) {
+  if (name !== "settings") lastTab = name;
   document.querySelectorAll(".tab").forEach((x) => {
     x.classList.toggle("active", x.dataset.tab === name);
     x.setAttribute("aria-pressed", String(x.dataset.tab === name));
@@ -93,6 +95,7 @@ function showTab(name) {
   $("open-settings").setAttribute("aria-pressed", String(name === "settings"));
 }
 R.showTab = showTab;
+R.leaveSettings = () => { showTab(lastTab); const t = document.querySelector(`.tab[data-tab="${lastTab}"]`); if (t) t.focus(); };
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => { showTab(t.dataset.tab); t.scrollIntoView({ block: "nearest", inline: "nearest" }); }));
 // On a narrow phone the tabs can run past the edge: fade the edge so it is

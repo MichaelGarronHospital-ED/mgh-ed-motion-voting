@@ -26,7 +26,7 @@ export const R = {};
 export function collapsibleCard(id, ic, title, count, expanded, blurb, rowsHtml) {
   return `<section class="card group">
     <h2 class="group-head"><button type="button" class="disclosure" id="${id}-header" aria-expanded="${expanded}" aria-controls="${id}-body">
-      ${ic ? icon(ic, 20) : ""}<span class="t">${title}</span><span class="count">${count}</span>${icon("chevron", 20)}
+      ${ic ? icon(ic, 20) : ""}<span class="t">${title}</span>${count ? `<span class="count">${count}</span>` : ""}${icon("chevron", 20)}
     </button></h2>
     ${expanded ? `<div class="group-body" id="${id}-body">${blurb ? `<p class="ed-hint">${blurb}</p>` : ""}${rowsHtml}</div>` : ""}
   </section>`;

@@ -65,7 +65,7 @@ class TestMeetings(Console):
         p = [v for k, v in h.store(pg).items() if k.startswith("polls/")][0]
         self.assertEqual(p["meetingId"], mid)
         pg.wait_for_timeout(200)
-        self.assertIn("Agenda: ED department meeting", pg.inner_text("#motion-list"))
+        self.assertIn("Agenda\nED department meeting", pg.inner_text("#agenda-header"))
 
     def test_start_and_end_meeting_record_times(self):
         pg = self.console(lambda pg: seed_meeting(pg))

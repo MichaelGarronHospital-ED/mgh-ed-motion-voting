@@ -459,7 +459,7 @@ details.menu > summary { cursor:pointer; }
 /* ---- Results tab ------------------------------------------------------------- */
 .result-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px; margin-bottom:-8px; }
 .foot-line { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
-.saved-line .info { margin-top:-10px; }
+.saved-line.has-info { align-items:center; }
 #voters-table td.choice { cursor:default; }
 .history-list:empty { display:none; }
 .nw { white-space:nowrap; }
@@ -468,3 +468,11 @@ details.menu > summary { cursor:pointer; }
 .card-inset .ed-field { background:var(--ed-surface); border-color:var(--ed-line); }
 .card-inset .ed-seg { background:var(--ed-surface); }
 .card-inset .ed-seg > button[aria-pressed="true"] { background:var(--ed-fill); }
+
+/* ---- Settings header (round 2) ------------------------------------------------ */
+.settings-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px; }
+.settings-head h2 { font:700 var(--ed-h2)/1.2 var(--ed-font-display); }
+.legend-row { display:inline-flex; align-items:center; gap:6px; }
+.group-sub { display:block; font:400 var(--ed-text-sm)/1.35 var(--ed-font); color:var(--ed-ink-2); margin-top:2px; }
+.disclosure .t { min-width:0; }
+.row > .ed-btn-plain:first-child { margin-left:-8px; }

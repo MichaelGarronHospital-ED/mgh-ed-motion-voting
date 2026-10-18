@@ -242,6 +242,67 @@ class TestInfoAndIcons(Console):
             self.assertEqual(long, [], t)
 
 
+class TestRoundTwo(Console):
+    def test_settings_has_a_heading_and_done_goes_back(self):
+        pg = self.console(lambda pg: seed_meeting(pg))
+        h.tab(pg, "motions")
+        pg.click("#open-settings")
+        self.assertTrue(pg.is_visible("#tab-settings"))
+        self.assertEqual(pg.inner_text("#settings-title"), "Settings")
+        self.assertEqual(pg.get_attribute("#open-settings", "aria-pressed"), "true")
+        self.assertEqual(pg.inner_text("#tab-settings legend").strip(), "Points per vote")   # the range is on its (i)
+        self.assertIn("From 0 to 1, in steps of 0.05.", pg.text_content("#tab-settings legend .info-pop"))
+        pg.click("#settings-done")
+        self.assertTrue(pg.is_visible("#tab-motions"))
+        self.assertEqual(pg.get_attribute("#open-settings", "aria-pressed"), "false")
+        pg.click("#open-settings")
+        pg.click("#open-settings")                                # the gear again also goes back
+        self.assertTrue(pg.is_visible("#tab-motions"))
+
+    def test_results_picker_says_motion_in_plain_words(self):
+        pg = self.console(lambda pg: (seed_meeting(pg), seed_motion(pg, "d1", "A draft")))
+        h.tab(pg, "results")
+        self.assertTrue(pg.inner_text("#results-selector label").startswith("Motion"))
+        self.assertEqual(pg.eval_on_selector("#results-selector option", "o => [o.value, o.textContent]"),
+                         ["", "The open motion, or the latest one"])
+
+    def test_who_voted_has_no_count_line_unless_something_needs_a_look(self):
+        def seed(pg):
+            seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
+            seed_open(pg, ballots=h.GROUP1[:2], meetingId="m1")
+        pg = self.console(seed)
+        h.tab(pg, "results")
+        pg.wait_for_selector("#voters-table td.who")
+        self.assertTrue(pg.is_hidden("#voters-note"))
+        h.seed(pg, "polls/p1/votes/zed", {"name": "Zed Locum", "slug": "zed", "choice": "favour", "group": "writein",
+                                          "weight": 0, "isWriteIn": True, "flagged": False, "submissionCount": 1})
+        pg.wait_for_selector("#voters-note:not(.hide)")
+        self.assertEqual(pg.inner_text("#voters-note"), "1 write-in")
+
+    def test_first_run_shows_one_obvious_first_step(self):
+        pg = self.console()
+        # Meeting: only "Add meeting" (no QR or projector before a meeting exists).
+        self.assertTrue(pg.is_visible("#meeting-new-form"))
+        self.assertTrue(pg.is_hidden("#share-card"))
+        self.assertTrue(pg.is_hidden("#projector-card"))
+        h.tab(pg, "motions")
+        self.assertTrue(pg.is_visible("#new-motion"))                 # the Add form, nothing else
+        self.assertEqual(pg.inner_text("#motion-list").strip(), "")
+        h.tab(pg, "results")
+        self.assertTrue(pg.is_hidden("#results-selector"))
+        self.assertIn("No results yet", pg.inner_text("#results-body"))
+        self.assertTrue(pg.is_hidden("#meeting-records"))
+
+    def test_a_draft_shows_no_verdict(self):
+        pg = self.console(lambda pg: (seed_meeting(pg), seed_motion(pg, "d1", "A draft")))
+        h.tab(pg, "results")
+        pg.select_option("#results-selector .motion-select", "d1")
+        body = pg.inner_text("#results-body")
+        self.assertIn("Not open yet.", body)
+        self.assertEqual(h.outcomes(body), [])
+        self.assertTrue(pg.is_visible("#r-open"))
+
+
 class TestCatchUpQuiet(Base):
     def test_nothing_to_report_shows_no_card(self):
         from test_saved_results import seed_old_closed

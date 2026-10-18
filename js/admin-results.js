@@ -40,13 +40,13 @@ function displayPoll() {
 function motionSelectorHTML() {
   const choosable = sortMotions(S.polls.filter((p) => !p.deleted));
   if (!choosable.length) return "";
-  const opts = [`<option value="">Current motion (auto)</option>`].concat(
+  const opts = [`<option value="">The open motion, or the latest one</option>`].concat(
     choosable.map((p) => {
       const tag = p.archived ? "Archived" : STATUS_WORD[p.status] || escapeHtml(p.status);
       const short = p.text.length > 60 ? p.text.slice(0, 60) + "…" : p.text;
       return `<option value="${escapeHtml(p.id)}" ${p.id === S.selectedPollId ? "selected" : ""}>${tag} · ${escapeHtml(short)}</option>`;
     })).join("");
-  return `<label class="ed-label">View motion
+  return `<label class="ed-label">Motion
     <select class="ed-field motion-select">${opts}</select></label>`;
 }
 function wireMotionSelect(scope) {
@@ -93,12 +93,13 @@ function ensureDisplay(needVotes = true) {
 export function renderResults() {
   renderCatchUp();
   const sel = $("results-selector");
-  sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
+  sel.innerHTML = motionSelectorHTML();
+  sel.classList.toggle("hide", !sel.innerHTML);
   wireMotionSelect(sel);
   const el = $("results-body");
   const shown = displayPoll();
   const d = ensureDisplay(!(shown && shown.status === "closed" && shown.result));
-  if (!d) { el.innerHTML = `<p class="ed-hint">No motion to show. Open one, or choose a motion above.</p>`; return; }
+  if (!d) { el.innerHTML = `<p class="ed-hint">No results yet. Open a motion on the Motions tab.</p>`; return; }
   // Keep a half-typed reason (and an open History fold) when the card redraws.
   const keep = ["reopen-reason", "revote-reason"].map((id) => [id, $(id) ? $(id).value : ""]);
   const histOpen = $("motion-history") && $("motion-history").open;
@@ -126,6 +127,14 @@ function paintResults(el, poll, votes, loaded) {
   const eye = poll.status === "closed" ? ""
     : iconBtn(hideLive ? "eye-off" : "eye", HIDE_WORDS, `id="hide-live" aria-pressed="${hideLive}"`, "ed-btn-plain eye-toggle");
   const top = `<div class="result-head">${statusPill(poll.status)}${eye}</div><h2 class="motion-text">${escapeHtml(poll.text)}</h2>`;
+  // A draft has no count yet: no verdict, just the way to open it.
+  if (poll.status === "draft") {
+    el.innerHTML = `${top}<p class="ed-hint">Not open yet.</p>
+      <div class="row"><button type="button" class="ed-btn ed-btn-filled" id="r-open" ${R.canOpenClose() ? "" : "disabled"}>Open voting</button></div>`;
+    $("r-open").addEventListener("click", () => R.openFlow(poll.id));
+    if ($("hide-live")) $("hide-live").addEventListener("click", toggleHideLive);
+    return;
+  }
   const saved = poll.status === "closed" && poll.result ? poll.result : null;
   if (!saved && !loaded) {
     el.innerHTML = `${top}<p class="ed-hint">Counting votes…</p>`;
@@ -133,7 +142,7 @@ function paintResults(el, poll, votes, loaded) {
     return;
   }
   if (poll.status === "open" && hideLive) {
-    el.innerHTML = `${top}<p class="ed-hint">The live count is hidden on this screen. It shows again when the motion closes, or when you tap the eye.</p>
+    el.innerHTML = `${top}<p class="ed-hint">The live count is hidden on this screen. Tap the eye to show it.</p>
       <div class="row"><button type="button" class="ed-btn ed-btn-filled" id="r-close" ${R.canOpenClose() && !(poll._pending || poll.openedAt === null) ? "" : "disabled"}>Close voting</button></div>`;
     $("r-close").addEventListener("click", () => R.closeFlow(poll.id));
     $("hide-live").addEventListener("click", toggleHideLive);
@@ -147,7 +156,7 @@ function paintResults(el, poll, votes, loaded) {
   const pendingOpen = poll.status === "open" && (poll._pending || poll.openedAt === null);
   let savedLine = "";
   if (saved) {
-    savedLine = `<p class="saved-line">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}.</span>${infoButton("A saved result can't be changed. If it was closed by mistake, use Re-open. To vote again from the start, use Re-vote.", "the saved result")}</p>`;
+    savedLine = `<p class="saved-line has-info">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}.</span>${infoButton("A saved result can't be changed. If it was closed by mistake, use Re-open. To vote again from the start, use Re-vote.", "the saved result")}</p>`;
     if (saved.quorumNote) savedLine += `<p class="notice">${icon("warn", 20)}<span>Quorum may have been counted too low when this closed (a write-in given a vote may have been left out). Shown as recorded.</span></p>`;
   } else if (poll.status === "closed") {
     savedLine = S.saving.has(poll.id)
@@ -204,7 +213,7 @@ function paintResults(el, poll, votes, loaded) {
       <div class="spread"><span class="q-label">Quorum${poll.status === "closed" ? `${icon("lock", 16)}<span class="ed-muted">frozen at close</span>` : ""}</span>
         <span class="q-state">${icon(quorumMet ? "check" : "alert", 18)}${r.quorumCount} of ${quorum} ${quorumMet ? "met" : "not met"}</span></div>
       <div class="bar" aria-hidden="true"><span class="${quorumMet ? "favour" : "short"}" style="width:${quorum > 0 ? Math.min(100, (r.quorumCount / quorum) * 100) : 0}%"></span></div>
-      ${!quorumMet ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
+      ${!quorumMet && poll.status === "open" ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
     </div>
     <p class="ed-hint foot-line">${[`${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"}`, r.writeIns > 0 ? `${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"}` : "", r.flags > 0 ? `${r.flags} flagged` : ""].filter(Boolean).join(" · ")}${infoButton(ruleHint(r.rule, r), "the pass rule")}</p>
     ${savedLine}${links}${priorLine}
@@ -353,9 +362,11 @@ export function renderVoters() {
     $("voters-note").textContent = "";
     return;
   }
+  if (d.poll.status === "draft" && !d.votes.length) { $("voters-card").classList.add("hide"); return; }
   if (!d.loaded) {
     $("voters-table").innerHTML = "";
     $("voters-note").textContent = "Loading ballots…";
+    $("voters-note").classList.remove("hide");
     return;
   }
   paintVoters(d.poll, d.votes);
@@ -371,10 +382,11 @@ function paintVoters(poll, votes) {
   sessionToSlugs.forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
-  // One hint line; what the flags mean sits behind the (i) by the heading.
-  $("voters-note").textContent = [`${votes.length} ${votes.length === 1 ? "ballot" : "ballots"}`,
-    reviewCount ? `${reviewCount} to review` : "",
-    poll.status === "closed" ? "Closed: ballots are locked and kept with the result." : ""].filter(Boolean).join(" · ");
+  // Only what needs a look (the ballot count is on the result card); the flags are explained behind the (i).
+  const writeIns = votes.filter((v) => v.isWriteIn).length;
+  $("voters-note").textContent = [reviewCount ? `${reviewCount} to review` : "",
+    writeIns ? `${writeIns} write-in${writeIns === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
+  $("voters-note").classList.toggle("hide", !$("voters-note").textContent);
   const frozen = poll.status === "closed";
   // Who checked in remotely to this motion's meeting.
   const att = poll.meetingId && R.attendanceFor ? R.attendanceFor(poll.meetingId) : null;

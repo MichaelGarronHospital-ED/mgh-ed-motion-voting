@@ -3,6 +3,7 @@ old motions are saved on the first sign-in exactly as they show, re-opening
 needs a reason and keeps the earlier count, closed ballots are locked, and
 every waiting state has a plain message instead of a hang.
 """
+import re
 import time
 import unittest
 
@@ -55,6 +56,8 @@ def numbers(text):
     for cut in ("Result saved", "Result not saved", "Saving the result", "Close voting", "Re-open voting"):
         if cut in text:
             text = text[:text.index(cut)]
+    # "N more eligible voters are needed" is a nudge while voting is open, not part of the result.
+    text = re.sub(r"\n*\d+ more eligible voters? (is|are) needed before this motion can be decided\.", "", text)
     return text.strip()
 
 
@@ -121,7 +124,7 @@ class TestClosing(Base):
         h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_timeout(200)
         self.assertEqual(pg.locator("#voters-table button[data-del]").count(), 0)
-        self.assertIn("Closed: ballots are locked and kept with the result.", pg.inner_text("#voters-note"))
+        self.assertIn("frozen", pg.inner_text("#voters-table thead"))   # the lock on Category (read out as "frozen")
 
     def test_motion_opened_in_step1_has_a_rule_snapshot(self):
         pg = self.admin()

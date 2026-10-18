@@ -90,8 +90,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   (`admin-motions.js`: Add form, agenda rows with a per-row More menu), **Results**
   (`admin-results.js`: the count, then "Who voted", the old Voters tab, sharing the one
   motion picker; then the meeting's records). The gear opens Settings (`admin-settings.js`:
-  voting rules, change history; also the header's name chip, your name for the change
-  history). `records.js` → Excel and print, all or one meeting. They share state and redraw
+  voting rules, change history; its Done button, or the gear again, returns to the tab you
+  came from; also the header's name chip, your name for the change history). `records.js` → Excel and print, all or one meeting. They share state and redraw
   each other only through `admin-state.js`, so no module imports another. `admin-state.js`
   also holds the console's small controls: `infoButton` (the (i) button; text on hover,
   focus and tap, Escape closes; one `wireInfo` for the page), `iconBtn` (icon-only buttons

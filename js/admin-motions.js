@@ -135,8 +135,8 @@ export function renderMotions() {
   let html = "";
   if (sel) {
     const rows = agendaOrder(active.filter((p) => p.meetingId === sel.id));
-    html += collapsibleCard("agenda", "", `Agenda: ${escapeHtml(meetingLabel(sel))}`, rows.length, expanded.agenda, "",
-      rows.length ? rows.map((r) => motionRow(r.poll, r)).join("") : `<p class="ed-hint">No motions on this agenda yet.</p>`);
+    html += collapsibleCard("agenda", "", `Agenda<span class="group-sub">${escapeHtml(meetingLabel(sel))}</span>`, rows.length, expanded.agenda, "",
+      rows.map((r) => motionRow(r.poll, r)).join(""));
   }
   meetings.filter((m) => !sel || m.id !== sel.id).sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach((m) => {
     const rows = agendaOrder(active.filter((p) => p.meetingId === m.id));
@@ -146,7 +146,8 @@ export function renderMotions() {
   });
   // Motions made before meetings existed (or whose meeting is gone), by the date added.
   const earlier = active.filter((p) => !p.meetingId || !mIds.has(p.meetingId));
-  if (earlier.length || !meetings.length) {
+  // Before any meeting or motion exists, the Add form above is the whole tab.
+  if (earlier.length) {
     const byDate = {};
     earlier.forEach((p) => { const d = localDate(p.createdAt) || ""; (byDate[d] = byDate[d] || []).push(p); });
     const body = earlier.length ? Object.keys(byDate).sort().reverse().map((d) => `${d ? `<h3 class="group-title">Added ${escapeHtml(niceDate(d))}</h3>` : ""}`
@@ -182,7 +183,7 @@ export function renderMotions() {
   el.querySelectorAll("form[data-details]").forEach((f) => f.addEventListener("submit", (e) => { e.preventDefault(); saveDetails(f); }));
   el.querySelectorAll("form[data-amend]").forEach((f) => f.addEventListener("submit", (e) => { e.preventDefault(); addAmendment(f); }));
   $("agenda-fold").classList.toggle("hide", !sel);
-  if (sel) $("agenda-fold").querySelector("summary").textContent = `Paste an agenda for ${meetingLabel(sel)}`;
+  if (sel) $("agenda-fold").querySelector("summary").textContent = "Paste an agenda instead";
   if (pendingFocus) {
     const [act, id] = pendingFocus;
     pendingFocus = null;
