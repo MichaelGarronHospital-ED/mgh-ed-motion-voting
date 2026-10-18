@@ -425,7 +425,7 @@ function paintVoters(poll, votes) {
       <td class="cat">${g}</td>
       <td class="choice" title="Receipt code: ${escapeHtml(receipt)}"><button type="button" class="vote-btn" id="vr-${escapeHtml(v.id)}" data-receipt="${escapeHtml(v.id)}" aria-expanded="${open}" aria-controls="rc-${i}">${escapeHtml(voteWords(v, poll))}<span class="sr">, receipt code</span></button><span class="receipt-inline${open ? "" : " hide"}" id="rc-${i}">Receipt <code>${escapeHtml(receipt)}</code></span></td>
       ${anyFlag ? `<td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>` : ""}
-      ${frozen ? "" : `<td class="act">${iconBtn("x", `Remove ${v.name}'s vote`, `data-del="${escapeHtml(v.id)}"`, "btn-quiet", "Remove this vote")}</td>`}
+      ${frozen ? "" : `<td class="act">${iconBtn("x", `Remove ${v.name}'s vote`, `id="rm-${escapeHtml(v.id)}" data-del="${escapeHtml(v.id)}"`, "btn-quiet", "Remove this vote")}</td>`}
     </tr>`;
   }).join("");
   const cols = 3 + (anyFlag ? 1 : 0) + (frozen ? 0 : 1);

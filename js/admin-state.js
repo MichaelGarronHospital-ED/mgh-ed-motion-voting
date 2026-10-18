@@ -132,6 +132,11 @@ export function redrawKeeping(el, paint) {
   }
 }
 
+// Shown on screen? checkVisibility() is missing before Safari 17.4.
+export function isVisible(el) {
+  return typeof el.checkVisibility === "function" ? el.checkVisibility() : el.getClientRects().length > 0;
+}
+
 // Drop-down menus (<details class="menu">) hold plain buttons (.menu-item).
 // One open at a time; a tap outside, Escape, focus leaving it, or choosing an
 // item closes it. After an item, focus goes back to the menu's button unless
@@ -150,7 +155,7 @@ export function wireMenus() {
         const a = document.activeElement;
         if (!a || a === document.body || inMenu.contains(a) || !a.isConnected) {
           const s = summaryOf(inMenu);
-          if (s && s.isConnected && s.checkVisibility()) s.focus();
+          if (s && s.isConnected && isVisible(s)) s.focus();
         }
       }, 0);
     }

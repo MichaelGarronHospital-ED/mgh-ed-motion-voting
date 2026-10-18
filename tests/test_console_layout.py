@@ -447,6 +447,52 @@ class TestRoundThree(Console):
         self.assertEqual(pg.text_content('.tab[data-tab="roster"] .sr'), ", 1 write-in to review")
 
 
+class TestFinalNits(Console):
+    def seed(self, pg):
+        seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
+        seed_closed_saved(pg, "c1", NOW - 60000, meetingId="m1", ballots=3, text="Closed one", order=0)
+        seed_motion(pg, "d1", "A draft", order=1)
+
+    def test_menus_work_without_check_visibility(self):
+        # Safari before 17.4 has no Element.checkVisibility.
+        self.page.add_init_script("delete Element.prototype.checkVisibility;")
+        pg = self.console(self.seed)
+        self.assertFalse(pg.evaluate("typeof Element.prototype.checkVisibility === 'function'"))
+        h.tab(pg, "motions")
+        pg.focus('#motion-list details.row-more[data-id="c1"] summary')
+        pg.keyboard.press("Enter")
+        pg.evaluate("window.confirm = () => false")
+        pg.focus('#motion-list button[data-act="del"][data-id="c1"]')
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(100)
+        self.assertEqual(pg.evaluate("document.activeElement.getAttribute('aria-label')"), "More actions for motion 1")
+
+    def test_remove_buttons_have_stable_ids(self):
+        def seed(pg):
+            seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
+            seed_open(pg, ballots=h.GROUP1[:2], meetingId="m1")
+        pg = self.console(seed)
+        h.tab(pg, "results")
+        slug = h.slugify(h.GROUP1[1])
+        btn = f"#rm-{slug}"
+        pg.wait_for_selector(btn)
+        pg.focus(btn)
+        h.seed_ballots(pg, "p1", h.GROUP1[2:3])                         # a redraw
+        pg.wait_for_function("() => document.querySelectorAll('#voters-table button[data-del]').length === 3")
+        self.assertEqual(pg.evaluate("document.activeElement.id"), f"rm-{slug}")
+
+    def test_focus_moves_to_the_row_button_when_its_menu_closes_on_change(self):
+        pg = self.console(self.seed)
+        h.tab(pg, "motions")
+        pg.focus('#motion-list details.row-more[data-id="c1"] summary')
+        pg.keyboard.press("Enter")
+        pg.focus('#motion-list button[data-act="archive"][data-id="c1"]')
+        h.seed(pg, "polls/c1", {**h.get(pg, "polls/c1"), "supersededBy": "gone"})   # the menu's actions change
+        pg.wait_for_function("() => !document.querySelector('#motion-list button[data-act=\"revote\"]')")
+        self.assertFalse(pg.evaluate("document.querySelector('details.row-more[data-id=\"c1\"]').open"))
+        self.assertEqual(pg.evaluate("document.activeElement.getAttribute('aria-label')"), "More actions for motion 1")
+
+
 class TestCatchUpQuiet(Base):
     def test_nothing_to_report_shows_no_card(self):
         from test_saved_results import seed_old_closed

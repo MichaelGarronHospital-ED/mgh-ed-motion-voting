@@ -199,7 +199,11 @@ export function renderMotions() {
     const [act, id] = pendingFocus;
     pendingFocus = null;
     const b = el.querySelector(`button[data-act="${act}"][data-id="${CSS.escape(id)}"]`) || el.querySelector(`button[data-act="${act === "up" ? "down" : "up"}"][data-id="${CSS.escape(id)}"]`);
-    if (b) b.focus();
+    // An item of a menu that closed (its actions changed), or one that is gone: the row's three-dot button.
+    const menu = b && b.closest("details.row-more");
+    if (b && !(menu && !menu.open)) b.focus();
+    else if (menu) menu.querySelector("summary").focus();
+    else if (moreOf(id)) moreOf(id).querySelector("summary").focus();
   }
 }
 
