@@ -464,3 +464,7 @@ details.menu > summary { cursor:pointer; }
 .history-list:empty { display:none; }
 .nw { white-space:nowrap; }
 #roster-card .card-head { flex-wrap:nowrap; }
+/* fields inside a quiet inset (Edit details, Add physician, Paste) stand out from it */
+.card-inset .ed-field { background:var(--ed-surface); border-color:var(--ed-line); }
+.card-inset .ed-seg { background:var(--ed-surface); }
+.card-inset .ed-seg > button[aria-pressed="true"] { background:var(--ed-fill); }
