@@ -6,9 +6,9 @@
 import {
   addPoll, addPolls, updatePoll, trashPoll, restorePoll, purgePoll, setArchived, currentSettings, currentMeetings,
   movePoll, moveToMeeting, agendaOrder, parseAgenda, clockTime, localDate, tsMillis,
-} from "./db.js?v=voting-11";
-import { escapeHtml, toast, icon } from "./util.js?v=voting-11";
-import { $, S, R, collapsibleCard, statusPill, meetingLabel, niceDate, iconBtn } from "./admin-state.js?v=voting-11";
+} from "./db.js?v=voting-12";
+import { escapeHtml, toast, icon } from "./util.js?v=voting-12";
+import { $, S, R, collapsibleCard, statusPill, meetingLabel, niceDate, iconBtn } from "./admin-state.js?v=voting-12";
 
 let editingId = null;          // motion currently being edited (only allowed before first vote)
 let amendingId = null;         // motion getting a new amendment

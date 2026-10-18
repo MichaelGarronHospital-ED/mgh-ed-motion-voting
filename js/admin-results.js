@@ -3,11 +3,11 @@
 import {
   onVotesFor, clearVote, weightForVote, groupForVote, resultOf, outcomeWords, outcomeKind, clockTime,
   classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor,
-} from "./db.js?v=voting-11";
-import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar, choiceBars, voteWords } from "./util.js?v=voting-11";
-import { ballotReceipt } from "./count.js?v=voting-11";
-import { $, S, R, STATUS_WORD, statusPill, groupLabel, download, infoButton, iconBtn } from "./admin-state.js?v=voting-11";
-import { tsMillis } from "./count.js?v=voting-11";
+} from "./db.js?v=voting-12";
+import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar, choiceBars, voteWords } from "./util.js?v=voting-12";
+import { ballotReceipt } from "./count.js?v=voting-12";
+import { $, S, R, STATUS_WORD, statusPill, groupLabel, download, infoButton, iconBtn } from "./admin-state.js?v=voting-12";
+import { tsMillis } from "./count.js?v=voting-12";
 
 let hideLive = false;
 try { hideLive = localStorage.getItem("mv_hide_live") === "1"; } catch (e) { /* private mode */ }

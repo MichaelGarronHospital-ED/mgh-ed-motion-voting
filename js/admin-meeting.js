@@ -5,11 +5,11 @@
 import {
   onScreen, setScreen, onAttendance, addAttendance, removeAttendance, rosterPerson, createMeeting, updateMeeting, startMeeting, endMeeting, setMeetingDeleted, purgeMeeting, currentMeetings,
   resolvedRoster, todayLocal, clockTime, serverTimestamp,
-} from "./db.js?v=voting-11";
-import { escapeHtml, toast, icon } from "./util.js?v=voting-11";
-import { slugify } from "./roster.js?v=voting-11";
-import { $, S, R, niceDate, meetingLabel, infoButton, iconBtn } from "./admin-state.js?v=voting-11";
-import { exportMeeting, printMeeting } from "./records.js?v=voting-11";
+} from "./db.js?v=voting-12";
+import { escapeHtml, toast, icon } from "./util.js?v=voting-12";
+import { slugify } from "./roster.js?v=voting-12";
+import { $, S, R, niceDate, meetingLabel, infoButton, iconBtn } from "./admin-state.js?v=voting-12";
+import { exportMeeting, printMeeting } from "./records.js?v=voting-12";
 
 const STATUS = { planned: "Planned", open: "Open", closed: "Ended" };
 const live = () => currentMeetings().filter((m) => !m.deleted);
