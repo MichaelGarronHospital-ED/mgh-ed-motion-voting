@@ -1,5 +1,5 @@
 {
- "from": "voting-8",
+ "from": "voting-9",
  "imports": {
   "admin-meeting.js": [
    "wireMeeting"
@@ -39,7 +39,11 @@
   ],
   "config.js": [
    "ED_EMAIL",
+   "ED_EMAIL_NEW",
+   "ED_UID",
    "LEADER_EMAIL",
+   "LEADER_EMAIL_NEW",
+   "LEADER_UID",
    "ORG_NAME",
    "firebaseConfig"
   ],
@@ -62,7 +66,6 @@
   "db.js": [
    "DB_UPDATE_MSG",
    "DEFAULT_RULE",
-   "LEADER_EMAIL",
    "LEGACY_RULE",
    "addAttendance",
    "addPhysician",
@@ -104,6 +107,7 @@
    "groupForVote",
    "healBoard",
    "historyIsCurrent",
+   "isLeader",
    "isRemoved",
    "isWrongPassword",
    "keepYears",

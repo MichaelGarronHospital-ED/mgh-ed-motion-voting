@@ -110,8 +110,8 @@ const OLD = { ed: "ed@ed-motion-voting.app", leader: "leadership@ed-motion-votin
 const NEW = { ed: "ed@mgh-ed-voting.invalid", leader: "leadership@mgh-ed-voting.invalid" };
 const account = (uid, email, provider = "password") =>
   testEnv.authenticatedContext(uid, { email, firebase: { sign_in_provider: provider, identities: {} } }).firestore();
-const ed        = () => account(ED_UID, OLD.ed);
-const leader    = () => account(LEADER_UID, OLD.leader);
+const ed        = () => account(ED_UID, NEW.ed);
+const leader    = () => account(LEADER_UID, NEW.leader);
 // the shape of a phone still holding a pre-switch anonymous session
 const anonUser  = () => testEnv.authenticatedContext("u-anon").firestore();
 const stranger  = () => testEnv.authenticatedContext("u-stranger", { email: "someone@example.com" }).firestore();

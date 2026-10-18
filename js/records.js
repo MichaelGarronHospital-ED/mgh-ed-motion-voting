@@ -3,15 +3,15 @@
 // every motion with its result, every named ballot, and the roster, in one Excel
 // file; or the results on paper / as a PDF. Ballots are read fresh for every
 // motion (not just the one on screen), so the file is complete.
-import { ORG_NAME } from "./config.js?v=voting-9";
+import { ORG_NAME } from "./config.js?v=voting-10";
 import {
   weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
   resultOf, outcomeWords, sortMotions, currentRule, liveEligible, quorumNeededFor, weightIn,
   currentMeetings, agendaOrder, getLogForMeeting, tsMillis, getAttendanceOnce, ballotReceipt,
-} from "./db.js?v=voting-9";
-import { escapeHtml, labelOf, fmt, toast, voteWords } from "./util.js?v=voting-9";
-import { buildXlsx, XLSX_MIME } from "./xlsx.js?v=voting-9";
-import { $, S, R, catLabel, groupLabel, download, meetingLabel, niceDate } from "./admin-state.js?v=voting-9";
+} from "./db.js?v=voting-10";
+import { escapeHtml, labelOf, fmt, toast, voteWords } from "./util.js?v=voting-10";
+import { buildXlsx, XLSX_MIME } from "./xlsx.js?v=voting-10";
+import { $, S, R, catLabel, groupLabel, download, meetingLabel, niceDate } from "./admin-state.js?v=voting-10";
 
 export function wireRecords() {
   $("export-all").addEventListener("click", () => { closeMenu(); exportAll(); });

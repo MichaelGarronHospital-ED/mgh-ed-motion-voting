@@ -182,7 +182,7 @@ Firestore only answers two shared accounts (see `firestore.rules`):
   registered). Since step 9 each password screen signs in with the email that last worked
   on the device and, only if that is refused, tries the other one once, so the right
   password works before, during and after the change with no page update in the window.
-  Step 10 (a few weeks after the change) drops the old emails.
+  Since step 10 (a few weeks after the change) the pages sign in with the new emails only.
 
 **Rollback:** if newly published rules misbehave, put the previous version back:
 Firebase console → Firestore Database → **Rules** lists every published version, so

@@ -4,6 +4,27 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Sign in with the new account emails only (voting step 10)
+
+Cleanup after the account email move. Merge this **a few weeks after the emails were
+changed** (`migrate-emails.py --apply`), not in the window: until then step 9 already
+signs in with whichever email the account has.
+
+- The voting page, the projector and the console sign in with
+  `ed@mgh-ed-voting.invalid` and `leadership@mgh-ed-voting.invalid` only. The step-9
+  fallback (try the email that last worked, then the other) is gone. Only the account's
+  own uid is accepted, as before. The passwords are the same, and nobody is asked to sign
+  in again by this update.
+- The old emails stay in `js/config.js` for one more release (unused), so a cached step-9
+  file still loads. Remove them in the next update.
+
+No rules change. After the update: check in a private window, or wait 10 minutes.
+
+Tests: 234 browser tests (the step-9 fallback tests replaced by six for signing in after the move), 131 rules tests (every test now signs in with the new
+emails; the old emails are still let in by uid).
+
+---
+
 ## Accounts are known by uid, not email (voting step 9, Oct 2026)
 
 A safety change, the first half of moving the two account emails off a domain nobody

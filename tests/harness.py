@@ -26,11 +26,12 @@ STUBS = HERE / "stubs"
 # copies agree). The emails are only what the page signs in with.
 LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2"
 ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3"
-LEADER_EMAIL = "leadership@ed-motion-voting.app"   # must match LEADER_EMAIL in js/config.js
-ED_EMAIL = "ed@ed-motion-voting.app"               # must match ED_EMAIL in js/config.js
-# The emails the accounts move to (design passwords.md, Phase A).
-NEW_LEADER_EMAIL = "leadership@mgh-ed-voting.invalid"
-NEW_ED_EMAIL = "ed@mgh-ed-voting.invalid"
+LEADER_EMAIL = "leadership@mgh-ed-voting.invalid"   # must match LEADER_EMAIL_NEW in js/config.js
+ED_EMAIL = "ed@mgh-ed-voting.invalid"               # must match ED_EMAIL_NEW in js/config.js
+# The emails before the move (design passwords.md, Phase A): a device signed in
+# before it may still show these until Firebase asks it to sign in again.
+OLD_LEADER_EMAIL = "leadership@ed-motion-voting.app"
+OLD_ED_EMAIL = "ed@ed-motion-voting.app"
 
 
 def uid_for(email):
