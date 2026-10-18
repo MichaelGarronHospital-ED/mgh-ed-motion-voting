@@ -23,6 +23,17 @@ is now called "Admin" in every word people see. Nothing else changes.
 - README, CLAUDE.md and the tests' notes say "Admin" too. Earlier entries below keep the
   old word, as history.
 
+**Also in this update: the cleanup steps 8 and 10 planned for "the next update".**
+
+- The old account emails (`*@ed-motion-voting.app`, `LEADER_EMAIL` and `ED_EMAIL`) are
+  gone from `js/config.js`. Nothing has used them since step 10, and the live step-10
+  files do not import them. The names in use (`LEADER_EMAIL_NEW`, `ED_EMAIL_NEW`) stay,
+  because the live release imports them.
+- The two old reading functions kept from the step-8 cleanup (`onOpenPolls`,
+  `getClosedPollsOnce` in `js/db.js`) are gone too. No page has used them since then.
+- Tests that checked "the right account with its old email stays in" now use another
+  made-up email instead, so they still prove the pages and rules go by uid, never by email.
+
 No rules change. After the update: check in a private window, or wait 10 minutes.
 
 Tests: 235 browser tests (1 new: the console says "Admin" and never "Leadership" in any

@@ -106,7 +106,8 @@ function castVote(db, poll, slug, choice, sessionId) {
 // tests/test_accounts.py checks), signed in with a password as a real token is.
 const LEADER_UID = "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2";
 const ED_UID = "CXyo7yciWpc78J1TQYRzrPpu77C3";
-const OLD = { ed: "ed@ed-motion-voting.app", leader: "leadership@ed-motion-voting.app" };
+// Any other email on the right account (as after an email change); the rules go by uid.
+const OTHER = { ed: "ed@another-address.invalid", leader: "leadership@another-address.invalid" };
 const NEW = { ed: "ed@mgh-ed-voting.invalid", leader: "leadership@mgh-ed-voting.invalid" };
 const account = (uid, email, provider = "password") =>
   testEnv.authenticatedContext(uid, { email, firebase: { sign_in_provider: provider, identities: {} } }).firestore();
@@ -142,12 +143,11 @@ describe("who gets in at all", () => {
   }
 });
 
-// Phase A of the passwords design: the account emails move from *.app to
-// *.invalid. The rules know each account by uid, so either email works, and a
-// stranger's account that takes a freed old email gets nothing.
+// The rules know each account by uid, so any email on the right account works,
+// and a stranger's account that takes one of those emails gets nothing.
 describe("accounts are known by uid, never by email", () => {
   const canVote = (db) => castNew(db, "open", "someone", newBallot("someone", "favour"));
-  for (const [when, emails] of [["old email", OLD], ["new email", NEW]]) {
+  for (const [when, emails] of [["other email", OTHER], ["account email", NEW]]) {
     it(`ED with the right uid and the ${when} reads and votes`, async () => {
       await assertSucceeds(getDoc(doc(account(ED_UID, emails.ed), "config/roster")));
       await assertSucceeds(canVote(account(ED_UID, emails.ed)));
@@ -167,14 +167,14 @@ describe("accounts are known by uid, never by email", () => {
   }
   for (const provider of ["anonymous", "custom"]) {
     it(`the right uid signed in by ${provider} (not a password) is refused`, async () => {
-      for (const [uid, email] of [[ED_UID, OLD.ed], [LEADER_UID, OLD.leader]]) {
+      for (const [uid, email] of [[ED_UID, OTHER.ed], [LEADER_UID, OTHER.leader]]) {
         await assertFails(getDoc(doc(account(uid, email, provider), "config/roster")));
       }
-      await assertFails(getDocs(collection(account(LEADER_UID, OLD.leader, provider), "log")));
+      await assertFails(getDocs(collection(account(LEADER_UID, OTHER.leader, provider), "log")));
     });
   }
   it("the ED account cannot act as Leadership, even with Leadership's email", async () => {
-    for (const email of [OLD.leader, NEW.leader]) {
+    for (const email of [OTHER.leader, NEW.leader]) {
       await assertFails(getDocs(collection(account(ED_UID, email), "log")));
       await assertFails(setDoc(doc(account(ED_UID, email), "polls/new"), { text: "Motion C", status: "draft" }));
     }

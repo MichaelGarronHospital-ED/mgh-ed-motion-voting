@@ -1,9 +1,8 @@
 """The two shared accounts are recognised by uid, never by email (voting step 9;
-step 10 signs in with the new .invalid emails only).
+the pages sign in with the .invalid emails only since step 10).
 
-The account emails move from *.app to *.invalid (design passwords.md, Phase A).
 A uid never changes, so a page that knows the uids keeps a signed-in person in
-whatever the email is: a page loaded before the change, a cached old page after
+whatever the email is: a page loaded before an email change, a cached page after
 it, or a reload after the server changed the email. The emails are only what the
 pages sign in with.
 """
@@ -74,8 +73,8 @@ class TestEmailChange(Base):
         return pg
 
     def test_voter_signed_in_email_changed_reload_still_in(self):
-        # a phone signed in before the change still has the old email
-        pg = self.fresh(h.OLD_ED_EMAIL)
+        # a phone signed in before an email change still has the other email
+        pg = self.fresh(h.OTHER_ED_EMAIL)
         pg.goto(f"{self.base}/index.html")
         pg.wait_for_selector("#search, #app .tabs")
         # the server changes the email; the SDK reloads the user with the new one
@@ -89,7 +88,7 @@ class TestEmailChange(Base):
         self.assertIsNone(p2.query_selector("#edpw"))
 
     def test_console_signed_in_email_changed_reload_still_in(self):
-        pg = self.fresh(h.OLD_LEADER_EMAIL)
+        pg = self.fresh(h.OTHER_LEADER_EMAIL)
         h.load_admin(pg, self.base)
         pg.wait_for_selector("#console:not(.hide)")
         pg.evaluate("window.__auth.force({ uid: '%s', isAnonymous: false, email: '%s' })" % (h.LEADER_UID, h.LEADER_EMAIL))
@@ -102,7 +101,7 @@ class TestEmailChange(Base):
     def test_old_or_new_page_with_either_email_still_in(self):
         """An old cached page after the change (or a new page before it): the
         page's emails and the server's disagree, and the person is still in."""
-        for email, uid in ((h.ED_EMAIL, h.ED_UID), (h.OLD_ED_EMAIL, h.ED_UID)):
+        for email, uid in ((h.ED_EMAIL, h.ED_UID), (h.OTHER_ED_EMAIL, h.ED_UID)):
             with self.subTest(page="voter", email=email):
                 p = self.fresh(email, uid)
                 p.goto(f"{self.base}/index.html")
@@ -113,20 +112,20 @@ class TestEmailChange(Base):
                 h.open_screen(p, self.base)
                 p.wait_for_selector(".screen-head")
                 self.assertIsNone(p.query_selector("#edpw"))
-        for email in (h.LEADER_EMAIL, h.OLD_LEADER_EMAIL):
+        for email in (h.LEADER_EMAIL, h.OTHER_LEADER_EMAIL):
             with self.subTest(page="console", email=email):
                 p = self.fresh(email, h.LEADER_UID)
                 h.load_admin(p, self.base)
                 p.wait_for_selector("#console:not(.hide)")
 
     def test_the_right_email_with_another_uid_gets_nothing(self):
-        for email in (h.ED_EMAIL, h.OLD_ED_EMAIL):
+        for email in (h.ED_EMAIL, h.OTHER_ED_EMAIL):
             with self.subTest(page="voter", email=email):
                 p = self.fresh(email, "someone-else")
                 p.goto(f"{self.base}/index.html")
                 p.wait_for_selector("#edpw")
                 self.assertIsNone(p.query_selector("#search"))
-        for email in (h.LEADER_EMAIL, h.OLD_LEADER_EMAIL):
+        for email in (h.LEADER_EMAIL, h.OTHER_LEADER_EMAIL):
             with self.subTest(page="console", email=email):
                 p = self.fresh(email, "someone-else")
                 h.load_admin(p, self.base)

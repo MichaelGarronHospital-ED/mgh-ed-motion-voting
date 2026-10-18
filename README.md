@@ -182,12 +182,9 @@ Firestore only answers two shared accounts (see `firestore.rules`):
   refuse it until both are updated with the new uid (rules first, then the page).
 - Both accounts live in Firebase → Authentication (Email/Password provider), and only a
   password sign-in counts. Anonymous sign-in is not accepted by the rules.
-- The emails are moving from `*.ed-motion-voting.app` (a domain nobody owns, so anyone
-  could buy it and reset a password) to `*.mgh-ed-voting.invalid` (reserved, can never be
-  registered). Since step 9 each password screen signs in with the email that last worked
-  on the device and, only if that is refused, tries the other one once, so the right
-  password works before, during and after the change with no page update in the window.
-  Since step 10 (a few weeks after the change) the pages sign in with the new emails only.
+- The emails are `*.mgh-ed-voting.invalid` (reserved, can never be registered), since
+  Oct 2026. The earlier ones were on a domain nobody owned, so anyone could have bought it
+  and reset a password; since step 11 they are gone from the code (see `CHANGES.md`).
 
 **Rollback:** if newly published rules misbehave, put the previous version back:
 Firebase console → Firestore Database → **Rules** lists every published version, so

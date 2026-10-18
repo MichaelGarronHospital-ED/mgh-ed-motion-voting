@@ -73,7 +73,7 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   the password under it). Keep "ED leadership" where it means the people. Don't rename
   the code names: a stored value or a cached page may still use them.
 - `js/config.js` → Firebase config, `LEADER_UID` + `ED_UID` (the two shared accounts, by
-  uid, the same as `firestore.rules`), `LEADER_EMAIL` + `ED_EMAIL` (used only to sign in;
+  uid, the same as `firestore.rules`), `LEADER_EMAIL_NEW` + `ED_EMAIL_NEW` (used only to sign in;
   the passwords live only in Firebase Auth), `ORG_NAME`.
 - `js/roster.js` → the starting roster and GROUP1 / GROUP2 / COURTESY weight assignments.
   Changes made in the Admin console live in Firestore `config/roster` (`groups`, `added`, `removed`);
@@ -104,8 +104,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   `signInWithEmailAndPassword`. `tests/test_accounts.py` keeps config and rules equal and
   refuses any `.email ===` check in page code. `signInAs` signs in with the `.invalid`
   emails (`*_EMAIL_NEW`; step 9's old/new fallback is gone since step 10) and accepts only
-  the pinned uid. The old `.app` emails stay in `js/config.js` for one release, unused. **Never delete a role account** (a new one
-  has a new uid).
+  the pinned uid. The old emails are gone from the code since step 11. **Never delete a role
+  account** (a new one has a new uid).
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.
   Quorum = 50% of eligible voters, computed automatically. These are `LEGACY_RULE` in

@@ -50,8 +50,7 @@ export function watchMember(cb) {
   });
 }
 
-// Signing in. The accounts moved to their .invalid emails (step 9 tried both
-// while they moved; step 10 signs in with the new ones only). Only the
+// Signing in, with the accounts' .invalid emails (the only ones since step 10). Only the
 // account's own uid is accepted; anything else is signed out again and counts
 // as a wrong password.
 const ACCOUNTS = {
@@ -683,25 +682,10 @@ export async function getOwnBallot(pollId, slug) {
 }
 
 // ---- the voter page's reads ------------------------------------------------------
-// No longer used by the voter page (it reads only the board). Kept exported for
-// one more release, so a phone that still has an older vote.js cached (pages
-// are cached for up to 10 minutes) does not fail to load. Remove next update.
-// It was the fallback while config/live did not exist yet: the open motion only.
-export function onOpenPolls(cb, onError) {
-  return onSnapshot(query(pollsCol(), where("status", "==", "open")), (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted));
-  }, (e) => { if (onError) onError(e); else console.error(e); });
-}
 // "Show earlier results": one read of config/history (null if it does not exist yet).
 export async function getHistoryOnce() {
   const s = await getDoc(historyRef());
   return s.exists() ? s.data() : null;
-}
-// No longer used (see onOpenPolls); kept exported for one more release. It was
-// the fallback for earlier results while config/history did not exist.
-export async function getClosedPollsOnce() {
-  const snap = await getDocs(query(pollsCol(), where("status", "==", "closed")));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !p.archived && !p.deleted);
 }
 // Count a closed motion once from its ballots (a result that is late, or an
 // old motion without one): the motion (its rule and frozen categories) and its
