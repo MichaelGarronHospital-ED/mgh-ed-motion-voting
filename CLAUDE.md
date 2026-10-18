@@ -83,12 +83,21 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   voters' board and past results from the motions, and the field-path patch between two
   boards (pure).
 - `js/vote.js` → the voter page. The console is `js/admin.js` (sign-in, tabs, listeners)
-  plus one module per tab: `admin-motions.js`, `admin-results.js` (Results and Voters),
-  `admin-roster.js` (Physicians), `records.js` (Excel and print, all or one meeting),
-  `admin-meeting.js` (the Meeting tab), `admin-settings.js`
-  (the Settings view: your name for the change history, the change history). They share state and
-  redraw each other only through `admin-state.js`, so no module imports another.
-  `js/util.js` → helpers shared by both pages.
+  plus one module per tab. Tabs, in the order of the work (UX pass, voting-12):
+  **Meeting** (`admin-meeting.js`: pick or add, Start/End, Edit details, QR and link,
+  attendance, projector, meetings in Trash; it also fills Results' "Records of this
+  meeting"), **Physicians** (`admin-roster.js`; `data-tab="roster"`), **Motions**
+  (`admin-motions.js`: Add form, agenda rows with a per-row More menu), **Results**
+  (`admin-results.js`: the count, then "Who voted", the old Voters tab, sharing the one
+  motion picker; then the meeting's records). The gear opens Settings (`admin-settings.js`:
+  voting rules, change history; its Done button, or the gear again, returns to the tab you
+  came from; also the header's name chip, your name for the change history). `records.js` → Excel and print, all or one meeting. They share state and redraw
+  each other only through `admin-state.js`, so no module imports another. `admin-state.js`
+  also holds the console's small controls: `infoButton` (the (i) button; text on hover,
+  focus and tap, Escape closes; one `wireInfo` for the page), `iconBtn` (icon-only buttons
+  always get `aria-label` and `title`) and `wireMenus` (`<details class="menu">` drop-downs).
+  In the page, `data-icon` and `<span data-info>` are filled in by `admin.js`.
+  `js/util.js` → helpers shared by both pages (and the line icons).
 - `js/xlsx.js` → dependency-free .xlsx writer behind the console's Export menu
   (identical copy in the hiring tool; keep the two the same).
 - `firestore.rules` (locked-down, auth-gated). To roll back a bad publish, republish the

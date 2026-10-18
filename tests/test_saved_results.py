@@ -3,6 +3,7 @@ old motions are saved on the first sign-in exactly as they show, re-opening
 needs a reason and keeps the earlier count, closed ballots are locked, and
 every waiting state has a plain message instead of a hang.
 """
+import re
 import time
 import unittest
 
@@ -55,6 +56,8 @@ def numbers(text):
     for cut in ("Result saved", "Result not saved", "Saving the result", "Close voting", "Re-open voting"):
         if cut in text:
             text = text[:text.index(cut)]
+    # "N more eligible voters are needed" is a nudge while voting is open, not part of the result.
+    text = re.sub(r"\n*\d+ more eligible voters? (is|are) needed before this motion can be decided\.", "", text)
     return text.strip()
 
 
@@ -79,7 +82,7 @@ class TestClosing(Base):
         self.assertIn("Motion closed. Result saved.", pg.inner_text("#toast"))
         h.tab(pg, "results")
         self.assertIn("Result saved at", pg.inner_text("#results-body"))
-        self.assertIn("It can't be changed", pg.inner_text("#results-body"))
+        self.assertIn("A saved result can't be changed", pg.text_content("#results-body .saved-line .info-pop"))   # behind its (i)
 
     def test_saved_result_matches_the_live_count(self):
         """M2: a write-in given a category who did not vote stays eligible after close."""
@@ -113,15 +116,15 @@ class TestClosing(Base):
         pg = self.admin()
         seed_open(pg, ballots=h.GROUP1[:3])
         pg.wait_for_timeout(300)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         self.assertEqual(pg.locator("#voters-table button[data-del]").count(), 3)
         h.tab(pg, "results")
         pg.click("#r-close")
         wait_result(pg)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_timeout(200)
         self.assertEqual(pg.locator("#voters-table button[data-del]").count(), 0)
-        self.assertIn("Closed: ballots are locked and kept with the result.", pg.inner_text("#voters-note"))
+        self.assertIn("frozen", pg.inner_text("#voters-table thead"))   # the lock on Category (read out as "frozen")
 
     def test_motion_opened_in_step1_has_a_rule_snapshot(self):
         pg = self.admin()
@@ -440,7 +443,7 @@ class TestFailurePaths(Base):
         pg.wait_for_timeout(300)
         pg.evaluate("window.__store.fail('polls/pd', 'permission-denied', 'w')")
         h.tab(pg, "motions")
-        pg.click('#motion-list button[data-act="archive"][data-id="pd"]')
+        h.motion_act(pg, "archive", "pd")
         pg.wait_for_function("() => document.querySelector('#toast').textContent.startsWith('Not allowed')")
 
     def test_console_listener_refused_asks_to_sign_in_again(self):

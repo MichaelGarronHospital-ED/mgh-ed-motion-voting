@@ -1,13 +1,13 @@
-// Admin console: the Physicians tab (categories, add, remove, restore,
-// write-ins to review, and updating the list by pasting).
-import { ROSTER_BY_SLUG } from "./roster.js?v=voting-11";
+// Admin console: the Physicians tab (one line of counts, categories, add,
+// remove, restore, write-ins to review, and updating the list by pasting).
+import { ROSTER_BY_SLUG } from "./roster.js?v=voting-12";
 import {
   setPersonGroup, resolvedRoster, effectiveGroup, addPhysician, removePhysician, restorePhysician,
   removedRoster, rosterPerson, isRemoved, rosterWriteins, dismissWritein, applyRosterChanges, currentRule,
   liveEligible, quorumNeededFor, weightIn, parseRoster,
-} from "./db.js?v=voting-11";
-import { escapeHtml, fmt, csv, toast } from "./util.js?v=voting-11";
-import { $, S, R, catLabel, uiCat, download } from "./admin-state.js?v=voting-11";
+} from "./db.js?v=voting-12";
+import { escapeHtml, fmt, csv, toast } from "./util.js?v=voting-12";
+import { $, S, R, catLabel, download, infoButtonHtml, iconBtn } from "./admin-state.js?v=voting-12";
 
 let rosterFilter = "";
 const knownWriteins = {};   // slug -> name, from ballots seen this session (also kept in config/roster.writeins)
@@ -16,6 +16,17 @@ export function wireRoster() {
   $("roster-filter").addEventListener("input", (e) => { rosterFilter = e.target.value; renderRosterTab(); });
   $("export-roster").addEventListener("click", exportRoster);
   $("paste-preview").addEventListener("click", () => { pasteSame = {}; preview(); });
+  // "Add physician" and "Paste a list" each open their own section under the toolbar.
+  const fold = (btn, box, focus) => (open) => {
+    $(btn).setAttribute("aria-expanded", String(open));
+    $(box).classList.toggle("hide", !open);
+    if (open) $(focus).focus();
+  };
+  const add = fold("add-toggle", "add-form", "add-name"), paste = fold("paste-toggle", "paste-box", "paste-text");
+  $("add-toggle").addEventListener("click", () => { const o = $("add-form").classList.contains("hide"); add(o); if (o) paste(false); });
+  $("paste-toggle").addEventListener("click", () => { const o = $("paste-box").classList.contains("hide"); paste(o); if (o) add(false); });
+  $("add-cancel").addEventListener("click", () => add(false));
+  $("paste-cancel").addEventListener("click", () => paste(false));
   wireAddPhysician();
 }
 
@@ -29,12 +40,15 @@ export function renderRosterTab() {
   const rule = currentRule();
   const eligible = liveEligible(rule);
   const quorum = quorumNeededFor(eligible, rule.quorumPercent);
-  $("roster-summary").textContent =
-    `${resolvedRoster().length} listed physicians · ${eligible} currently eligible · quorum = ${quorum} (${rule.quorumPercent}% of eligible).`;
-  $("keylist").innerHTML = `
-    <li><strong>Full vote</strong> <span class="ed-muted">(Group 1, ${pts(rule.weights["1"])}):</span> active staff, 8 or more shifts a month</li>
-    <li><strong>Half vote</strong> <span class="ed-muted">(Group 2, ${pts(rule.weights["2"])}):</span> active under 8 shifts, provisional active, active secondary site</li>
-    <li><strong>No vote</strong> <span class="ed-muted">(Courtesy, ${fmt(rule.weights.courtesy)}):</span> ${rule.weights.courtesy > 0 ? "counted" : "recorded but not counted"}</li>`;
+  // What the categories mean, and the totals, sit behind the (i) by the counts.
+  const info = $("roster-info");
+  if (!info.contains(document.activeElement)) {
+    info.innerHTML = infoButtonHtml(`<span id="roster-summary">${resolvedRoster().length} listed physicians, ${eligible} currently eligible. Quorum = ${quorum} (${rule.quorumPercent}% of eligible).</span>
+      <ul class="keylist" id="keylist">
+        <li><strong>Full vote</strong> (Group 1, ${pts(rule.weights["1"])}): active staff, 8 or more shifts a month</li>
+        <li><strong>Half vote</strong> (Group 2, ${pts(rule.weights["2"])}): active under 8 shifts, provisional active, active secondary site</li>
+        <li><strong>No vote</strong> (Courtesy, ${fmt(rule.weights.courtesy)}): ${rule.weights.courtesy > 0 ? "counted" : "recorded but not counted"}</li></ul>`, "the categories");
+  }
   // Write-ins who voted: from this session's ballots and config/roster.writeins.
   const wi = rosterWriteins();
   const names = { ...Object.fromEntries(Object.entries(wi).map(([k, v]) => [k, v.name])), ...knownWriteins };
@@ -46,7 +60,7 @@ export function renderRosterTab() {
   const g2 = roster.filter((p) => p.group === "2").length;
   const cy = roster.filter((p) => p.group === "courtesy").length;
   $("roster-counts").innerHTML =
-    `Full vote <strong>${g1}</strong> · Half vote <strong>${g2}</strong> · No vote <strong>${cy}</strong> · Eligible <strong>${eligible}</strong> · Quorum <strong>${quorum}</strong>`;
+    [["Full", g1], ["Half", g2], ["No vote", cy], ["Quorum", quorum]].map(([l, n]) => `<span class="nw">${l} <strong>${n}</strong></span>`).join(" · ");
 
   const f = rosterFilter.trim().toLowerCase();
   const list = roster.filter((p) => p.name.toLowerCase().includes(f)).sort((a, b) => a.name.localeCompare(b.name));
@@ -55,13 +69,12 @@ export function renderRosterTab() {
     const btn = (g, l) => `<button type="button" data-setgrp="${g}" data-slug="${escapeHtml(p.slug)}" aria-pressed="${p.group === g}">${l}</button>`;
     return `<tr>
       <td class="who">${escapeHtml(p.name)}${p.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}</td>
-      <td class="cat">${uiCat(p.group)}</td>
-      <td class="num">${fmt(p.weight)}</td>
-      <td class="act"><div class="row-act"><div class="ed-seg cat-seg" role="group" aria-label="Category for ${escapeHtml(p.name)}">${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</div>${p.isWriteIn ? "" : `<button type="button" class="ed-btn btn-quiet btn-sm" data-remove="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}" aria-label="Remove ${escapeHtml(p.name)} from the list">Remove</button>`}</div></td>
+      <td class="seg"><div class="ed-seg cat-seg" role="group" aria-label="Category for ${escapeHtml(p.name)}">${btn("1", "Full")}${btn("2", "Half")}${btn("courtesy", "No vote")}</div></td>
+      <td class="act">${p.isWriteIn ? "" : iconBtn("x", `Remove ${p.name} from the list`, `data-remove="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}"`, "btn-quiet", "Remove from the list")}</td>
     </tr>`;
   }).join("");
   $("roster-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th class="num">Points</th><th>Set category</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="ed-muted">No match.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category</th><th><span class="sr">Remove</span></th></tr></thead><tbody>${rows || `<tr><td colspan="3" class="ed-muted">No match.</td></tr>`}</tbody>`;
   $("roster-table").querySelectorAll("button[data-setgrp]").forEach((b) =>
     b.addEventListener("click", () => setPersonGroup(b.dataset.slug, b.dataset.setgrp).then(() => toast("Category updated."), (e) => R.actionFailed(e, "Not allowed: the database refused this change."))));
   $("roster-table").querySelectorAll("button[data-remove]").forEach((b) =>
@@ -83,12 +96,20 @@ function renderWriteins() {
     .map(([slug, w]) => ({ slug, ...w }))
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const tab = document.querySelector('.tab[data-tab="roster"]');
-  tab.textContent = list.length ? `Physicians ${list.length}` : "Physicians";
+  // "Physicians" with a small round badge (read out as ", N write-ins to review").
+  tab.textContent = "Physicians";
+  if (list.length) {
+    const words = `${list.length} write-in${list.length === 1 ? "" : "s"} to review`;
+    const badge = document.createElement("span");
+    badge.className = "tab-badge"; badge.setAttribute("aria-hidden", "true"); badge.title = words; badge.textContent = String(list.length);
+    const sr = document.createElement("span");
+    sr.className = "sr"; sr.textContent = ", " + words;
+    tab.append(badge, sr);
+  }
   const card = $("writeins-card");
   card.classList.toggle("hide", !list.length);
   if (!list.length) { card.innerHTML = ""; return; }
-  card.innerHTML = `<h2>Write-ins to review</h2>
-    <p class="ed-hint">People who typed their own name. Their votes count 0 points until they are added with a category.</p>
+  card.innerHTML = `<div class="card-head"><h2>Write-ins to review</h2>${infoButtonHtml("People who typed their own name. Their votes count 0 points until they are added with a category.", "write-ins")}</div>
     <ul class="plain-list writein-list">${list.map((w) => {
       const removed = isRemoved(w.slug);
       const short = motion(w.firstPollId || "");
@@ -159,10 +180,20 @@ async function applyPaste() {
 }
 
 // Removed physicians, each with Restore (nothing is ever deleted).
+// Folded when there are more than 5.
+let removedOpen = false;
 function renderRemoved() {
   const gone = removedRoster();
-  $("removed-card").classList.toggle("hide", !gone.length);
-  $("removed-list").innerHTML = gone.map((p) => `<li><span>${escapeHtml(p.name)}</span><button type="button" class="ed-btn ed-btn-tinted btn-sm" data-restore="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}">Restore</button></li>`).join("");
+  const card = $("removed-card");
+  card.classList.toggle("hide", !gone.length);
+  if (!gone.length) { card.innerHTML = ""; return; }
+  const list = `<ul id="removed-list" class="removed-list">${gone.map((p) => `<li><span>${escapeHtml(p.name)}</span><button type="button" class="ed-btn ed-btn-tinted btn-sm" data-restore="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}">Restore</button></li>`).join("")}</ul>`;
+  const info = infoButtonHtml("Not in the voters' name list and not counted toward quorum. Closed motions keep their results. Restore puts them back with the same category.", "removed physicians");
+  card.innerHTML = gone.length > 5
+    ? `<details class="about" id="removed-fold" ${removedOpen ? "open" : ""}><summary>Removed (${gone.length})</summary>${list}</details>`
+    : `<div class="card-head"><h2>Removed</h2>${info}</div>${list}`;
+  const fold = $("removed-fold");
+  if (fold) fold.addEventListener("toggle", () => { removedOpen = fold.open; });
   $("removed-list").querySelectorAll("button[data-restore]").forEach((b) =>
     b.addEventListener("click", () => restorePhysician(b.dataset.restore).then(() => toast(`${b.dataset.name} restored.`), () => toast("Could not save. Check your connection and try again."))));
 }

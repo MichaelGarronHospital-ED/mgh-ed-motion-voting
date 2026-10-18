@@ -491,11 +491,11 @@ class TestRevote(Base):
         pg.wait_for_timeout(300)
         h.tab(pg, "motions")
         btn = '#motion-list button[data-act="revote"]'
-        pg.wait_for_selector(btn)
+        pg.wait_for_selector(btn, state="attached")         # under the row's More menu
         self.assertEqual(pg.locator(btn).count(), 1)           # only the saved, not-replaced motion
         self.assertEqual(pg.get_attribute(btn, "data-id"), "s1")
         pg.wait_for_function(f"() => !document.querySelector('{btn}').disabled")
-        pg.click(btn)
+        h.motion_act(pg, "revote", "s1")
         pg.wait_for_selector("#revote-form")
         self.assertTrue(pg.is_visible("#tab-results"))         # switched to Results with this motion
         self.assertEqual(pg.evaluate("document.activeElement.id"), "revote-reason")
@@ -549,8 +549,9 @@ class TestRevote(Base):
 
     def test_change_history_in_settings_with_the_typed_name(self):
         pg = self.admin()
-        pg.fill("#ask-name", "Kyle")
-        pg.click("#ask-form button[type=submit]")
+        pg.click("#name-chip")                             # the name chip in the header
+        pg.fill("#log-name", "Kyle")
+        pg.click("#name-form button[type=submit]")
         seed_open(pg, ballots=h.GROUP1[:3])
         pg.wait_for_timeout(300)
         h.tab(pg, "results")

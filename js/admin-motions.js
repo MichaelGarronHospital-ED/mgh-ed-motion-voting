@@ -1,18 +1,20 @@
-// Admin console: the Motions tab. The selected meeting's agenda first
+// Admin console: the Motions tab. "Add a motion" (a form that opens inline,
+// with "Paste an agenda" inside it), then the selected meeting's agenda
 // (numbered 1, 2, 2a, 2a.1; move up and down; amendments; mover, seconder,
-// notes; paste an agenda), then other meetings and earlier motions (folded),
-// then Archived and Trash.
+// notes), then other meetings and earlier motions (folded), then Archived and
+// Trash. Each row shows only the actions needed now; the rest are under More.
 import {
   addPoll, addPolls, updatePoll, trashPoll, restorePoll, purgePoll, setArchived, currentSettings, currentMeetings,
   movePoll, moveToMeeting, agendaOrder, parseAgenda, clockTime, localDate, tsMillis,
-} from "./db.js?v=voting-11";
-import { escapeHtml, toast, icon } from "./util.js?v=voting-11";
-import { $, S, R, collapsibleCard, statusPill, meetingLabel, niceDate } from "./admin-state.js?v=voting-11";
+} from "./db.js?v=voting-12";
+import { escapeHtml, toast, icon } from "./util.js?v=voting-12";
+import { $, S, R, collapsibleCard, statusPill, meetingLabel, niceDate, iconBtn } from "./admin-state.js?v=voting-12";
 
 let editingId = null;          // motion currently being edited (only allowed before first vote)
 let amendingId = null;         // motion getting a new amendment
 const expanded = { agenda: true, arch: false, trash: false };   // others: folded unless opened
 let pendingFocus = null;       // [act, id] to focus after a redraw (Move up / down)
+let addOpen = null;            // the Add form: null = open only when the agenda is empty
 
 export function wireMotions() {
   // Type: Motion, Question or Election.
@@ -40,6 +42,12 @@ export function wireMotions() {
     } catch (e) { R.actionFailed(e, "Not allowed: the database refused the new motion."); }
   });
   $("agenda-preview").addEventListener("click", previewAgenda);
+  $("add-motion-toggle").addEventListener("click", () => {
+    addOpen = $("add-motion-card").classList.contains("hide");
+    syncAddForm();
+    if (addOpen) $("new-motion").focus();
+  });
+  $("add-motion-cancel").addEventListener("click", () => { addOpen = false; syncAddForm(); renderMotions(); $("add-motion-toggle").focus(); });
   // A redraw skipped while someone was typing in a row happens when they leave it.
   $("motion-list").addEventListener("focusout", () => setTimeout(() => {
     if (R.motionsStale && !$("motion-list").contains(document.activeElement)) renderMotions();
@@ -52,7 +60,7 @@ function syncKind() {
   const election = newKind === "election";
   $("choice-fields").classList.toggle("hide", !choice);
   $("new-threshold-wrap").classList.toggle("hide", choice);
-  $("new-motion-label").textContent = choice ? (election ? "What the election is for" : "The question") : "One at a time";
+  $("new-motion-label").textContent = choice ? (election ? "What the election is for" : "The question") : "Motion wording";
   $("new-options-label").textContent = election ? "Candidates, one per line" : "Options, one per line";
   $("new-seats-label").textContent = election ? "Seats (fewer than the number of candidates)" : "How many can each person pick?";
   $("new-winner-wrap").classList.toggle("hide", Number($("new-seats").value) !== 1);
@@ -94,6 +102,21 @@ export function numbers() {
 }
 R.numbers = numbers;
 
+// The Add form is open by default only while the meeting on screen has no motions.
+function syncAddForm(empty) {
+  if (empty !== undefined) lastEmpty = empty;
+  const open = addOpen === null ? lastEmpty : addOpen;
+  $("add-motion-card").classList.toggle("hide", !open);
+  $("add-motion-toggle").setAttribute("aria-expanded", String(open));
+  $("add-motion-toggle").parentElement.classList.toggle("hide", open && addOpen === null);
+  // Cancel only when there is a list to go back to.
+  $("add-motion-cancel").classList.toggle("hide", addOpen === null);
+}
+let lastEmpty = true;
+let lastSelId;                 // the meeting the Add form's open state belongs to
+// The actions a row's More menu offers, to tell whether it changed in a redraw.
+const itemsOf = (d) => [...d.querySelectorAll(".menu-item")].map((b) => b.dataset.act).join(",");
+
 export function renderMotions() {
   const el = $("motion-list");
   // Keep what is being typed in a row's details when another device changes something.
@@ -101,6 +124,11 @@ export function renderMotions() {
   // A redraw keeps keyboard focus on the same button of the same motion.
   const fa = document.activeElement;
   if (!pendingFocus && fa && el.contains(fa) && fa.dataset && fa.dataset.act && fa.dataset.id) pendingFocus = [fa.dataset.act, fa.dataset.id];
+  // An open More menu stays open through the redraw.
+  // (closed if its list of actions changed meanwhile), and focus on its button stays.
+  const openMore = el.querySelector("details.row-more[open]");
+  const keepMore = openMore ? [openMore.dataset.id, itemsOf(openMore)] : null;
+  const moreBtn = fa && el.contains(fa) && fa.matches("details.row-more > summary") ? fa.parentElement.dataset.id : null;
   const polls = S.polls;
   const meetings = currentMeetings().filter((m) => !m.deleted);
   const mIds = new Set(meetings.map((m) => m.id));
@@ -112,8 +140,9 @@ export function renderMotions() {
   let html = "";
   if (sel) {
     const rows = agendaOrder(active.filter((p) => p.meetingId === sel.id));
-    html += collapsibleCard("agenda", "", `Agenda: ${escapeHtml(meetingLabel(sel))}`, rows.length, expanded.agenda, "",
-      rows.length ? rows.map((r) => motionRow(r.poll, r)).join("") : `<p class="ed-hint">No motions on this agenda yet. Add one above, or paste the agenda.</p>`);
+    html += collapsibleCard("agenda", "", `Agenda<span class="group-sub">${escapeHtml(meetingLabel(sel))}</span>`, rows.length, expanded.agenda, "",
+      rows.length ? rows.map((r) => motionRow(r.poll, r)).join("")
+        : (sel.id === lastSelId && addOpen === false ? `<p class="ed-hint">No motions yet.</p>` : ""));
   }
   meetings.filter((m) => !sel || m.id !== sel.id).sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach((m) => {
     const rows = agendaOrder(active.filter((p) => p.meetingId === m.id));
@@ -123,7 +152,8 @@ export function renderMotions() {
   });
   // Motions made before meetings existed (or whose meeting is gone), by the date added.
   const earlier = active.filter((p) => !p.meetingId || !mIds.has(p.meetingId));
-  if (earlier.length || !meetings.length) {
+  // Before any meeting or motion exists, the Add form above is the whole tab.
+  if (earlier.length) {
     const byDate = {};
     earlier.forEach((p) => { const d = localDate(p.createdAt) || ""; (byDate[d] = byDate[d] || []).push(p); });
     const body = earlier.length ? Object.keys(byDate).sort().reverse().map((d) => `${d ? `<h3 class="group-title">Added ${escapeHtml(niceDate(d))}</h3>` : ""}`
@@ -145,6 +175,14 @@ export function renderMotions() {
   }
   el.innerHTML = html;
   R.motionsStale = false;
+  const moreOf = (id) => el.querySelector(`details.row-more[data-id="${CSS.escape(id)}"]`);
+  if (keepMore) { const d = moreOf(keepMore[0]); if (d && itemsOf(d) === keepMore[1]) d.open = true; }
+  if (moreBtn && moreOf(moreBtn)) moreOf(moreBtn).querySelector("summary").focus();
+  // A different meeting on screen: the Add form goes back to "open when its agenda is empty".
+  const selId = sel ? sel.id : null;
+  if (selId !== lastSelId) { lastSelId = selId; addOpen = null; }
+  // Open the Add form by default while this meeting (or, with no meetings, the list) is empty.
+  syncAddForm(sel ? !active.some((p) => p.meetingId === sel.id) : !active.length);
   el.querySelectorAll("button[data-act]").forEach((b) =>
     b.addEventListener("click", () => motionAction(b.dataset.act, b.dataset.id)));
   el.querySelectorAll("button.disclosure").forEach((b) => b.addEventListener("click", () => {
@@ -155,13 +193,17 @@ export function renderMotions() {
   }));
   el.querySelectorAll("form[data-details]").forEach((f) => f.addEventListener("submit", (e) => { e.preventDefault(); saveDetails(f); }));
   el.querySelectorAll("form[data-amend]").forEach((f) => f.addEventListener("submit", (e) => { e.preventDefault(); addAmendment(f); }));
-  $("agenda-paste-card").classList.toggle("hide", !sel);
-  if (sel) $("agenda-fold").querySelector("summary").textContent = `Paste an agenda for ${meetingLabel(sel)}`;
+  $("agenda-fold").classList.toggle("hide", !sel);
+  if (sel) $("agenda-fold").querySelector("summary").textContent = "Paste an agenda instead";
   if (pendingFocus) {
     const [act, id] = pendingFocus;
     pendingFocus = null;
     const b = el.querySelector(`button[data-act="${act}"][data-id="${CSS.escape(id)}"]`) || el.querySelector(`button[data-act="${act === "up" ? "down" : "up"}"][data-id="${CSS.escape(id)}"]`);
-    if (b) b.focus();
+    // An item of a menu that closed (its actions changed), or one that is gone: the row's three-dot button.
+    const menu = b && b.closest("details.row-more");
+    if (b && !(menu && !menu.open)) b.focus();
+    else if (menu) menu.querySelector("summary").focus();
+    else if (moreOf(id)) moreOf(id).querySelector("summary").focus();
   }
 }
 
@@ -191,8 +233,8 @@ function motionRow(p, agenda) {
       <label class="sr" for="move-${id}">Meeting to move ${escapeHtml(label)} to</label>
       <select class="ed-field btn-sm" id="move-${id}" data-move-target="${id}">${meetings.sort((a, b) => (b.date || "").localeCompare(a.date || "")).map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(meetingLabel(m))}</option>`).join("")}</select>
       <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="move-to" data-id="${id}">Move to a meeting</button></span>` : "";
-  const order = agenda ? `<button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="up" data-id="${id}" aria-label="Move ${escapeHtml(label)} up">${icon("chevron", 16)}<span>Up</span></button>
-      <button type="button" class="ed-btn ed-btn-plain btn-sm" data-act="down" data-id="${id}" aria-label="Move ${escapeHtml(label)} down">${icon("chevron", 16)}<span>Down</span></button>` : "";
+  const order = agenda ? iconBtn("up", `Move ${label} up`, `data-act="up" data-id="${id}"`, "ed-btn-plain", "Move up")
+      + iconBtn("down", `Move ${label} down`, `data-act="down" data-id="${id}"`, "ed-btn-plain", "Move down") : "";
   const canAmend = agenda && agenda.depth < 2 && p.status !== "closed";
   const amendForm = amendingId === p.id ? `<form class="card-inset stack-sm" data-amend="${id}">
       <label class="ed-label" for="amend-${id}">Amendment wording (what it changes)
@@ -209,25 +251,35 @@ function motionRow(p, agenda) {
         ${times ? `<p class="ed-hint">${escapeHtml(times)}</p>` : ""}
         <div><button type="submit" class="ed-btn ed-btn-tinted btn-sm">Save details</button></div>
       </form></details>`;
+  // Only what is needed now is on the row; the rest is under More.
+  const dis = ready ? "" : "disabled";
+  const more = [
+    p.status === "open" && !locked ? `<button type="button" class="menu-item" data-act="edit" data-id="${id}">Edit</button>` : "",
+    p.status === "closed" ? `<button type="button" class="menu-item" data-act="reopen" data-id="${id}" ${dis}>Re-open</button>` : "",
+    p.status === "closed" && p.result && !p.supersededBy ? `<button type="button" class="menu-item" data-act="revote" data-id="${id}" ${dis}>Re-vote</button>` : "",
+    canAmend ? `<button type="button" class="menu-item" data-act="amend" data-id="${id}">Add amendment</button>` : "",
+    p.status !== "open" ? `<button type="button" class="menu-item" data-act="archive" data-id="${id}">Archive</button>` : "",
+    canDelete ? `<button type="button" class="menu-item danger" data-act="del" data-id="${id}">Delete</button>` : "",
+  ].filter(Boolean).join("");
+  const moreMenu = more ? `<details class="menu row-more" data-id="${id}">
+      <summary class="ed-btn ed-btn-plain icon-btn no-caret" aria-label="More actions for ${escapeHtml(label)}" title="More">${icon("more", 18)}</summary>
+      <div class="menu-pop">${more}</div></details>` : "";
+  const lockWords = p.result ? "Result saved" : "Locked: voting started";
   return `<div class="poll-item depth-${agenda ? agenda.depth : 0}">
-    <div class="text"><div class="meta">${num ? `<span class="agenda-num">${escapeHtml(num)}</span>` : ""}${statusPill(p.status)}${p.amends ? '<span class="ed-pill ed-pill-quiet">Amendment</span>' : ""}${p.kind === "choice" ? `<span class="ed-pill ed-pill-quiet">${p.style === "election" ? "Election" : "Question"}</span>` : ""}${(p.threshold || (p.rule && p.rule.threshold)) === "twoThirds" ? '<span class="ed-pill ed-pill-quiet">Two-thirds</span>' : ""}${locked ? `<span class="locknote">${icon("lock", 16)}${p.result ? "Result saved" : "Locked: voting started"}</span>` : ""}</div>
+    <div class="text"><div class="meta">${num ? `<span class="agenda-num">${escapeHtml(num)}</span>` : ""}${statusPill(p.status)}${p.amends ? '<span class="ed-pill ed-pill-quiet">Amendment</span>' : ""}${p.kind === "choice" ? `<span class="ed-pill ed-pill-quiet">${p.style === "election" ? "Election" : "Question"}</span>` : ""}${(p.threshold || (p.rule && p.rule.threshold)) === "twoThirds" ? '<span class="ed-pill ed-pill-quiet">Two-thirds</span>' : ""}${locked ? `<span class="locknote" title="${lockWords}">${icon("lock", 16)}<span class="sr">${lockWords}</span></span>` : ""}</div>
       <p>${escapeHtml(p.text)}</p>
-      ${p.kind === "choice" ? `<p class="ed-hint">${p.style === "election" ? "Election" : "Question"}: ${escapeHtml((p.options || []).map((o) => o.label).join(", "))}. ${p.seats > 1 ? `Pick up to ${p.seats}.` : "Pick 1."}${p.seats === 1 && p.threshold === "majority" ? " Winner needs more than half." : ""}</p>` : ""}
+      ${p.kind === "choice" ? `<p class="ed-hint">${escapeHtml((p.options || []).map((o) => o.label).join(", "))}. ${p.seats > 1 ? `Pick up to ${p.seats}.` : "Pick 1."}${p.seats === 1 && p.threshold === "majority" ? " Winner needs more than half." : ""}</p>` : ""}
       ${amendPassed ? `<p class="ed-hint">An amendment to this motion passed. Edit this motion's wording to include it before opening.</p>` : ""}
       ${details}</div>
-    <div class="row">
+    <div class="row acts">
       ${p.status === "draft"
-        ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="open" data-id="${id}" ${ready ? "" : "disabled"}>Open</button>`
-        : p.status === "closed"
-        ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="reopen" data-id="${id}" ${ready ? "" : "disabled"}>Re-open</button>`
-          + (p.result && !p.supersededBy ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="revote" data-id="${id}" ${ready ? "" : "disabled"}>Re-vote</button>` : "")
-        : `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="close" data-id="${id}" ${ready && !pendingOpen ? "" : "disabled"}>Close</button>`}
-      ${p.status === "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="goto-results" data-id="${id}">Live results</button>` : ""}
-      ${!locked ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="edit" data-id="${id}">Edit</button>` : ""}
-      ${canAmend ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="amend" data-id="${id}">Add amendment</button>` : ""}
-      ${p.status !== "open" ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="archive" data-id="${id}">Archive</button>` : ""}
-      ${canDelete ? `<button type="button" class="ed-btn btn-quiet btn-sm" data-act="del" data-id="${id}">Delete</button>` : ""}
-      ${order}${move}
+        ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="open" data-id="${id}" ${dis}>Open</button>`
+          + (!locked ? `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="edit" data-id="${id}">Edit</button>` : "")
+        : p.status === "open"
+        ? `<button type="button" class="ed-btn ed-btn-filled btn-sm" data-act="close" data-id="${id}" ${ready && !pendingOpen ? "" : "disabled"}>Close</button>`
+          + `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="goto-results" data-id="${id}">Live results</button>`
+        : `<button type="button" class="ed-btn ed-btn-tinted btn-sm" data-act="view-results" data-id="${id}">Results</button>`}
+      ${move}<span class="row-end">${order}${moreMenu}</span>
     </div>${amendForm}
   </div>`;
 }
@@ -289,6 +341,9 @@ export async function motionAction(act, id) {
     S.selectedPollId = id; S.revoteFor = id; S.reopenFor = null;
     R.showTab("results"); R.results(); R.voters();
     const r = $("revote-reason"); if (r) r.focus();
+  } else if (act === "view-results") {
+    S.selectedPollId = id; S.reopenFor = null; S.revoteFor = null;
+    R.showTab("results"); R.results(); R.voters();
   } else if (act === "goto-results") {
     S.selectedPollId = null;          // follow the live/open motion
     R.showTab("results"); R.results(); R.voters();

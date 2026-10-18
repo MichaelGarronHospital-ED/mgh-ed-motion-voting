@@ -57,15 +57,16 @@ class TestRosterAndQuorum(Base):
         pg = self.admin()
         summary = pg.inner_text("#roster-summary")
         self.assertIn(f"{h.ELIGIBLE} currently eligible", summary)
-        self.assertIn(f"quorum = {h.QUORUM}", summary)
+        self.assertIn(f"Quorum = {h.QUORUM}", summary)
+        self.assertIn(f"Quorum {h.QUORUM}", pg.inner_text("#roster-counts"))
 
     def test_courtesy_members_are_listed_but_carry_no_weight(self):
         pg = self.admin()
         h.tab(pg, "roster")
         pg.fill("#roster-filter", h.COURTESY[0])
         pg.wait_for_timeout(100)
-        row = pg.inner_text("#roster-table")
-        self.assertIn("No vote", row)
+        slug = h.slugify(h.COURTESY[0])
+        self.assertEqual(pg.get_attribute(f'#roster-table button[data-setgrp="courtesy"][data-slug="{slug}"]', "aria-pressed"), "true")
 
     def test_courtesy_ballot_does_not_count_toward_quorum(self):
         pg = self.page
@@ -137,7 +138,7 @@ class TestRosterAndQuorum(Base):
         body = pg.inner_text("#results-body")
         self.assertIn("1 pts · 1 vote", body)       # In favour: the ballot under its own slug wins
         self.assertIn("0 pts · 0 votes", body)      # Against: the duplicate is not counted
-        self.assertIn("1 ballot ·", body)
+        self.assertEqual(pg.inner_text("#results-body .foot-line").strip(), "1 ballot")
         self.assertIn(f"1 of {h.QUORUM}", body)
 
 
@@ -292,7 +293,7 @@ class TestResultsAreNeverWrong(Base):
         # console signs in (it saves the result of such a motion straight away).
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
         h.seed_poll(pg, status="closed", vote_count=26)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_timeout(300)
         msg = pg.evaluate("""() => {
             document.querySelector('#export').click();
@@ -306,7 +307,7 @@ class TestResultsAreNeverWrong(Base):
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
         h.seed_poll(pg, status="closed", vote_count=26)
         pg.wait_for_timeout(300)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         with pg.expect_download() as dl:
             pg.click("#export")
         csv = dl.value.path().read_text()
@@ -323,7 +324,7 @@ class TestLeadershipActions(Base):
         h.seed_poll(pg, vote_count=3)
         h.seed_ballots(pg, "p1", h.GROUP1[:3], choice="favour")
         pg.wait_for_timeout(200)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_selector("#voters-table button[data-del]")
         pg.evaluate("window.confirm = () => true")
         pg.click("#voters-table button[data-del]")
@@ -337,7 +338,7 @@ class TestLeadershipActions(Base):
         h.seed_poll(pg, vote_count=0)          # count already out of step
         h.seed_ballots(pg, "p1", h.GROUP1[:1], choice="favour")
         pg.wait_for_timeout(200)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_selector("#voters-table button[data-del]")
         pg.evaluate("window.confirm = () => true")
         pg.click("#voters-table button[data-del]")
@@ -438,6 +439,8 @@ class TestAddRemovePhysicians(Base):
 
     def add(self, pg, name, grp="1"):
         h.tab(pg, "roster")
+        if pg.is_hidden("#add-form"):
+            pg.click("#add-toggle")
         pg.fill("#add-name", name)
         pg.click(f'#add-cat button[data-grp="{grp}"]')
         pg.click("#add-go")
@@ -460,7 +463,7 @@ class TestAddRemovePhysicians(Base):
         self.assertEqual(cfg["groups"]["zed-newdoc"], "2")
         pg.fill("#roster-filter", "Zed")
         pg.wait_for_timeout(150)
-        self.assertIn("Half vote", pg.inner_text("#roster-table"))
+        self.assertEqual(pg.get_attribute('#roster-table button[data-setgrp="2"][data-slug="zed-newdoc"]', "aria-pressed"), "true")
         self.assertIn(f"{h.ELIGIBLE + 1} currently eligible", pg.inner_text("#roster-summary"))
         # the same name again changes nothing
         self.add(pg, "Zed Newdoc", "1")
@@ -625,7 +628,7 @@ class TestVoterReview(Base):
             " sessionIds:['dev-a','dev-b']})",
             [h.slugify(name), name])
         pg.wait_for_timeout(250)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_timeout(250)
         table = pg.inner_text("#voters-table")
         self.assertIn("Needs review", table)
@@ -641,7 +644,7 @@ class TestVoterReview(Base):
               "weight": 1, "flagged": False, "submissionCount": 1,
               "sessionIds": ["shared-device"]} for n in (a, b)])
         pg.wait_for_timeout(250)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_timeout(250)
         self.assertIn("Shared device", pg.inner_text("#voters-table"))
 
@@ -659,7 +662,7 @@ class TestBallotFieldsAreNotCode(Base):
                   "submissionCount": evil, "sessionIds": ["a", "b"]}
         pg.evaluate("b => window.__store.set('polls/p1/votes/x', b)", ballot)
         pg.wait_for_timeout(250)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_timeout(250)
         self.assertIn(evil, pg.inner_text("#voters-table"))   # shown as text
         h.tab(pg, "roster")

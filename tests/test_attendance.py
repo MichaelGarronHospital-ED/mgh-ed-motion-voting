@@ -195,11 +195,13 @@ class TestLeadershipAttendance(Base):
             seed_open(pg, ballots=h.GROUP1[:2], meetingId="m1")
             h.seed(pg, f"meetings/m1/attendance/{h.slugify(h.GROUP1[1])}", {"name": h.GROUP1[1], "slug": h.slugify(h.GROUP1[1]), "mode": "remote", "sessionId": "d", "at": h.ts(NOW)})
         pg = self.console(seed)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         pg.wait_for_selector("#voters-table .ed-pill:has-text('Remote')")
         rows = pg.inner_text("#voters-table")
         self.assertEqual(rows.count("Remote"), 1)
-        self.assertIn("Receipt", rows)
+        # No Receipt column: the code is the vote's hover text.
+        self.assertNotIn("Receipt", pg.inner_text("#voters-table thead"))
+        self.assertTrue(pg.get_attribute("#voters-table td.choice", "title").startswith("Receipt code: "))
 
     def test_check_in_setting_and_meeting_switch(self):
         pg = self.console(lambda pg: seed_meeting(pg))
@@ -209,6 +211,7 @@ class TestLeadershipAttendance(Base):
         pg.click("#settings-save")
         pg.wait_for_function("() => (window.__store.get('config/settings') || {}).checkIn === false")
         h.tab(pg, "meeting")
+        h.edit_meeting(pg)
         pg.uncheck("#meeting-checkin")
         pg.click("#meeting-form button[type=submit]")
         pg.wait_for_function("() => window.__store.get('meetings/m1').checkIn === false")

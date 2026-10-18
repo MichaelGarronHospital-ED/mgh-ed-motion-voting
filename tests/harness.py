@@ -161,6 +161,29 @@ def tab(page, name):
     page.wait_for_timeout(50)
 
 
+def motion_act(page, act, pid=None):
+    """Click a motion row's action, opening the row's More menu first when the
+    action lives there (Re-open, Re-vote, Add amendment, Archive, Delete)."""
+    sel = f'#motion-list button[data-act="{act}"]' + (f'[data-id="{pid}"]' if pid else "")
+    page.wait_for_selector(sel, state="attached")
+    menu = page.evaluate_handle("s => document.querySelector(s).closest('details.row-more')", sel)
+    if menu.as_element() and not page.evaluate("d => d.open", menu):
+        page.evaluate("d => d.querySelector('summary').click()", menu)
+    page.click(sel)
+
+
+def open_add_motion(page):
+    """Open the Motions tab's Add form (open by default only on an empty agenda)."""
+    if page.is_hidden("#add-motion-card"):
+        page.click("#add-motion-toggle")
+
+
+def edit_meeting(page):
+    """Open the Meeting card's "Edit details" (collapsed once the meeting has a title)."""
+    if page.is_hidden("#meeting-form"):
+        page.click("#meeting-edit")
+
+
 # ---- roster helpers --------------------------------------------------------
 # Read straight from js/roster.js so the tests can never drift from the roster
 # the app actually ships.

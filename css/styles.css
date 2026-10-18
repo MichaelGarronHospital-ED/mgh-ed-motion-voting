@@ -156,9 +156,9 @@ select.ed-field { -webkit-appearance:none; appearance:none; padding-right:40px; 
 .tabs-wrap.more::after { content:""; position:absolute; top:0; right:0; bottom:0; width:36px; pointer-events:none;
   border-radius:0 var(--ed-r-sm) var(--ed-r-sm) 0; background:linear-gradient(90deg, rgba(0,0,0,0), var(--ed-seg-track) 75%); }
 #app > .tabs { margin:0 0 16px; }
-/* five tabs fit across a 375px phone; narrower screens scroll, with the fade above */
-@media (max-width:480px) { .tabs.ed-seg > button { padding:0 6px; } }
-@media (max-width:380px) { .tabs.ed-seg > button { padding:0 4px; font-size:14px; } }
+/* the four tabs fit across a 375px phone; narrower screens scroll, with the fade above */
+@media (max-width:480px) { .tabs.ed-seg > button { padding:0 4px; flex:1 1 auto; } }
+@media (max-width:380px) { .tabs.ed-seg > button { font-size:14px; } }
 
 details.menu { position:relative; }
 details.menu > summary { list-style:none; }
@@ -168,10 +168,10 @@ details.menu > summary::after { content:""; display:inline-block; width:6px; hei
 details.menu > summary.busy { opacity:.6; pointer-events:none; }
 .menu-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:20; min-width:260px; padding:6px;
   background:var(--ed-surface); border-radius:14px; box-shadow:var(--ed-shadow-lg); }
-.menu-pop button { font:500 var(--ed-text)/1.3 var(--ed-font); display:block; width:100%; min-height:var(--ed-tap);
+.menu-pop button.menu-item { font:500 var(--ed-text)/1.3 var(--ed-font); display:block; width:100%; min-height:var(--ed-tap);
   text-align:left; border:none; background:none; cursor:pointer; padding:10px 12px; border-radius:10px; color:var(--ed-ink); }
-.menu-pop button:hover, .menu-pop button:focus-visible { background:var(--ed-accent-tint); box-shadow:none; }
-.menu-pop button small { display:block; color:var(--ed-ink-2); font-size:var(--ed-text-xs); font-weight:400; margin-top:2px; }
+.menu-pop button.menu-item:hover, .menu-pop button.menu-item:focus-visible { background:var(--ed-accent-tint); box-shadow:none; }
+.menu-pop button.menu-item small { display:block; color:var(--ed-ink-2); font-size:var(--ed-text-xs); font-weight:400; margin-top:2px; }
 
 /* ---- admin console: share -------------------------------------------------- */
 .qr { display:block; width:260px; max-width:100%; height:auto; margin:4px auto; background:#fff; padding:10px; border-radius:var(--ed-r-md); }
@@ -235,16 +235,16 @@ details.about > p { margin-top:2px; }
   .ed-table tr.flagged { background:var(--ed-amber-tint); }
   .ed-table tr.flagged td { background:none; }
   #voters-table tr.flagged td.choice, #voters-table tr.flagged td.cat { color:var(--ed-ink); }
-  /* voters: "In favour · Full vote" under the name, Remove on the right */
+  /* who voted: "In favour · Full vote" under the name, Remove on the right */
   #voters-table td.choice { grid-column:1; grid-row:2; color:var(--ed-ink-2); }
   #voters-table td.cat { grid-column:2; grid-row:2; color:var(--ed-ink-2); }
   #voters-table td.cat::before { content:"\00b7\00a0"; }
   #voters-table td.act { grid-column:4; grid-row:1 / 3; }
-  /* physicians: the name, then the category control across the row */
-  #roster-table td.cat { display:none; }
+  /* physicians: the name and the remove button, then the category control across the row */
   #roster-table tr { row-gap:8px; }
-  #roster-table td.act { grid-column:1 / -1; grid-row:2; width:auto; }
-  #roster-table .cat-seg { width:auto; flex:1 1 auto; }
+  #roster-table td.seg { grid-column:1 / -1; grid-row:2; width:auto; }
+  #roster-table td.act { grid-column:4; grid-row:1; width:auto; }
+  #roster-table .cat-seg { width:auto; }
   #roster-table .cat-seg > button { flex:1 1 0; }
 }
 
@@ -275,8 +275,8 @@ details.about > p { margin-top:2px; }
 /* ---- admin console: settings, paste, write-ins (voting upgrade step 3) ------- */
 .plain-fieldset { border:0; margin:0; padding:0; min-width:0; }
 .plain-fieldset > legend { padding:0; }
-/* four header items on a phone: the badge carries the brand */
-@media (max-width:430px) { #console .topbar .brand { display:none; } }
+/* a narrow phone: the badge carries the brand, Export is its icon */
+@media (max-width:430px) { #console .topbar .brand, #export-menu .lbl { display:none; } }
 .rules-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
 .ed-field.narrow { max-width:140px; }
 label.check { display:flex; gap:10px; align-items:flex-start; font-size:var(--ed-text-sm); min-height:var(--ed-tap); padding-top:10px; }
@@ -293,7 +293,6 @@ label.check input { width:20px; height:20px; margin:0; flex:none; accent-color:v
 .agenda-preview li.depth-1 { padding-left:20px; }
 .agenda-preview li.depth-2 { padding-left:40px; }
 .details-fold { margin-top:4px; }
-button[data-act="up"] .i { transform:rotate(180deg); }
 .details-fold form { margin-top:6px; }
 .rules-grid.two { grid-template-columns:repeat(2, minmax(0, 1fr)); }
 .move-to select.ed-field { width:auto; min-width:0; max-width:220px; height:36px; padding-top:0; padding-bottom:0; font-size:var(--ed-text-sm); }
@@ -320,7 +319,6 @@ input.narrow-date { max-width:200px; }
 
 /* ---- attendance and receipts (voting upgrade step 7) ------------------------- */
 td.receipt code, .receipt-code { font:600 var(--ed-text-sm)/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.06em; }
-@media (max-width:640px) { #voters-table td.receipt { grid-column:3; grid-row:2; text-align:right; color:var(--ed-ink-2); } }
 .checkin-card { border:1.5px solid var(--ed-accent); }
 
 /* ---- voter: results sections ------------------------------------------------ */
@@ -379,3 +377,112 @@ td.receipt code, .receipt-code { font:600 var(--ed-text-sm)/1.2 ui-monospace, SF
   #printReport th, #printReport td { border:1px solid #bbb; padding:3pt 8pt; text-align:left; }
   #printReport th { background:#f2f2f2; color:#000; }
 }
+
+/* ---- UX pass (2026-10-18): header, (i) info, icon buttons, menus ------------ */
+#console .page-title { font:700 24px/1.2 var(--ed-font-display); letter-spacing:-.01em; margin:2px 0 14px; }
+.top-actions { margin-left:auto; display:flex; align-items:center; gap:6px; min-width:0; }
+.top-actions details.menu { margin-left:0; }
+/* An icon-only button: about 40px square (44px on touch screens). */
+.icon-btn { width:40px; min-width:40px; min-height:40px; padding:0; border-radius:999px; }
+@media (pointer: coarse) { .icon-btn { width:var(--ed-tap); min-width:var(--ed-tap); min-height:var(--ed-tap); } }
+.ed-btn-plain.icon-btn { color:var(--ed-ink-2); }
+.ed-btn-plain.icon-btn:hover { background:var(--ed-fill); color:var(--ed-ink); }
+#open-settings[aria-pressed="true"] { background:var(--ed-accent-tint); color:var(--ed-accent-ink); }
+details.menu > summary.no-caret::after { display:none; }
+details.menu > summary { cursor:pointer; }
+#export-menu > summary { gap:6px; padding:0 12px; }
+@media (max-width:430px) { #export-menu > summary { padding:0 10px; } }
+
+/* the name chip: your name for the change history */
+.chip { display:inline-flex; align-items:center; gap:6px; min-height:40px; max-width:200px; padding:0 12px; border-radius:999px;
+  background:var(--ed-fill); color:var(--ed-ink); font:500 var(--ed-text-sm)/1 var(--ed-font); position:relative; }
+.chip:hover { background:var(--ed-line); }
+.chip #name-chip-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.chip.empty { background:var(--ed-accent-tint); color:var(--ed-accent-ink); }
+.chip-dot { position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:var(--ed-accent); }
+@media (pointer: coarse) { .chip { min-height:var(--ed-tap); } }
+@media (max-width:430px) { .chip { max-width:164px; padding:0 10px; } }
+.name-pop { min-width:280px; padding:14px; max-width:calc(100vw - 32px); }
+@media (max-width:430px) { .namechip .menu-pop { right:auto; left:-48px; } }
+
+/* (i) info: the text shows on hover, focus and tap (js/admin-state.js wireInfo) */
+.info { display:inline-flex; vertical-align:middle; }
+.info-btn { appearance:none; border:0; background:none; color:var(--ed-ink-2); cursor:pointer; width:40px; height:40px;
+  margin:-8px -6px; padding:0; display:inline-grid; place-items:center; border-radius:999px; flex:none; }
+.info-btn:hover, .info-btn[aria-expanded="true"] { color:var(--ed-accent-ink); }
+@media (pointer: coarse) { .info-btn { width:var(--ed-tap); height:var(--ed-tap); } }
+.info-pop { display:none; position:fixed; z-index:60; width:max-content; max-width:min(320px, calc(100vw - 16px));
+  background:var(--ed-toast-bg); color:var(--ed-toast-ink); border-radius:var(--ed-r-sm); padding:10px 12px;
+  font:400 var(--ed-text-sm)/1.45 var(--ed-font); text-align:left; box-shadow:var(--ed-shadow-lg); white-space:normal; }
+.info-pop.show { display:block; }
+.info-pop .keylist { margin:8px 0 0; padding-left:18px; }
+.card-head { display:flex; align-items:center; gap:6px; min-width:0; flex-wrap:wrap; }
+.card-head .field-label { margin:0; }
+
+/* menus: disabled and destructive items */
+.menu-pop button.menu-item:disabled { opacity:.45; cursor:default; background:none; }
+.menu-pop button.menu-item.danger { color:var(--ed-red); }
+.menu-pop button.menu-item.danger:hover, .menu-pop button.menu-item.danger:focus-visible { background:var(--ed-red-tint); }
+.row-more .menu-pop { min-width:200px; }
+
+/* ---- Meeting tab ------------------------------------------------------------- */
+.meeting-name { font-weight:600; }
+.meeting-status { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.share { display:flex; align-items:center; gap:20px; }
+.share .qr { width:160px; flex:none; margin:0; padding:8px; }
+.share-side { flex:1; min-width:0; }
+.checks { display:flex; flex-direction:column; }
+.checks label.check { padding-top:10px; }
+@media (max-width:520px) {
+  .share { flex-direction:column; align-items:stretch; gap:14px; }
+  .share .qr { align-self:center; }
+}
+
+/* ---- Physicians tab ---------------------------------------------------------- */
+.counts { font-size:var(--ed-text-sm); color:var(--ed-ink-2); }
+.counts strong { color:var(--ed-ink); }
+.toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.toolbar .search { flex:1 1 220px; width:auto; min-width:0; }
+.ed-table td.seg { width:1%; white-space:nowrap; }
+#roster-card > .spread, #voters-card > .spread { flex-wrap:nowrap; align-items:center; }
+
+/* ---- Motions tab ------------------------------------------------------------- */
+.tab-tools { display:flex; margin:0 0 12px; }
+.poll-item .acts { justify-content:flex-end; }
+.row-end { display:inline-flex; align-items:center; gap:2px; }
+@media (max-width:640px) {
+  .poll-item .acts { justify-content:flex-start; }
+  .row-end { margin-left:auto; }
+}
+.locknote { color:var(--ed-ink-2); }
+
+/* ---- Results tab ------------------------------------------------------------- */
+.result-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px; margin-bottom:-8px; }
+.foot-line { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.saved-line.has-info { align-items:center; }
+#voters-table td.choice { cursor:default; }
+.history-list:empty { display:none; }
+.nw { white-space:nowrap; }
+#roster-card .card-head { flex-wrap:nowrap; }
+/* fields inside a quiet inset (Edit details, Add physician, Paste) stand out from it */
+.card-inset .ed-field { background:var(--ed-surface); border-color:var(--ed-line); }
+.card-inset .ed-seg { background:var(--ed-surface); }
+.card-inset .ed-seg > button[aria-pressed="true"] { background:var(--ed-fill); }
+
+/* ---- Settings header (round 2) ------------------------------------------------ */
+.settings-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px; }
+.settings-head h2 { font:700 var(--ed-h2)/1.2 var(--ed-font-display); }
+.legend-row { display:inline-flex; align-items:center; gap:6px; }
+.group-sub { display:block; font:400 var(--ed-text-sm)/1.35 var(--ed-font); color:var(--ed-ink-2); margin-top:2px; }
+.disclosure .t { min-width:0; }
+.row > .ed-btn-plain:first-child { margin-left:-8px; }
+
+/* ---- round 3: receipt on tap, tab badge ----------------------------------------- */
+/* the vote is a quiet button: about 40px to tap, underlined with dots */
+.vote-btn { appearance:none; border:0; background:none; padding:10px 0; margin:-10px 0; font:inherit; color:inherit; cursor:pointer;
+  text-align:left; text-decoration:underline dotted var(--ed-ink-2); text-underline-offset:3px; }
+.vote-btn[aria-expanded="true"] { text-decoration-style:solid; }
+.receipt-inline { display:inline-block; margin-left:8px; font-size:var(--ed-text-xs); color:var(--ed-ink-2); white-space:nowrap; }
+.receipt-inline code { font:600 var(--ed-text-sm)/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.06em; color:var(--ed-ink); }
+.tab-badge { display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 6px; margin-left:6px; border-radius:999px;
+  background:var(--ed-accent); color:var(--ed-on-accent); font:700 var(--ed-text-xs)/1 var(--ed-font); vertical-align:1px; }

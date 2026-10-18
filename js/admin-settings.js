@@ -1,13 +1,14 @@
-// Admin console: the Settings view. The voting rules (points per vote,
-// quorum, pass rule, tie wording, how long the change history is kept), your
-// name for the change history, and the change history itself.
+// Admin console: the Settings view (the gear). The voting rules (points per
+// vote, quorum, pass rule, tie wording, how long the change history is kept)
+// and the change history itself. Also the name chip in the header: your name
+// for the change history.
 import {
   getLogPage, setLogName, classify, rulesNeedUpdate, DB_UPDATE_MSG, currentSettings, saveSettings, DEFAULT_RULE,
   keepYears, purgeOldHistory,
-} from "./db.js?v=voting-11";
-import { escapeHtml, toast } from "./util.js?v=voting-11";
-import { $, R } from "./admin-state.js?v=voting-11";
-import { logLine } from "./admin-results.js?v=voting-11";
+} from "./db.js?v=voting-12";
+import { escapeHtml, toast } from "./util.js?v=voting-12";
+import { $, R } from "./admin-state.js?v=voting-12";
+import { logLine } from "./admin-results.js?v=voting-12";
 
 const NAME_KEY = "mv_log_name", ASKED_KEY = "mv_log_name_asked";
 const store = {
@@ -16,9 +17,13 @@ const store = {
 };
 
 export function wireSettings() {
-  $("open-settings").addEventListener("click", () => { R.showTab("settings"); renderSettings(); });
-  $("log-name").value = store.get(NAME_KEY);
-  $("name-form").addEventListener("submit", (e) => { e.preventDefault(); saveName($("log-name").value); toast("Saved on this laptop."); });
+  // The gear opens Settings; the gear again, or Done, goes back to the tab you came from.
+  $("open-settings").addEventListener("click", () => {
+    if (!$("tab-settings").classList.contains("hide")) { R.leaveSettings(); return; }
+    R.showTab("settings"); renderSettings(); $("settings-title").focus();
+  });
+  $("settings-done").addEventListener("click", () => R.leaveSettings());
+  wireNameChip();
   $("history-load").addEventListener("click", () => loadHistory(false));
   $("history-more").addEventListener("click", () => loadHistory(true));
   $("rules-form").addEventListener("submit", (e) => { e.preventDefault(); saveRules(); });
@@ -31,24 +36,43 @@ export function wireSettings() {
     finally { $("history-purge").disabled = false; }
   });
   $("rules-form").addEventListener("input", () => { formDirty = true; });
-  // Asked once per laptop, at the top of the console.
-  if (!store.get(NAME_KEY) && !store.get(ASKED_KEY)) {
-    $("name-card").classList.remove("hide");
-    $("ask-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const v = $("ask-name").value.trim();
-      if (!v) { toast("Type your name, or choose Not now."); return; }
-      saveName(v); $("log-name").value = v;
-      $("name-card").classList.add("hide");
-      toast("Saved on this laptop. You can change it in Settings.");
-    });
-    $("ask-skip").addEventListener("click", () => { store.set(ASKED_KEY, "1"); $("name-card").classList.add("hide"); });
-  }
+}
+
+// ---- the name chip ---------------------------------------------------------------
+// Shows the saved name, or "Add your name" with a small dot until it has been
+// looked at once on this laptop. Same storage as before (mv_log_name).
+function paintChip() {
+  const name = store.get(NAME_KEY);
+  $("name-chip-text").textContent = name || "Add your name";
+  $("name-chip").setAttribute("aria-label", name ? `Your name for the change history: ${name}` : "Add your name for the change history");
+  $("name-chip").classList.toggle("empty", !name);
+  $("name-chip-dot").classList.toggle("hide", !!name || !!store.get(ASKED_KEY));
+}
+function wireNameChip() {
+  const menu = $("name-menu");
+  $("log-name").value = store.get(NAME_KEY);
+  paintChip();
+  menu.addEventListener("toggle", () => {
+    // Closed without Save: the field goes back to the saved name.
+    if (!menu.open) { $("log-name").value = store.get(NAME_KEY); return; }
+    store.set(ASKED_KEY, "1");
+    paintChip();
+    // The field already holds the saved name (set on load and on Save); never
+    // overwrite here, as this event can arrive after someone started typing.
+    if (document.activeElement !== $("log-name")) $("log-name").focus();
+  });
+  $("name-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveName($("log-name").value);
+    menu.open = false;
+    toast($("log-name").value.trim() ? "Saved on this laptop." : "Name cleared on this laptop.");
+  });
 }
 function saveName(v) {
   const name = String(v || "").trim().slice(0, 80);
   store.set(NAME_KEY, name); store.set(ASKED_KEY, "1");
   setLogName(name);
+  paintChip();
 }
 // ---- the voting rules ------------------------------------------------------------
 let formDirty = false;
