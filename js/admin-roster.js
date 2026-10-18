@@ -96,7 +96,16 @@ function renderWriteins() {
     .map(([slug, w]) => ({ slug, ...w }))
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const tab = document.querySelector('.tab[data-tab="roster"]');
-  tab.textContent = list.length ? `Physicians ${list.length}` : "Physicians";
+  // "Physicians" with a small round badge (read out as ", N write-ins to review").
+  tab.textContent = "Physicians";
+  if (list.length) {
+    const words = `${list.length} write-in${list.length === 1 ? "" : "s"} to review`;
+    const badge = document.createElement("span");
+    badge.className = "tab-badge"; badge.setAttribute("aria-hidden", "true"); badge.title = words; badge.textContent = String(list.length);
+    const sr = document.createElement("span");
+    sr.className = "sr"; sr.textContent = ", " + words;
+    tab.append(badge, sr);
+  }
   const card = $("writeins-card");
   card.classList.toggle("hide", !list.length);
   if (!list.length) { card.innerHTML = ""; return; }

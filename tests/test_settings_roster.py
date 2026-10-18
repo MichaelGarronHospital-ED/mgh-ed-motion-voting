@@ -278,7 +278,8 @@ class TestWriteins(Base):
         h.unlock_admin(pg)
         pg.wait_for_selector("#console:not(.hide)")
         pg.wait_for_timeout(300)
-        self.assertEqual(pg.inner_text('.tab[data-tab="roster"]'), "Physicians 1")
+        self.assertEqual(pg.text_content('.tab[data-tab="roster"] .tab-badge'), "1")   # the write-ins badge
+        self.assertEqual(pg.text_content('.tab[data-tab="roster"]'), "Physicians1, 1 write-in to review")
         h.tab(pg, "roster")
         card = pg.inner_text("#writeins-card")
         self.assertIn("Brand New Locum", card)
@@ -296,7 +297,7 @@ class TestWriteins(Base):
         pg.wait_for_timeout(200)
         self.assertIn(f"{h.ELIGIBLE + 1} currently eligible", pg.inner_text("#roster-summary"))
         self.assertTrue(pg.is_hidden("#writeins-card"))
-        self.assertEqual(pg.inner_text('.tab[data-tab="roster"]'), "Physicians")
+        self.assertEqual(pg.text_content('.tab[data-tab="roster"]'), "Physicians")             # no badge
         log = [v for k, v in h.store(pg).items() if k.startswith("log/")]
         self.assertEqual([l["action"] for l in log], ["writein"])
 
@@ -327,7 +328,8 @@ class TestWriteins(Base):
         wait_result(pg)
         self.assertEqual(h.get(pg, "config/roster")["writeins"]["zed-locum"]["status"], "new")
         pg.wait_for_timeout(200)
-        self.assertEqual(pg.inner_text('.tab[data-tab="roster"]'), "Physicians 1")
+        self.assertEqual(pg.text_content('.tab[data-tab="roster"] .tab-badge'), "1")   # the write-ins badge
+        self.assertEqual(pg.text_content('.tab[data-tab="roster"]'), "Physicians1, 1 write-in to review")
 
     def test_roster_change_never_changes_a_closed_result(self):
         pg = self.admin()

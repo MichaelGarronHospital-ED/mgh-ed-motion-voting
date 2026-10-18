@@ -44,6 +44,7 @@ export function wireSettings() {
 function paintChip() {
   const name = store.get(NAME_KEY);
   $("name-chip-text").textContent = name || "Add your name";
+  $("name-chip").setAttribute("aria-label", name ? `Your name for the change history: ${name}` : "Add your name for the change history");
   $("name-chip").classList.toggle("empty", !name);
   $("name-chip-dot").classList.toggle("hide", !!name || !!store.get(ASKED_KEY));
 }
@@ -52,7 +53,8 @@ function wireNameChip() {
   $("log-name").value = store.get(NAME_KEY);
   paintChip();
   menu.addEventListener("toggle", () => {
-    if (!menu.open) return;
+    // Closed without Save: the field goes back to the saved name.
+    if (!menu.open) { $("log-name").value = store.get(NAME_KEY); return; }
     store.set(ASKED_KEY, "1");
     paintChip();
     // The field already holds the saved name (set on load and on Save); never

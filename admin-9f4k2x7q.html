@@ -58,9 +58,9 @@
         </details>
         <details class="menu" id="export-menu">
           <summary class="ed-btn ed-btn-tinted btn-sm" title="Export" aria-label="Export" data-icon="download"><span class="lbl">Export</span></summary>
-          <div class="menu-pop" role="menu">
-            <button type="button" role="menuitem" id="export-all">Download Excel<small>Every motion, ballot and the roster</small></button>
-            <button type="button" role="menuitem" id="print-all">Print or save as PDF<small>Results of every motion</small></button>
+          <div class="menu-pop">
+            <button type="button" class="menu-item" id="export-all">Download Excel<small>Every motion, ballot and the roster</small></button>
+            <button type="button" class="menu-item" id="print-all">Print or save as PDF<small>Results of every motion</small></button>
           </div>
         </details>
         <button type="button" id="open-settings" class="ed-btn ed-btn-plain icon-btn" aria-pressed="false" aria-label="Settings" title="Settings" data-icon="gear"></button>
@@ -212,7 +212,7 @@
       <div class="card stack hide" id="voters-card">
         <div class="spread">
           <div class="card-head"><h2>Who voted</h2>
-            <span data-info="Needs review: the same name voted from two or more devices. Shared device: one device voted under more than one name. Submissions is how many times a flagged person changed their vote; it is still one ballot in the tally. Remote: they checked in to this meeting as remote. Hover a vote to see the receipt code a phone showed: if the person shows you a different one, the vote under their name was changed after." data-about="who voted"></span></div>
+            <span data-info="Needs review: the same name voted from two or more devices. Shared device: one device voted under more than one name. Submissions is how many times a flagged person changed their vote; it is still one ballot in the tally. Remote: they checked in to this meeting as remote. Hover or tap a vote to see the receipt code a phone showed: if the person shows you a different one, the vote under their name was changed after." data-about="who voted"></span></div>
           <button id="export" type="button" class="ed-btn ed-btn-plain icon-btn" aria-label="Export this motion (CSV)" title="Export this motion (CSV)" data-icon="download"></button>
         </div>
         <p class="ed-hint" id="voters-note"></p>

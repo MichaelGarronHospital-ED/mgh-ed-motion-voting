@@ -44,6 +44,16 @@ rule works exactly as before, and nothing stored changed.
   "Not open yet" with Open voting (never a verdict), and the records card appears once the
   meeting has a motion. Zero counts ("Checked in: 0", "0" on an empty agenda) are gone.
 - The Results picker reads "Motion: The open motion, or the latest one".
+- **Receipts on an iPad:** tap a vote in Who voted to show its receipt code under it (tap
+  again to hide); the hover text stays on a laptop.
+- **Keyboard and screen readers:** a row's More menu is a plain list of buttons; after an
+  action (or a cancelled confirm) focus goes back to the three-dot button, and the menu
+  closes when focus leaves it. Live redraws on Results keep keyboard focus and a tapped-open
+  (i). The name chip is read out as "Your name for the change history: <name>", and text
+  typed there without Save is dropped when it closes.
+- Attendance stays (with "Add someone") while a meeting is open, even with check-in off.
+- "Records of this meeting" follows the motion picked on Results. The Add form opens again
+  for another empty meeting. The Physicians tab shows write-ins to review as a small badge.
 
 ---
 

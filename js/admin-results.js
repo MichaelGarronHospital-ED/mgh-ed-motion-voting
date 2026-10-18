@@ -2,11 +2,11 @@
 // the same motion), and the one-motion CSV.
 import {
   onVotesFor, clearVote, weightForVote, groupForVote, resultOf, outcomeWords, outcomeKind, clockTime,
-  classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor,
+  classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor, currentMeetings,
 } from "./db.js?v=voting-12";
 import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar, choiceBars, voteWords } from "./util.js?v=voting-12";
 import { ballotReceipt } from "./count.js?v=voting-12";
-import { $, S, R, STATUS_WORD, statusPill, groupLabel, download, infoButton, iconBtn } from "./admin-state.js?v=voting-12";
+import { $, S, R, STATUS_WORD, statusPill, groupLabel, download, infoButton, iconBtn, meetingLabel, redrawKeeping } from "./admin-state.js?v=voting-12";
 import { tsMillis } from "./count.js?v=voting-12";
 
 let hideLive = false;
@@ -98,14 +98,33 @@ export function renderResults() {
   wireMotionSelect(sel);
   const el = $("results-body");
   const shown = displayPoll();
+  renderRecords();
   const d = ensureDisplay(!(shown && shown.status === "closed" && shown.result));
   if (!d) { el.innerHTML = `<p class="ed-hint">No results yet. Open a motion on the Motions tab.</p>`; return; }
-  // Keep a half-typed reason (and an open History fold) when the card redraws.
+  // Keep a half-typed reason, an open History fold, keyboard focus and a
+  // tapped-open (i) when the card redraws.
   const keep = ["reopen-reason", "revote-reason"].map((id) => [id, $(id) ? $(id).value : ""]);
   const histOpen = $("motion-history") && $("motion-history").open;
-  paintResults(el, d.poll, d.votes, d.loaded);
-  keep.forEach(([id, v]) => { if ($(id) && v) $(id).value = v; });
+  redrawKeeping(el, () => {
+    paintResults(el, d.poll, d.votes, d.loaded);
+    keep.forEach(([id, v]) => { if ($(id) && v) $(id).value = v; });
+  });
   if (histOpen && $("motion-history")) { $("motion-history").open = true; loadMotionHistory(d.poll.id); }
+}
+
+// "Records of this meeting": the meeting of the motion picked above, else the
+// one on the Meeting tab. Shown once that meeting has a motion.
+export function recordsMeeting() {
+  const p = displayPoll();
+  const m = p && p.meetingId ? currentMeetings().find((x) => x.id === p.meetingId && !x.deleted) : null;
+  return m || (R.selectedMeeting ? R.selectedMeeting() : null);
+}
+R.recordsMeeting = recordsMeeting;
+function renderRecords() {
+  const m = recordsMeeting();
+  const has = m && S.polls.some((p) => p.meetingId === m.id && !p.deleted);
+  $("meeting-records").classList.toggle("hide", !has);
+  $("records-meeting").textContent = m ? meetingLabel(m) : "";
 }
 // "Passed, 21.5 to 6 points, quorum 29 of 24."
 export function resultLine(r) {
@@ -371,6 +390,7 @@ export function renderVoters() {
   }
   paintVoters(d.poll, d.votes);
 }
+const receiptOpen = new Set();    // "motion/ballot" whose receipt code is shown
 function paintVoters(poll, votes) {
   // Detect one device (session) used to vote under MORE THAN ONE name.
   const sessionToSlugs = new Map();   // a Map, so a stored id like "__proto__" is just a key
@@ -394,22 +414,30 @@ function paintVoters(poll, votes) {
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
   // Submissions only when someone is flagged; the weight is what the category says.
   const anyFlag = sorted.some((v) => v.flagged || sharedDevice.has(v.slug));
-  const rows = sorted.map((v) => {
+  const rows = sorted.map((v, i) => {
     const g = v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, poll));
     const shared = sharedDevice.has(v.slug);
-    // The receipt code a phone showed: on the vote's hover text (and read out), not a column.
+    // The receipt code a phone showed: the vote's hover text, and a tap on the vote shows it (iPad).
     const receipt = ballotReceipt(poll.id, v);
+    const open = receiptOpen.has(`${poll.id}/${v.id}`);
     return `<tr class="${v.flagged || shared ? "flagged" : ""}">
       <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}${remote.has(v.slug) ? ' <span class="ed-pill ed-pill-quiet">Remote</span>' : ""}</td>
       <td class="cat">${g}</td>
-      <td class="choice" title="Receipt code: ${escapeHtml(receipt)}">${escapeHtml(voteWords(v, poll))}<span class="sr">. Receipt code: ${escapeHtml(receipt)}</span></td>
+      <td class="choice" title="Receipt code: ${escapeHtml(receipt)}"><button type="button" class="vote-btn" id="vr-${escapeHtml(v.id)}" data-receipt="${escapeHtml(v.id)}" aria-expanded="${open}" aria-controls="rc-${i}">${escapeHtml(voteWords(v, poll))}<span class="sr">, receipt code</span></button><span class="receipt-inline${open ? "" : " hide"}" id="rc-${i}">Receipt <code>${escapeHtml(receipt)}</code></span></td>
       ${anyFlag ? `<td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>` : ""}
       ${frozen ? "" : `<td class="act">${iconBtn("x", `Remove ${v.name}'s vote`, `data-del="${escapeHtml(v.id)}"`, "btn-quiet", "Remove this vote")}</td>`}
     </tr>`;
   }).join("");
   const cols = 3 + (anyFlag ? 1 : 0) + (frozen ? 0 : 1);
-  $("voters-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th>${anyFlag ? `<th class="num">Submissions</th>` : ""}${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${cols}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
+  redrawKeeping($("voters-table"), () => { $("voters-table").innerHTML =
+    `<thead><tr><th>Name</th><th>Category${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th>${anyFlag ? `<th class="num">Submissions</th>` : ""}${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${cols}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`; });
+  $("voters-table").querySelectorAll("button[data-receipt]").forEach((b) => b.addEventListener("click", () => {
+    const key = `${poll.id}/${b.dataset.receipt}`;
+    const open = !receiptOpen.has(key);
+    if (open) receiptOpen.add(key); else receiptOpen.delete(key);
+    b.setAttribute("aria-expanded", String(open));
+    $(b.getAttribute("aria-controls")).classList.toggle("hide", !open);
+  }));
   $("voters-table").querySelectorAll("button[data-del]").forEach((b) =>
     b.addEventListener("click", () => {
       if (!confirm("Remove this vote? This changes the result for this motion.")) return;

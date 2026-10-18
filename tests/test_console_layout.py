@@ -130,7 +130,7 @@ class TestMoreMenu(Console):
             "els => els.filter(e => e.checkVisibility()).map(e => e.dataset.act)")
         self.assertEqual(visible("c1"), ["view-results", "up", "down"])
         self.assertEqual(visible("d1"), ["open", "edit", "up", "down"])
-        hidden = pg.eval_on_selector_all('#motion-list details.row-more[data-id="c1"] [role=menuitem]', "els => els.map(e => e.dataset.act)")
+        hidden = pg.eval_on_selector_all('#motion-list details.row-more[data-id="c1"] .menu-item', "els => els.map(e => e.dataset.act)")
         self.assertEqual(hidden, ["reopen", "revote", "archive", "del"])
         self.assertEqual(pg.get_attribute('#motion-list details.row-more[data-id="c1"] summary', "aria-label"), "More actions for motion 1")
 
@@ -301,6 +301,150 @@ class TestRoundTwo(Console):
         self.assertIn("Not open yet.", body)
         self.assertEqual(h.outcomes(body), [])
         self.assertTrue(pg.is_visible("#r-open"))
+
+
+class TestRoundThree(Console):
+    def seed(self, pg):
+        seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
+        seed_closed_saved(pg, "c1", NOW - 60000, meetingId="m1", ballots=3, text="Closed one", order=0)
+        seed_motion(pg, "d1", "A draft", order=1)
+
+    def test_tapping_a_vote_shows_its_receipt_code(self):
+        pg = self.console(self.seed)
+        h.tab(pg, "results")
+        pg.select_option("#results-selector .motion-select", "c1")
+        pg.wait_for_selector("#voters-table button.vote-btn")
+        slug = h.slugify(h.GROUP1[0])
+        code = pg.evaluate("async (v) => (await import('./js/count.js?v=' + window.__V)).ballotReceipt('c1', v)", h.get(pg, f"polls/c1/votes/{slug}"))
+        btn = f'#voters-table button[data-receipt="{slug}"]'
+        self.assertEqual(pg.get_attribute(btn, "aria-expanded"), "false")
+        box = "#" + pg.get_attribute(btn, "aria-controls")
+        self.assertTrue(pg.is_hidden(box))
+        pg.click(btn)                                                # a tap or a click
+        self.assertEqual(pg.get_attribute(btn, "aria-expanded"), "true")
+        self.assertTrue(pg.is_visible(box))
+        self.assertIn(code, pg.inner_text(box))
+        self.assertTrue(pg.get_attribute(f"{btn} >> xpath=..", "title").startswith("Receipt code: "))   # hover text stays
+        pg.click(btn)
+        self.assertTrue(pg.is_hidden(box))
+
+    def test_focus_returns_to_the_more_button_after_a_cancelled_delete(self):
+        pg = self.console(self.seed)
+        h.tab(pg, "motions")
+        summary = '#motion-list details.row-more[data-id="c1"] summary'
+        pg.focus(summary)
+        pg.keyboard.press("Enter")
+        pg.evaluate("window.confirm = () => false")
+        pg.focus('#motion-list button[data-act="del"][data-id="c1"]')
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(100)
+        self.assertFalse(pg.evaluate("document.querySelector('details.row-more[data-id=\"c1\"]').open"))
+        self.assertEqual(pg.evaluate("document.activeElement.getAttribute('aria-label')"), "More actions for motion 1")
+        self.assertFalse(h.get(pg, "polls/c1").get("deleted"))
+        self.assertEqual(pg.locator("#motion-list [role=menuitem], #motion-list [role=menu]").count(), 0)   # plain buttons
+
+    def test_tabbing_out_of_a_more_menu_closes_it(self):
+        pg = self.console(self.seed)
+        h.tab(pg, "motions")
+        pg.focus('#motion-list details.row-more[data-id="c1"] summary')
+        pg.keyboard.press("Enter")
+        for _ in range(6):
+            pg.keyboard.press("Tab")
+        self.assertFalse(pg.evaluate("document.querySelector('details.row-more[data-id=\"c1\"]').open"))
+
+    def test_an_open_menu_closes_after_a_redraw_only_if_its_items_changed(self):
+        pg = self.console(self.seed)
+        h.tab(pg, "motions")
+        pg.click('#motion-list details.row-more[data-id="c1"] summary')
+        h.seed(pg, "polls/d1", {**h.get(pg, "polls/d1"), "text": "A draft, renamed"})
+        pg.wait_for_selector("#motion-list :text('A draft, renamed')")
+        self.assertTrue(pg.evaluate("document.querySelector('details.row-more[data-id=\"c1\"]').open"))
+        h.seed(pg, "polls/c1", {**h.get(pg, "polls/c1"), "supersededBy": "gone"})        # Re-vote is no longer offered
+        pg.wait_for_function("() => !document.querySelector('#motion-list button[data-act=\"revote\"]')")
+        self.assertFalse(pg.evaluate("document.querySelector('details.row-more[data-id=\"c1\"]').open"))
+
+    def test_attendance_stays_while_the_meeting_is_open_even_with_check_in_off(self):
+        pg = self.console(lambda pg: seed_meeting(pg, status="open", checkIn=False, startedAt=h.ts(NOW - 60000)))
+        self.assertTrue(pg.is_visible("#attendance-card"))
+        self.assertTrue(pg.is_visible("#att-add"))
+        pg2 = self.browser.new_page()
+        try:
+            h.wire(pg2, self.errors)
+            h.load_admin(pg2, self.base)
+            seed_meeting(pg2, status="planned", checkIn=False)
+            h.unlock_admin(pg2)
+            pg2.wait_for_selector("#console:not(.hide)")
+            pg2.wait_for_timeout(400)
+            self.assertTrue(pg2.is_hidden("#attendance-card"))
+        finally:
+            pg2.close()
+
+    def test_live_redraws_keep_focus_on_the_eye_and_a_tapped_info_open(self):
+        def seed(pg):
+            seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000))
+            seed_open(pg, ballots=h.GROUP1[:2], meetingId="m1")
+        pg = self.console(seed)
+        h.tab(pg, "results")
+        pg.click("#results-body .foot-line .info-btn")                 # tap the pass rule (i)
+        pop = "#results-body .foot-line .info-pop"
+        self.assertTrue(pg.is_visible(pop))
+        h.seed_ballots(pg, "p1", h.GROUP1[2:3])                         # a vote arrives: the card redraws
+        pg.wait_for_function("() => document.querySelector('#results-body .foot-line').textContent.includes('3 ballots')")
+        self.assertTrue(pg.is_visible(pop))
+        pg.focus("#hide-live")
+        h.seed_ballots(pg, "p1", h.GROUP1[3:4])
+        pg.wait_for_function("() => document.querySelector('#results-body .foot-line').textContent.includes('4 ballots')")
+        self.assertEqual(pg.evaluate("document.activeElement.id"), "hide-live")
+
+    def test_name_chip_label_and_unsaved_text_is_dropped(self):
+        pg = self.console()
+        self.assertEqual(pg.get_attribute("#name-chip", "aria-label"), "Add your name for the change history")
+        pg.click("#name-chip")
+        pg.fill("#log-name", "Kyle")
+        pg.click("#name-form button[type=submit]")
+        self.assertEqual(pg.get_attribute("#name-chip", "aria-label"), "Your name for the change history: Kyle")
+        pg.click("#name-chip")
+        pg.fill("#log-name", "Somebody else")
+        pg.keyboard.press("Escape")                                    # closed without Save
+        pg.wait_for_function("() => document.querySelector('#log-name').value === 'Kyle'")
+        self.assertEqual(pg.evaluate("localStorage.getItem('mv_log_name')"), "Kyle")
+
+    def test_records_follow_the_motion_picked_on_results(self):
+        def seed(pg):
+            seed_meeting(pg, status="open", startedAt=h.ts(NOW - 60000), title="November meeting")
+            seed_motion(pg, "d1", "A draft", order=0)
+            seed_meeting(pg, mid="m0", status="closed", date="2026-09-15", title="September meeting")
+            seed_closed_saved(pg, "c0", NOW - 600000, meetingId="m0", ballots=2, text="An old one")
+        pg = self.console(seed)
+        h.tab(pg, "results")
+        pg.select_option("#results-selector .motion-select", "c0")
+        self.assertIn("September meeting", pg.inner_text("#records-meeting"))
+        pg.select_option("#results-selector .motion-select", "d1")
+        self.assertIn("November meeting", pg.inner_text("#records-meeting"))
+
+    def test_add_form_reopens_for_another_empty_meeting(self):
+        def seed(pg):
+            seed_meeting(pg, title="First", status="open", startedAt=h.ts(NOW - 60000))
+            seed_motion(pg, "d1", "A draft")
+            seed_meeting(pg, mid="m2", title="Second", date="2026-12-01")
+        pg = self.console(seed)
+        h.tab(pg, "motions")
+        pg.click("#add-motion-toggle")
+        pg.click("#add-motion-cancel")                               # closed once on a meeting with motions
+        self.assertTrue(pg.is_hidden("#add-motion-card"))
+        h.tab(pg, "meeting")
+        pg.select_option("#meeting-pick", "m2")                      # an empty meeting
+        h.tab(pg, "motions")
+        self.assertTrue(pg.is_visible("#add-motion-card"))           # never a blank Agenda card
+        self.assertNotIn("A draft", pg.inner_text("#agenda-body") if pg.locator("#agenda-body").count() else "")
+
+    def test_physicians_tab_badge(self):
+        pg = self.console(lambda pg: h.seed_roster(pg, writeins={"zed": {"name": "Zed Locum", "status": "new", "firstPollId": "x"}}))
+        badge = '.tab[data-tab="roster"] .tab-badge'
+        self.assertEqual(pg.text_content(badge), "1")
+        self.assertEqual(pg.get_attribute(badge, "aria-hidden"), "true")
+        self.assertEqual(pg.get_attribute(badge, "title"), "1 write-in to review")
+        self.assertEqual(pg.text_content('.tab[data-tab="roster"] .sr'), ", 1 write-in to review")
 
 
 class TestCatchUpQuiet(Base):

@@ -46,15 +46,15 @@ export function wireMeeting() {
     if (!S.activePoll) { toast("Open a motion first."); return; }
     save({ timer: { pollId: S.activePoll.id, startedAt: serverTimestamp(), seconds: secs } }, `Timer started: ${secs / 60} min.`);
   }));
-  $("meeting-export").addEventListener("click", () => { const m = selectedMeeting(); if (m) exportMeeting(m.id); else toast("Add a meeting first."); });
-  $("meeting-print").addEventListener("click", () => { const m = selectedMeeting(); if (m) printMeeting(m.id); else toast("Add a meeting first."); });
+  // The records card is on the Results tab and follows the motion picked there.
+  $("meeting-export").addEventListener("click", () => { const m = R.recordsMeeting(); if (m) exportMeeting(m.id); else toast("Add a meeting first."); });
+  $("meeting-print").addEventListener("click", () => { const m = R.recordsMeeting(); if (m) printMeeting(m.id); else toast("Add a meeting first."); });
 }
 
 export function renderMeeting() {
   const el = $("meeting-card");
   const m = selectedMeeting();
   const ms = live().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  renderRecords(m);
   // Before the first meeting or motion, adding the meeting is the only thing on this tab.
   const firstRun = !ms.length && !S.polls.some((p) => !p.deleted);
   $("share-card").classList.toggle("hide", firstRun);
@@ -171,8 +171,9 @@ function renderAttendance() {
   if (!m) return;
   if (el.contains(document.activeElement) && document.activeElement.matches("input, textarea, select")) return;
   const a = attendanceFor(m.id);
-  // Check-in off for this meeting and nobody checked in: nothing to show.
-  el.classList.toggle("hide", m.checkIn === false && a.loaded && !a.list.length && !addOpen && !a.failed);
+  // Check-in off and nobody checked in: nothing to show, except while the
+  // meeting is open (someone may still need adding by hand).
+  el.classList.toggle("hide", m.status !== "open" && m.checkIn === false && a.loaded && !a.list.length && !addOpen && !a.failed);
   const head = `<div class="card-head"><h2>Attendance</h2>${infoButton("A check-in is what someone said on a phone (one tap; never needed to vote). Anyone who votes is listed as present in the meeting's Excel file even without one.", "attendance")}</div>`;
   if (a.failed) {
     el.innerHTML = `${head}<p class="notice">${icon("alert", 20)}<span>${a.failed.code && String(a.failed.code).includes("permission") ? "This page needs a database update that has not been published yet. Attendance shows once it is." : "Could not load attendance. Check your connection."}</span></p>`;
@@ -234,14 +235,6 @@ function renderMeetingTrash() {
       else R.actionFailed(e, "Not allowed: only a meeting in the Trash can be deleted permanently.");
     }
   }));
-}
-
-// The Results tab's "Records of this meeting": the meeting on screen here.
-function renderRecords(m) {
-  // Only once the meeting has a motion: an empty file helps nobody.
-  const has = m && S.polls.some((p) => p.meetingId === m.id && !p.deleted);
-  $("meeting-records").classList.toggle("hide", !has);
-  $("records-meeting").textContent = m ? meetingLabel(m) : "";
 }
 
 // Only one meeting is open at a time.

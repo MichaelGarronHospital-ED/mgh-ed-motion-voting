@@ -168,10 +168,10 @@ details.menu > summary::after { content:""; display:inline-block; width:6px; hei
 details.menu > summary.busy { opacity:.6; pointer-events:none; }
 .menu-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:20; min-width:260px; padding:6px;
   background:var(--ed-surface); border-radius:14px; box-shadow:var(--ed-shadow-lg); }
-.menu-pop button[role=menuitem] { font:500 var(--ed-text)/1.3 var(--ed-font); display:block; width:100%; min-height:var(--ed-tap);
+.menu-pop button.menu-item { font:500 var(--ed-text)/1.3 var(--ed-font); display:block; width:100%; min-height:var(--ed-tap);
   text-align:left; border:none; background:none; cursor:pointer; padding:10px 12px; border-radius:10px; color:var(--ed-ink); }
-.menu-pop button[role=menuitem]:hover, .menu-pop button[role=menuitem]:focus-visible { background:var(--ed-accent-tint); box-shadow:none; }
-.menu-pop button[role=menuitem] small { display:block; color:var(--ed-ink-2); font-size:var(--ed-text-xs); font-weight:400; margin-top:2px; }
+.menu-pop button.menu-item:hover, .menu-pop button.menu-item:focus-visible { background:var(--ed-accent-tint); box-shadow:none; }
+.menu-pop button.menu-item small { display:block; color:var(--ed-ink-2); font-size:var(--ed-text-xs); font-weight:400; margin-top:2px; }
 
 /* ---- admin console: share -------------------------------------------------- */
 .qr { display:block; width:260px; max-width:100%; height:auto; margin:4px auto; background:#fff; padding:10px; border-radius:var(--ed-r-md); }
@@ -420,9 +420,9 @@ details.menu > summary { cursor:pointer; }
 .card-head .field-label { margin:0; }
 
 /* menus: disabled and destructive items */
-.menu-pop button[role=menuitem]:disabled { opacity:.45; cursor:default; background:none; }
-.menu-pop button[role=menuitem].danger { color:var(--ed-red); }
-.menu-pop button[role=menuitem].danger:hover, .menu-pop button[role=menuitem].danger:focus-visible { background:var(--ed-red-tint); }
+.menu-pop button.menu-item:disabled { opacity:.45; cursor:default; background:none; }
+.menu-pop button.menu-item.danger { color:var(--ed-red); }
+.menu-pop button.menu-item.danger:hover, .menu-pop button.menu-item.danger:focus-visible { background:var(--ed-red-tint); }
 .row-more .menu-pop { min-width:200px; }
 
 /* ---- Meeting tab ------------------------------------------------------------- */
@@ -476,3 +476,12 @@ details.menu > summary { cursor:pointer; }
 .group-sub { display:block; font:400 var(--ed-text-sm)/1.35 var(--ed-font); color:var(--ed-ink-2); margin-top:2px; }
 .disclosure .t { min-width:0; }
 .row > .ed-btn-plain:first-child { margin-left:-8px; }
+
+/* ---- round 3: receipt on tap, tab badge ----------------------------------------- */
+.vote-btn { appearance:none; border:0; background:none; padding:6px 0; margin:-6px 0; font:inherit; color:inherit; cursor:pointer;
+  text-align:left; border-bottom:1px dotted var(--ed-ink-2); border-radius:0; }
+.vote-btn[aria-expanded="true"] { border-bottom-style:solid; }
+.receipt-inline { display:inline-block; margin-left:8px; font-size:var(--ed-text-xs); color:var(--ed-ink-2); white-space:nowrap; }
+.receipt-inline code { font:600 var(--ed-text-sm)/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.06em; color:var(--ed-ink); }
+.tab-badge { display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 6px; margin-left:6px; border-radius:999px;
+  background:var(--ed-accent); color:var(--ed-on-accent); font:700 var(--ed-text-xs)/1 var(--ed-font); vertical-align:1px; }

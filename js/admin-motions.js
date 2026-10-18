@@ -47,7 +47,7 @@ export function wireMotions() {
     syncAddForm();
     if (addOpen) $("new-motion").focus();
   });
-  $("add-motion-cancel").addEventListener("click", () => { addOpen = false; syncAddForm(); $("add-motion-toggle").focus(); });
+  $("add-motion-cancel").addEventListener("click", () => { addOpen = false; syncAddForm(); renderMotions(); $("add-motion-toggle").focus(); });
   // A redraw skipped while someone was typing in a row happens when they leave it.
   $("motion-list").addEventListener("focusout", () => setTimeout(() => {
     if (R.motionsStale && !$("motion-list").contains(document.activeElement)) renderMotions();
@@ -113,6 +113,9 @@ function syncAddForm(empty) {
   $("add-motion-cancel").classList.toggle("hide", addOpen === null);
 }
 let lastEmpty = true;
+let lastSelId;                 // the meeting the Add form's open state belongs to
+// The actions a row's More menu offers, to tell whether it changed in a redraw.
+const itemsOf = (d) => [...d.querySelectorAll(".menu-item")].map((b) => b.dataset.act).join(",");
 
 export function renderMotions() {
   const el = $("motion-list");
@@ -122,8 +125,10 @@ export function renderMotions() {
   const fa = document.activeElement;
   if (!pendingFocus && fa && el.contains(fa) && fa.dataset && fa.dataset.act && fa.dataset.id) pendingFocus = [fa.dataset.act, fa.dataset.id];
   // An open More menu stays open through the redraw.
+  // (closed if its list of actions changed meanwhile), and focus on its button stays.
   const openMore = el.querySelector("details.row-more[open]");
-  const keepMore = openMore ? openMore.dataset.id : null;
+  const keepMore = openMore ? [openMore.dataset.id, itemsOf(openMore)] : null;
+  const moreBtn = fa && el.contains(fa) && fa.matches("details.row-more > summary") ? fa.parentElement.dataset.id : null;
   const polls = S.polls;
   const meetings = currentMeetings().filter((m) => !m.deleted);
   const mIds = new Set(meetings.map((m) => m.id));
@@ -136,7 +141,8 @@ export function renderMotions() {
   if (sel) {
     const rows = agendaOrder(active.filter((p) => p.meetingId === sel.id));
     html += collapsibleCard("agenda", "", `Agenda<span class="group-sub">${escapeHtml(meetingLabel(sel))}</span>`, rows.length, expanded.agenda, "",
-      rows.map((r) => motionRow(r.poll, r)).join(""));
+      rows.length ? rows.map((r) => motionRow(r.poll, r)).join("")
+        : (sel.id === lastSelId && addOpen === false ? `<p class="ed-hint">No motions yet.</p>` : ""));
   }
   meetings.filter((m) => !sel || m.id !== sel.id).sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach((m) => {
     const rows = agendaOrder(active.filter((p) => p.meetingId === m.id));
@@ -169,7 +175,12 @@ export function renderMotions() {
   }
   el.innerHTML = html;
   R.motionsStale = false;
-  if (keepMore) { const d = el.querySelector(`details.row-more[data-id="${CSS.escape(keepMore)}"]`); if (d) d.open = true; }
+  const moreOf = (id) => el.querySelector(`details.row-more[data-id="${CSS.escape(id)}"]`);
+  if (keepMore) { const d = moreOf(keepMore[0]); if (d && itemsOf(d) === keepMore[1]) d.open = true; }
+  if (moreBtn && moreOf(moreBtn)) moreOf(moreBtn).querySelector("summary").focus();
+  // A different meeting on screen: the Add form goes back to "open when its agenda is empty".
+  const selId = sel ? sel.id : null;
+  if (selId !== lastSelId) { lastSelId = selId; addOpen = null; }
   // Open the Add form by default while this meeting (or, with no meetings, the list) is empty.
   syncAddForm(sel ? !active.some((p) => p.meetingId === sel.id) : !active.length);
   el.querySelectorAll("button[data-act]").forEach((b) =>
@@ -239,16 +250,16 @@ function motionRow(p, agenda) {
   // Only what is needed now is on the row; the rest is under More.
   const dis = ready ? "" : "disabled";
   const more = [
-    p.status === "open" && !locked ? `<button type="button" role="menuitem" data-act="edit" data-id="${id}">Edit</button>` : "",
-    p.status === "closed" ? `<button type="button" role="menuitem" data-act="reopen" data-id="${id}" ${dis}>Re-open</button>` : "",
-    p.status === "closed" && p.result && !p.supersededBy ? `<button type="button" role="menuitem" data-act="revote" data-id="${id}" ${dis}>Re-vote</button>` : "",
-    canAmend ? `<button type="button" role="menuitem" data-act="amend" data-id="${id}">Add amendment</button>` : "",
-    p.status !== "open" ? `<button type="button" role="menuitem" data-act="archive" data-id="${id}">Archive</button>` : "",
-    canDelete ? `<button type="button" role="menuitem" class="danger" data-act="del" data-id="${id}">Delete</button>` : "",
+    p.status === "open" && !locked ? `<button type="button" class="menu-item" data-act="edit" data-id="${id}">Edit</button>` : "",
+    p.status === "closed" ? `<button type="button" class="menu-item" data-act="reopen" data-id="${id}" ${dis}>Re-open</button>` : "",
+    p.status === "closed" && p.result && !p.supersededBy ? `<button type="button" class="menu-item" data-act="revote" data-id="${id}" ${dis}>Re-vote</button>` : "",
+    canAmend ? `<button type="button" class="menu-item" data-act="amend" data-id="${id}">Add amendment</button>` : "",
+    p.status !== "open" ? `<button type="button" class="menu-item" data-act="archive" data-id="${id}">Archive</button>` : "",
+    canDelete ? `<button type="button" class="menu-item danger" data-act="del" data-id="${id}">Delete</button>` : "",
   ].filter(Boolean).join("");
   const moreMenu = more ? `<details class="menu row-more" data-id="${id}">
       <summary class="ed-btn ed-btn-plain icon-btn no-caret" aria-label="More actions for ${escapeHtml(label)}" title="More">${icon("more", 18)}</summary>
-      <div class="menu-pop" role="menu">${more}</div></details>` : "";
+      <div class="menu-pop">${more}</div></details>` : "";
   const lockWords = p.result ? "Result saved" : "Locked: voting started";
   return `<div class="poll-item depth-${agenda ? agenda.depth : 0}">
     <div class="text"><div class="meta">${num ? `<span class="agenda-num">${escapeHtml(num)}</span>` : ""}${statusPill(p.status)}${p.amends ? '<span class="ed-pill ed-pill-quiet">Amendment</span>' : ""}${p.kind === "choice" ? `<span class="ed-pill ed-pill-quiet">${p.style === "election" ? "Election" : "Question"}</span>` : ""}${(p.threshold || (p.rule && p.rule.threshold)) === "twoThirds" ? '<span class="ed-pill ed-pill-quiet">Two-thirds</span>' : ""}${locked ? `<span class="locknote" title="${lockWords}">${icon("lock", 16)}<span class="sr">${lockWords}</span></span>` : ""}</div>
