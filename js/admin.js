@@ -12,7 +12,7 @@ import {
   historyIsCurrent, revoteMotion, runoffMotion, setLogName, currentLive, onMeetings, currentMeetings,
 } from "./db.js?v=voting-11";
 import { toast, icon, escapeHtml } from "./util.js?v=voting-11";
-import { $, S, R } from "./admin-state.js?v=voting-11";
+import { $, S, R, infoButton, wireInfo, wireMenus } from "./admin-state.js?v=voting-11";
 import { watchVersion } from "./version.js?v=voting-11";
 import { wireMotions } from "./admin-motions.js?v=voting-11";
 import { wireResults } from "./admin-results.js?v=voting-11";
@@ -25,6 +25,12 @@ document.title = ORG_NAME + " · Admin";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
 // and new files after an update) goes.
 $("boot-note")?.remove();   // a page from before this version has none
+
+// The page's line icons and (i) info buttons (see the comment in the page).
+document.querySelectorAll("#console [data-icon]").forEach((el) => el.insertAdjacentHTML("afterbegin", icon(el.dataset.icon, 18)));
+document.querySelectorAll("#console span[data-info]").forEach((el) => { el.outerHTML = infoButton(el.dataset.info, el.dataset.about); });
+wireInfo();
+wireMenus();
 
 // ----------------------------------------------------------------- gate (sign-in)
 let booted = false;
@@ -82,14 +88,14 @@ function showTab(name) {
     x.classList.toggle("active", x.dataset.tab === name);
     x.setAttribute("aria-pressed", String(x.dataset.tab === name));
   });
-  ["meeting", "motions", "results", "voters", "roster", "settings"].forEach((n) =>
+  ["meeting", "roster", "motions", "results", "settings"].forEach((n) =>
     $("tab-" + n).classList.toggle("hide", n !== name));
   $("open-settings").setAttribute("aria-pressed", String(name === "settings"));
 }
 R.showTab = showTab;
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => { showTab(t.dataset.tab); t.scrollIntoView({ block: "nearest", inline: "nearest" }); }));
-// On a narrow phone the five tabs can run past the edge: fade the edge so it is
+// On a narrow phone the tabs can run past the edge: fade the edge so it is
 // clear there is more to scroll to.
 const tabsNav = document.querySelector("#console .tabs");
 function updateTabHint() {
@@ -309,7 +315,8 @@ async function runCatchUp() {
       healBoard({ force: true, pending: false }).then(() => historyChanged(), (e) => console.warn("board", e));
       toast(r.saved === 1 ? "Saved the result of 1 earlier motion. Nothing it shows has changed."
         : `Saved the results of ${r.saved} earlier motions. Nothing they show has changed.`);
-      S.catchup = { kind: "ok", text: r.flagged.length ? "" : "No earlier motion's result could have been changed by the write-in quorum fix." };
+      // Nothing to report on screen: the toast says it, flagged motions show in their own card.
+      S.catchup = null;
     }
   } catch (e) {
     const n = S.polls.filter((p) => p.status === "closed" && !p.result && !p.closedAt).length;

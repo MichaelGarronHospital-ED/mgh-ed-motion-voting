@@ -39,106 +39,139 @@
     </div>
   </div>
 
-  <!-- console -->
+  <!-- console. Elements with data-icon get that line icon, and each
+       <span data-info> becomes an (i) info button, when js/admin.js loads. -->
   <div id="console" class="wrap wide hide">
     <header class="topbar">
       <span class="ed-badge" aria-hidden="true">ED</span>
       <span class="brand">Motion Voting</span>
-      <details class="menu" id="export-menu">
-        <summary class="ed-btn ed-btn-tinted btn-sm">Export</summary>
-        <div class="menu-pop" role="menu">
-          <button type="button" role="menuitem" id="export-all">Download Excel<small>Every motion, ballot and the roster</small></button>
-          <button type="button" role="menuitem" id="print-all">Print or save as PDF<small>Results of every motion</small></button>
-        </div>
-      </details>
-      <button type="button" id="open-settings" class="ed-btn ed-btn-plain btn-sm" aria-pressed="false">Settings</button>
-      <button type="button" id="lock" class="ed-btn ed-btn-plain btn-sm">Lock</button>
+      <div class="top-actions">
+        <details class="menu namechip" id="name-menu">
+          <summary class="chip no-caret" id="name-chip" title="Your name for the change history" data-icon="person"><span id="name-chip-text">Add your name</span><span class="chip-dot hide" id="name-chip-dot" aria-hidden="true"></span></summary>
+          <form id="name-form" class="menu-pop name-pop stack-sm">
+            <label class="ed-label" for="log-name">Your name for the change history
+              <input class="ed-field" id="log-name" type="text" maxlength="80" autocomplete="name" placeholder="For example: Kyle" />
+            </label>
+            <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm">Save</button>
+              <span data-info="Shown next to the changes you make here (open, close, re-open, re-vote). Kept on this laptop, not checked." data-about="your name"></span></div>
+          </form>
+        </details>
+        <details class="menu" id="export-menu">
+          <summary class="ed-btn ed-btn-tinted btn-sm" title="Export" aria-label="Export" data-icon="download"><span class="lbl">Export</span></summary>
+          <div class="menu-pop" role="menu">
+            <button type="button" role="menuitem" id="export-all">Download Excel<small>Every motion, ballot and the roster</small></button>
+            <button type="button" role="menuitem" id="print-all">Print or save as PDF<small>Results of every motion</small></button>
+          </div>
+        </details>
+        <button type="button" id="open-settings" class="ed-btn ed-btn-plain icon-btn" aria-pressed="false" aria-label="Settings" title="Settings" data-icon="gear"></button>
+        <button type="button" id="lock" class="ed-btn ed-btn-plain icon-btn" aria-label="Lock" title="Lock" data-icon="lock"></button>
+      </div>
     </header>
-    <h1 class="ed-title page-title">Admin console</h1>
+    <h1 class="page-title">Admin console</h1>
     <div id="banners" class="banners" role="status" aria-live="polite"></div>
-    <section id="name-card" class="card stack hide">
-      <h2>Your name for the change history</h2>
-      <form id="ask-form" class="stack-sm">
-        <label class="ed-label" for="ask-name">Name
-          <input class="ed-field" id="ask-name" type="text" maxlength="80" autocomplete="name" placeholder="For example: Kyle" />
-        </label>
-        <p class="ed-hint">Shown next to the changes you make here (open, close, re-open, re-vote). Typed on this laptop, not checked.</p>
-        <div class="row"><button type="submit" class="ed-btn ed-btn-filled btn-sm">Save</button>
-          <button type="button" id="ask-skip" class="ed-btn ed-btn-plain btn-sm">Not now</button></div>
-      </form>
-    </section>
 
     <div class="tabs-wrap">
       <nav class="tabs ed-seg" aria-label="Console sections">
         <button type="button" class="tab active" data-tab="meeting" aria-pressed="true">Meeting</button>
+        <button type="button" class="tab" data-tab="roster" aria-pressed="false">Physicians</button>
         <button type="button" class="tab" data-tab="motions" aria-pressed="false">Motions</button>
         <button type="button" class="tab" data-tab="results" aria-pressed="false">Results</button>
-        <button type="button" class="tab" data-tab="voters" aria-pressed="false">Voters</button>
-        <button type="button" class="tab" data-tab="roster" aria-pressed="false">Physicians</button>
       </nav>
     </div>
 
-    <!-- MEETING -->
+    <!-- MEETING: pick or add the meeting, start and end it, send voters, the projector -->
     <section id="tab-meeting">
       <div class="card stack" id="meeting-card"></div>
-      <div class="card stack">
-      <h2>Send voters here</h2>
-      <p class="ed-hint">Screen-share this QR code in the meeting, or send the link. Voters scan, pick their name and vote.</p>
-      <img id="qr" class="qr" src="voter-qr.png" alt="QR code to the voter link" width="260" height="260" />
-      <div class="stack-sm">
-        <span class="field-label">Voting link</span>
-        <p id="vote-url" class="linkbox"></p>
-        <button id="copy-url" type="button" class="ed-btn ed-btn-tinted">Copy link</button>
-      </div>
-      <p class="ed-hint" id="roster-summary"></p>
+      <div class="card" id="share-card">
+        <div class="share">
+          <img id="qr" class="qr" src="voter-qr.png" alt="QR code to the voter link" width="160" height="160" />
+          <div class="stack-sm share-side">
+            <div class="card-head"><h2>Send voters here</h2>
+              <span data-info="Screen-share this QR code in the meeting, or send the link. Voters scan, pick their name and vote." data-about="sending voters"></span></div>
+            <p id="vote-url" class="linkbox"></p>
+            <div><button id="copy-url" type="button" class="ed-btn ed-btn-tinted btn-sm" data-icon="copy">Copy link</button></div>
+          </div>
+        </div>
       </div>
       <div class="card stack hide" id="attendance-card"></div>
       <div class="card stack" id="projector-card">
-        <h2>Projector</h2>
-        <p class="ed-hint">A screen for the room: the QR code, turnout and quorum while voting is open, and the result after. Open it on the computer connected to the projector; it uses that browser's sign-in (the ED password if it has none).</p>
-        <div><a class="ed-btn ed-btn-tinted btn-sm" id="open-screen" href="screen.html" target="_blank" rel="noopener">Open the projector screen</a></div>
-        <label class="check"><input type="checkbox" id="screen-qr" checked /> Show the QR code</label>
-        <label class="check"><input type="checkbox" id="screen-tally" /> Show the live count of votes for and against</label>
+        <div class="card-head"><h2>Projector</h2>
+          <span data-info="A screen for the room: the QR code, turnout and quorum while voting is open, and the result after. Open it on the computer connected to the projector. It uses that browser's sign-in (the ED password if it has none)." data-about="the projector"></span></div>
+        <div><a class="ed-btn ed-btn-tinted btn-sm" id="open-screen" href="screen.html" target="_blank" rel="noopener" data-icon="external">Open the projector screen</a></div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="screen-qr" checked /> Show the QR code</label>
+          <label class="check"><input type="checkbox" id="screen-tally" /> Show the live count of votes for and against</label>
+        </div>
         <div class="stack-sm">
-          <span class="field-label" id="timer-label">Timer for the open motion</span>
+          <div class="card-head"><span class="field-label" id="timer-label">Timer for the open motion</span>
+            <span data-info="The timer never closes the vote: you do." data-about="the timer"></span></div>
           <div class="row" role="group" aria-labelledby="timer-label">
             <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-timer="60">1 min</button>
             <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-timer="120">2 min</button>
             <button type="button" class="ed-btn ed-btn-tinted btn-sm" data-timer="300">5 min</button>
             <button type="button" class="ed-btn btn-quiet btn-sm" data-timer="0">Stop</button>
           </div>
-          <p class="ed-hint">The timer never closes the vote: you do.</p>
-        </div>
-      </div>
-      <div class="card stack" id="meeting-records">
-        <h2>Records of this meeting</h2>
-        <p class="ed-hint">Every motion with its saved result, the named ballots, who voted, and the change history.</p>
-        <div class="row">
-          <button type="button" id="meeting-export" class="ed-btn ed-btn-tinted btn-sm">Download this meeting (Excel)</button>
-          <button type="button" id="meeting-print" class="ed-btn ed-btn-tinted btn-sm">Print this meeting</button>
         </div>
       </div>
       <div id="meeting-trash"></div>
     </section>
 
-    <!-- MOTIONS -->
-    <section id="tab-motions" class="hide">
-      <div class="card stack">
-        <h2>Add a motion</h2>
-        <div class="stack-sm">
-          <span class="ed-label" id="new-kind-label">Type</span>
-          <div class="ed-seg kind-seg" id="new-kind" role="group" aria-labelledby="new-kind-label">
-            <button type="button" data-kind="motion" aria-pressed="true">Motion</button><button type="button" data-kind="question" aria-pressed="false">Question</button><button type="button" data-kind="election" aria-pressed="false">Election</button>
-          </div>
+    <!-- PHYSICIANS: who can vote and their category -->
+    <section id="tab-roster" class="hide">
+      <div class="card stack hide" id="writeins-card"></div>
+      <div class="card stack" id="roster-card">
+        <div class="spread">
+          <div class="card-head"><p class="counts" id="roster-counts"></p><span id="roster-info"></span></div>
+          <button id="export-roster" type="button" class="ed-btn ed-btn-plain icon-btn" aria-label="Export the list (CSV)" title="Export the list (CSV)" data-icon="download"></button>
         </div>
-        <label class="ed-label" for="new-motion"><span id="new-motion-label">One at a time</span>
+        <div class="toolbar">
+          <label class="sr" for="roster-filter">Filter by name</label>
+          <input class="ed-field search" id="roster-filter" type="search" placeholder="Filter by name" autocomplete="off" />
+          <button type="button" id="add-toggle" class="ed-btn ed-btn-tinted btn-sm" aria-expanded="false" aria-controls="add-form" data-icon="plus">Add physician</button>
+          <button type="button" id="paste-toggle" class="ed-btn ed-btn-plain btn-sm" aria-expanded="false" aria-controls="paste-box">Paste a list</button>
+        </div>
+        <form id="add-form" class="card-inset stack-sm hide">
+          <label class="ed-label" for="add-name">Full name
+            <input class="ed-field" id="add-name" type="text" placeholder="First Last" autocomplete="off" />
+          </label>
+          <div class="stack-sm">
+            <span class="ed-label" id="add-cat-label">Category</span>
+            <div class="ed-seg cat-seg" id="add-cat" role="group" aria-labelledby="add-cat-label">
+              <button type="button" data-grp="1" aria-pressed="true">Full</button><button type="button" data-grp="2" aria-pressed="false">Half</button><button type="button" data-grp="courtesy" aria-pressed="false">No vote</button>
+            </div>
+          </div>
+          <div class="row"><button id="add-go" type="submit" class="ed-btn ed-btn-filled btn-sm">Add physician</button>
+            <button type="button" id="add-cancel" class="ed-btn ed-btn-plain btn-sm">Cancel</button>
+            <span data-info="They appear in the voters' name list straight away. Closed motions keep their results." data-about="adding a physician"></span></div>
+        </form>
+        <div id="paste-box" class="card-inset stack-sm hide">
+          <div class="card-head"><label class="field-label" for="paste-text">Paste the list</label>
+            <span data-info="Paste two columns from Excel (name, category), or one line per person: &quot;Name, category&quot;. &quot;Reynolds, Megan&quot; is read as Megan Reynolds. Categories: Full, Half, or No vote (also 1, 2, 0, Group 1, Group 2, Courtesy). Up to 300 lines. Nothing changes until you choose Apply." data-about="pasting a list"></span></div>
+          <textarea class="ed-field" id="paste-text" rows="6"></textarea>
+          <div class="row"><button type="button" id="paste-preview" class="ed-btn ed-btn-tinted btn-sm">Preview</button>
+            <button type="button" id="paste-cancel" class="ed-btn ed-btn-plain btn-sm">Cancel</button></div>
+          <div id="paste-result" class="stack-sm"></div>
+        </div>
+        <div class="tablebox"><table id="roster-table" class="ed-table"></table></div>
+      </div>
+      <div class="card stack hide" id="removed-card"></div>
+    </section>
+
+    <!-- MOTIONS: the agenda; open and close each vote -->
+    <section id="tab-motions" class="hide">
+      <div class="tab-tools"><button type="button" id="add-motion-toggle" class="ed-btn ed-btn-tinted btn-sm" aria-expanded="false" aria-controls="add-motion-card" data-icon="plus">Add a motion</button></div>
+      <div class="card stack hide" id="add-motion-card">
+        <div class="ed-seg kind-seg" id="new-kind" role="group" aria-label="Type">
+          <button type="button" data-kind="motion" aria-pressed="true">Motion</button><button type="button" data-kind="question" aria-pressed="false">Question</button><button type="button" data-kind="election" aria-pressed="false">Election</button>
+        </div>
+        <label class="ed-label" for="new-motion"><span id="new-motion-label">Motion wording</span>
           <textarea class="ed-field" id="new-motion" rows="3" placeholder="For example: Motion to approve the proposed summer schedule as circulated."></textarea>
         </label>
         <div id="choice-fields" class="stack-sm hide">
           <label class="ed-label" for="new-options"><span id="new-options-label">Options, one per line</span>
             <textarea class="ed-field" id="new-options" rows="4"></textarea>
           </label>
-          <p class="ed-hint">2 to 20, each up to 120 characters. They cannot change once voting starts.</p>
+          <p class="ed-hint">2 to 20. They cannot change once voting starts.</p>
           <label class="ed-label" for="new-seats"><span id="new-seats-label">How many can each person pick?</span>
             <input class="ed-field narrow" id="new-seats" type="number" min="1" max="19" step="1" value="1" inputmode="numeric" />
           </label>
@@ -155,16 +188,14 @@
             <option value="twoThirds">At least two-thirds of the points cast</option>
           </select>
         </label>
-        <div><button id="add-motion" type="button" class="ed-btn ed-btn-filled">Add motion</button></div>
-      </div>
-      <div id="agenda-paste-card" class="card stack hide">
-        <details class="about" id="agenda-fold">
+        <div class="row"><button id="add-motion" type="button" class="ed-btn ed-btn-filled">Add motion</button>
+          <button id="add-motion-cancel" type="button" class="ed-btn ed-btn-plain btn-sm">Cancel</button></div>
+        <details class="about hide" id="agenda-fold">
           <summary>Paste an agenda</summary>
           <div class="stack-sm">
-            <p class="ed-hint">One motion per line. Numbers and bullets at the start are removed. A line starting with "Amendment" amends the motion above it; "Amendment to the amendment" amends that amendment. Up to 50 lines.</p>
-            <label class="ed-label" for="agenda-text">The agenda
-              <textarea class="ed-field" id="agenda-text" rows="6"></textarea>
-            </label>
+            <div class="card-head"><label class="field-label" for="agenda-text">The agenda, one motion per line</label>
+              <span data-info="Numbers and bullets at the start are removed. A line starting with &quot;Amendment&quot; amends the motion above it; &quot;Amendment to the amendment&quot; amends that amendment. Up to 50 lines." data-about="pasting an agenda"></span></div>
+            <textarea class="ed-field" id="agenda-text" rows="6"></textarea>
             <div><button type="button" id="agenda-preview" class="ed-btn ed-btn-tinted btn-sm">Preview</button></div>
             <div id="agenda-result" class="stack-sm"></div>
           </div>
@@ -173,94 +204,36 @@
       <div id="motion-list"></div>
     </section>
 
-    <!-- RESULTS -->
+    <!-- RESULTS: the count, who voted, this meeting's records -->
     <section id="tab-results" class="hide">
       <div class="card stack hide" id="catchup-card"></div>
       <div class="card" id="results-selector"></div>
-      <div class="card stack-sm">
-        <label class="check"><input type="checkbox" id="hide-live" /> Hide the live count on this screen</label>
-        <p class="ed-hint">For when this console is shown on the projector. Anyone with the ED password can still see ballots. This only keeps the count off the big screen.</p>
-      </div>
       <div class="card stack" id="results-body"></div>
-    </section>
-
-    <!-- VOTERS -->
-    <section id="tab-voters" class="hide">
-      <div class="card" id="voters-selector"></div>
-      <div class="card stack">
+      <div class="card stack hide" id="voters-card">
         <div class="spread">
-          <h2>Vote record</h2>
-          <button id="export" type="button" class="ed-btn ed-btn-tinted btn-sm">Export CSV</button>
+          <div class="card-head"><h2>Who voted</h2>
+            <span data-info="Needs review: the same name voted from two or more devices. Shared device: one device voted under more than one name. Submissions is how many times a flagged person changed their vote; it is still one ballot in the tally. Remote: they checked in to this meeting as remote. Hover a vote to see the receipt code a phone showed: if the person shows you a different one, the vote under their name was changed after." data-about="who voted"></span></div>
+          <button id="export" type="button" class="ed-btn ed-btn-plain icon-btn" aria-label="Export this motion (CSV)" title="Export this motion (CSV)" data-icon="download"></button>
         </div>
         <p class="ed-hint" id="voters-note"></p>
-        <details class="about">
-          <summary>What the flags mean</summary>
-          <p class="ed-hint"><strong>Needs review:</strong> the same name voted from two or more devices.
-            <strong>Shared device:</strong> one device voted under more than one name.
-            <strong>Submissions</strong> is how many times a flagged person changed their vote; it is still one ballot in the tally.
-            <strong>Remote:</strong> they checked in to this meeting as remote. <strong>Receipt</strong> is the code that person's phone showed when it voted: if they show you a different one, the vote under their name was changed after.</p>
-        </details>
         <div class="tablebox"><table id="voters-table" class="ed-table"></table></div>
+      </div>
+      <div class="card stack hide" id="meeting-records">
+        <div class="card-head"><h2>Records of this meeting</h2>
+          <span data-info="Every motion with its saved result, the named ballots, who voted, and the change history." data-about="the records"></span></div>
+        <p class="ed-hint" id="records-meeting"></p>
+        <div class="row">
+          <button type="button" id="meeting-export" class="ed-btn ed-btn-tinted btn-sm" data-icon="download">Download (Excel)</button>
+          <button type="button" id="meeting-print" class="ed-btn ed-btn-tinted btn-sm" data-icon="print">Print</button>
+        </div>
       </div>
     </section>
 
-    <!-- ROSTER SUMMARY -->
-    <section id="tab-roster" class="hide">
-      <div class="card stack">
-        <div class="spread">
-          <h2>Physician summary</h2>
-          <button id="export-roster" type="button" class="ed-btn ed-btn-tinted btn-sm">Export CSV</button>
-        </div>
-        <p class="ed-hint" id="roster-counts"></p>
-        <ul class="keylist" id="keylist"></ul>
-      </div>
-      <div class="card stack hide" id="writeins-card"></div>
-      <div class="card stack">
-        <details class="about" id="paste-fold">
-          <summary>Update the list by pasting</summary>
-          <div class="stack-sm">
-            <p class="ed-hint">Paste two columns from Excel (name, category), or one line per person: "Name, category". "Reynolds, Megan" is read as Megan Reynolds. Categories: Full, Half, or No vote (also 1, 2, 0, Group 1, Group 2, Courtesy). Up to 300 lines. Nothing changes until you choose Apply.</p>
-            <label class="ed-label" for="paste-text">The list
-              <textarea class="ed-field" id="paste-text" rows="6"></textarea>
-            </label>
-            <div><button type="button" id="paste-preview" class="ed-btn ed-btn-tinted btn-sm">Preview</button></div>
-            <div id="paste-result" class="stack-sm"></div>
-          </div>
-        </details>
-      </div>
-      <div class="card stack">
-        <h2>Add a physician</h2>
-        <form id="add-form" class="stack">
-          <label class="ed-label" for="add-name">Full name
-            <input class="ed-field" id="add-name" type="text" placeholder="First Last" autocomplete="off" />
-          </label>
-          <div class="stack-sm">
-            <span class="ed-label" id="add-cat-label">Category</span>
-            <div class="ed-seg cat-seg" id="add-cat" role="group" aria-labelledby="add-cat-label">
-              <button type="button" data-grp="1" aria-pressed="true">Full</button><button type="button" data-grp="2" aria-pressed="false">Half</button><button type="button" data-grp="courtesy" aria-pressed="false">No vote</button>
-            </div>
-          </div>
-          <button id="add-go" type="submit" class="ed-btn ed-btn-filled">Add physician</button>
-          <p class="ed-hint">They appear in the voters' name list straight away. Closed motions keep their results.</p>
-        </form>
-      </div>
-      <div class="card stack">
-        <label class="ed-label" for="roster-filter">Filter by name
-          <input class="ed-field" id="roster-filter" type="search" placeholder="Type a name" autocomplete="off" />
-        </label>
-        <div class="tablebox"><table id="roster-table" class="ed-table"></table></div>
-      </div>
-      <div class="card stack hide" id="removed-card">
-        <h2>Removed</h2>
-        <p class="ed-hint">Not in the voters' name list and not counted toward quorum. Closed motions keep their results. Restore puts them back with the same category.</p>
-        <ul id="removed-list" class="removed-list"></ul>
-      </div>
-    </section>
-    <!-- SETTINGS (header button) -->
+    <!-- SETTINGS (the gear): the voting rules and the change history -->
     <section id="tab-settings" class="hide">
       <div class="card stack">
-        <h2>Voting rules</h2>
-        <p class="ed-hint">Apply to motions opened from now on. Closed motions keep their results; the open motion keeps the rules it opened with.</p>
+        <div class="card-head"><h2>Voting rules</h2>
+          <span data-info="They apply to motions opened from now on. Closed motions keep their results; the open motion keeps the rules it opened with. Eligible means points per vote above 0." data-about="the voting rules"></span></div>
         <form id="rules-form" class="stack" novalidate>
           <fieldset class="plain-fieldset stack-sm">
             <legend class="field-label">Points per vote (0 to 1, in steps of 0.05)</legend>
@@ -279,7 +252,6 @@
           <label class="ed-label" for="q-pct">Quorum: percent of eligible voters (rounded up)
             <input class="ed-field narrow" id="q-pct" type="number" min="1" max="100" step="1" inputmode="numeric" />
           </label>
-          <p class="ed-hint">Eligible means points per vote above 0.</p>
           <label class="ed-label" for="threshold">Default pass rule for new motions
             <select class="ed-field" id="threshold">
               <option value="majority">More points in favour than against</option>
@@ -293,38 +265,28 @@
             </select>
           </label>
           <label class="check"><input type="checkbox" id="check-in" /> Check-in at meetings: phones ask "In the room or remote?" (optional for voters)</label>
-          <label class="ed-label" for="keep-years">Keep the change history at least (years)
+          <div class="stack-sm">
+            <div class="card-head"><label class="field-label" for="keep-years">Keep the change history at least (years)</label>
+              <span data-info="7 is the lowest allowed. Counted in calendar years: an entry from Nov 20, 2026 can be deleted from Nov 21, 2033." data-about="keeping the history"></span></div>
             <input class="ed-field narrow" id="keep-years" type="number" min="7" max="50" step="1" inputmode="numeric" />
-          </label>
-          <p class="ed-hint">7 is the lowest allowed. Counted in calendar years: an entry from Nov 20, 2026 can be deleted from Nov 21, 2033.</p>
+          </div>
           <p id="rules-err" class="ed-error hide" role="alert"></p>
           <div><button type="submit" id="settings-save" class="ed-btn ed-btn-filled">Save voting rules</button></div>
         </form>
       </div>
-      <div class="card stack">
-        <h2>Your name for the change history</h2>
-        <form id="name-form" class="stack-sm">
-          <label class="ed-label" for="log-name">Name
-            <input class="ed-field" id="log-name" type="text" maxlength="80" autocomplete="name" />
-          </label>
-          <p class="ed-hint">Typed on this laptop. Not checked.</p>
-          <div><button type="submit" class="ed-btn ed-btn-tinted btn-sm">Save</button></div>
-        </form>
-      </div>
       <div class="card stack" id="history-card">
-        <h2>Change history</h2>
-        <p class="ed-hint">Every open, close, re-open, re-vote, archive, trash and permanent delete, with its reason. Kept for at least 7 years.</p>
+        <div class="card-head"><h2>Change history</h2>
+          <span data-info="Every open, close, re-open, re-vote, archive, trash and permanent delete, with its reason. Kept for at least 7 years." data-about="the change history"></span></div>
         <div><button type="button" id="history-load" class="ed-btn ed-btn-tinted btn-sm">Show the latest 50</button></div>
         <ul id="history-list" class="plain-list history-list"></ul>
         <div><button type="button" id="history-more" class="ed-btn ed-btn-plain btn-sm hide">Show more</button></div>
-        <div class="card-inset stack-sm">
-          <p class="ed-hint" id="history-purge-hint">Entries older than the period above can be deleted. Nothing newer is ever deleted.</p>
-          <div><button type="button" id="history-purge" class="ed-btn btn-quiet btn-sm">Delete history older than 7 years</button></div>
+        <div class="row">
+          <button type="button" id="history-purge" class="ed-btn btn-quiet btn-sm">Delete history older than 7 years</button>
+          <span data-info="Entries older than the period above can be deleted. Nothing newer is ever deleted." data-about="deleting old history"></span>
         </div>
       </div>
     </section>
   </div>
-
   </main>
 
   <!-- Closing and saving a result: a blocking sheet until the server confirms -->

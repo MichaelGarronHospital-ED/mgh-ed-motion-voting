@@ -1,26 +1,30 @@
-// Admin console: the Results and Voters tabs, and the one-motion CSV.
+// Admin console: the Results tab (the count, then "Who voted", the ballots of
+// the same motion), and the one-motion CSV.
 import {
   onVotesFor, clearVote, weightForVote, groupForVote, resultOf, outcomeWords, outcomeKind, clockTime,
   classify, rulesNeedUpdate, DB_UPDATE_MSG, sortMotions, getVotesFor, getLogFor,
 } from "./db.js?v=voting-11";
 import { escapeHtml, labelOf, fmt, csv, toast, icon, verdictHTML, stackedBar, choiceBars, voteWords } from "./util.js?v=voting-11";
 import { ballotReceipt } from "./count.js?v=voting-11";
-import { $, S, R, STATUS_WORD, statusPill, groupLabel, download } from "./admin-state.js?v=voting-11";
+import { $, S, R, STATUS_WORD, statusPill, groupLabel, download, infoButton, iconBtn } from "./admin-state.js?v=voting-11";
 import { tsMillis } from "./count.js?v=voting-11";
 
 let hideLive = false;
 try { hideLive = localStorage.getItem("mv_hide_live") === "1"; } catch (e) { /* private mode */ }
 export function wireResults() {
   $("export").addEventListener("click", exportCsv);
-  $("hide-live").checked = hideLive;
-  $("hide-live").addEventListener("change", (e) => {
-    hideLive = e.target.checked;
-    try { localStorage.setItem("mv_hide_live", hideLive ? "1" : "0"); } catch (x) { /* private mode */ }
-    renderResults();
-  });
 }
+// The eye on the result card: keeps the live count off this screen (for when
+// it is on the projector). Kept on this laptop.
+function toggleHideLive() {
+  hideLive = !hideLive;
+  try { localStorage.setItem("mv_hide_live", hideLive ? "1" : "0"); } catch (x) { /* private mode */ }
+  renderResults();
+  if ($("hide-live")) $("hide-live").focus();
+}
+const HIDE_WORDS = "Hide the count (for when this screen is on the projector)";
 
-// Which motion the Results/Voters tabs show: an explicit selection, else the
+// Which motion the Results tab (and its Who voted) shows: an explicit selection, else the
 // open motion, else the most recent (non-archived, non-deleted) closed one.
 function displayPoll() {
   if (S.selectedPollId) {
@@ -118,16 +122,21 @@ function ruleHint(rule, r) {
 function paintResults(el, poll, votes, loaded) {
   // An empty tally scores as "No quorum: cannot pass". Shown before the
   // ballots arrive that is a wrong result on a shared screen, so hold off.
-  const top = `${statusPill(poll.status)}<h2 class="motion-text">${escapeHtml(poll.text)}</h2>`;
+  // The eye shows for a draft or open motion: the count can be hidden before it opens.
+  const eye = poll.status === "closed" ? ""
+    : iconBtn(hideLive ? "eye-off" : "eye", HIDE_WORDS, `id="hide-live" aria-pressed="${hideLive}"`, "ed-btn-plain eye-toggle");
+  const top = `<div class="result-head">${statusPill(poll.status)}${eye}</div><h2 class="motion-text">${escapeHtml(poll.text)}</h2>`;
   const saved = poll.status === "closed" && poll.result ? poll.result : null;
   if (!saved && !loaded) {
     el.innerHTML = `${top}<p class="ed-hint">Counting votes…</p>`;
+    if ($("hide-live")) $("hide-live").addEventListener("click", toggleHideLive);
     return;
   }
   if (poll.status === "open" && hideLive) {
-    el.innerHTML = `${top}<p class="ed-hint">The live count is hidden on this screen. It shows again when the motion closes, or when you untick "Hide the live count".</p>
+    el.innerHTML = `${top}<p class="ed-hint">The live count is hidden on this screen. It shows again when the motion closes, or when you tap the eye.</p>
       <div class="row"><button type="button" class="ed-btn ed-btn-filled" id="r-close" ${R.canOpenClose() && !(poll._pending || poll.openedAt === null) ? "" : "disabled"}>Close voting</button></div>`;
     $("r-close").addEventListener("click", () => R.closeFlow(poll.id));
+    $("hide-live").addEventListener("click", toggleHideLive);
     return;
   }
   const r = saved || resultOf(poll, votes);
@@ -138,7 +147,7 @@ function paintResults(el, poll, votes, loaded) {
   const pendingOpen = poll.status === "open" && (poll._pending || poll.openedAt === null);
   let savedLine = "";
   if (saved) {
-    savedLine = `<p class="saved-line">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}. It can't be changed. If it was closed by mistake, use Re-open. To vote again from the start, use Re-vote.</span></p>`;
+    savedLine = `<p class="saved-line">${icon("lock", 18)}<span>Result saved at ${escapeHtml(clockTime(saved.savedAt))}.</span>${infoButton("A saved result can't be changed. If it was closed by mistake, use Re-open. To vote again from the start, use Re-vote.", "the saved result")}</p>`;
     if (saved.quorumNote) savedLine += `<p class="notice">${icon("warn", 20)}<span>Quorum may have been counted too low when this closed (a write-in given a vote may have been left out). Shown as recorded.</span></p>`;
   } else if (poll.status === "closed") {
     savedLine = S.saving.has(poll.id)
@@ -159,7 +168,7 @@ function paintResults(el, poll, votes, loaded) {
   } else if (poll.supersededBy) {
     actions = `<p class="ed-hint">Re-open the re-vote instead.</p>`;
   } else {
-    actions = `<button type="button" class="ed-btn ed-btn-filled" id="r-open" aria-expanded="${S.reopenFor === poll.id}" aria-controls="reopen-form" ${ready ? "" : "disabled"}>Re-open voting</button>`
+    actions = `<button type="button" class="ed-btn ed-btn-tinted" id="r-open" aria-expanded="${S.reopenFor === poll.id}" aria-controls="reopen-form" ${ready ? "" : "disabled"}>Re-open voting</button>`
       + (saved ? `<button type="button" class="ed-btn ed-btn-tinted" id="r-revote" aria-expanded="${S.revoteFor === poll.id}" aria-controls="revote-form" ${ready ? "" : "disabled"}>Re-vote</button>` : "")
       + (saved && saved.outcome === "noMajority" ? `<button type="button" class="ed-btn ed-btn-tinted" id="r-runoff" ${ready ? "" : "disabled"}>Run-off with the top two</button>` : "");
   }
@@ -197,10 +206,11 @@ function paintResults(el, poll, votes, loaded) {
       <div class="bar" aria-hidden="true"><span class="${quorumMet ? "favour" : "short"}" style="width:${quorum > 0 ? Math.min(100, (r.quorumCount / quorum) * 100) : 0}%"></span></div>
       ${!quorumMet ? `<p class="ed-hint">${need} more eligible ${need === 1 ? "voter is" : "voters are"} needed before this motion can be decided.</p>` : ""}
     </div>
-    <p class="ed-hint">${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"} · ${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"} · ${r.flags} flagged. ${ruleHint(r.rule, r)}</p>
+    <p class="ed-hint foot-line">${[`${r.totalVotes} ${r.totalVotes === 1 ? "ballot" : "ballots"}`, r.writeIns > 0 ? `${r.writeIns} write-in${r.writeIns === 1 ? "" : "s"}` : "", r.flags > 0 ? `${r.flags} flagged` : ""].filter(Boolean).join(" · ")}${infoButton(ruleHint(r.rule, r), "the pass rule")}</p>
     ${savedLine}${links}${priorLine}
     <div class="row">${actions}</div>${form}${revoteForm}${history}`;
   const c = $("r-close"), o = $("r-open"), sv = $("r-save");
+  if ($("hide-live")) $("hide-live").addEventListener("click", toggleHideLive);
   if (c) c.addEventListener("click", () => R.closeFlow(poll.id));
   if (sv) sv.addEventListener("click", () => { R.saveFlow(poll.id).then(() => R.fixBoard()); });
   const rv = $("r-revote");
@@ -274,11 +284,12 @@ function renderCatchUp() {
     html += `<h2>Please check</h2>
       <p>${flagged.length} earlier motion${flagged.length === 1 ? "" : "s"} may have counted quorum too low, and the quorum outcome could have been different.</p>
       <ul class="plain-list">${flagged.map((p) => `<li>${escapeHtml(p.text)} <span class="ed-muted">(${escapeHtml(resultLine(p.result))})</span></li>`).join("")}</ul>
-      <p class="ed-hint">Each is shown as recorded. For each one, keep it as recorded, or hold a re-vote at the next meeting.</p>`;
+      <div class="row">${infoButton("Each is shown as recorded. For each one, keep it as recorded, or hold a re-vote at the next meeting.", "what to do")}</div>`;
   }
-  if (c && c.text) {
-    html += `<p class="${c.kind === "ok" ? "ed-hint" : "notice"}">${c.kind === "ok" ? "" : icon("warn", 20)}<span>${escapeHtml(c.text)}</span></p>`;
-    if (c.kind !== "ok") html += `<div><button type="button" class="ed-btn ed-btn-tinted btn-sm" id="catchup-retry">Try again</button></div>`;
+  // Only something to act on: a save that failed (never a "nothing changed" note).
+  if (c && c.text && c.kind !== "ok") {
+    html += `<p class="notice">${icon("warn", 20)}<span>${escapeHtml(c.text)}</span></p>`;
+    html += `<div><button type="button" class="ed-btn ed-btn-tinted btn-sm" id="catchup-retry">Try again</button></div>`;
   }
   el.innerHTML = html;
   el.classList.toggle("hide", !html);
@@ -333,14 +344,13 @@ function bars(t) {   // t: a result (weight and count per choice)
 }
 
 // ----------------------------------------------------------------- voters
+// "Who voted": the ballots of the motion picked at the top of the Results tab.
 export function renderVoters() {
-  const sel = $("voters-selector");
-  sel.innerHTML = motionSelectorHTML() || `<p class="ed-hint">No motions yet.</p>`;
-  wireMotionSelect(sel);
   const d = ensureDisplay(true);
+  $("voters-card").classList.toggle("hide", !d);
   if (!d) {
     $("voters-table").innerHTML = "";
-    $("voters-note").textContent = "No motion to show. Choose one above.";
+    $("voters-note").textContent = "";
     return;
   }
   if (!d.loaded) {
@@ -361,30 +371,33 @@ function paintVoters(poll, votes) {
   sessionToSlugs.forEach((set) => { if (set.size > 1) set.forEach((slug) => sharedDevice.add(slug)); });
   const reviewCount = votes.filter((v) => v.flagged || sharedDevice.has(v.slug)).length;
 
-  // One hint line; what the flags mean sits in the "What the flags mean" fold.
-  $("voters-note").textContent = `${votes.length} ${votes.length === 1 ? "ballot" : "ballots"} · ${reviewCount} to review · `
-    + (poll.status === "closed" ? "Closed: ballots are locked and kept with the result." : "set categories under Physicians");
+  // One hint line; what the flags mean sits behind the (i) by the heading.
+  $("voters-note").textContent = [`${votes.length} ${votes.length === 1 ? "ballot" : "ballots"}`,
+    reviewCount ? `${reviewCount} to review` : "",
+    poll.status === "closed" ? "Closed: ballots are locked and kept with the result." : ""].filter(Boolean).join(" · ");
   const frozen = poll.status === "closed";
   // Who checked in remotely to this motion's meeting.
   const att = poll.meetingId && R.attendanceFor ? R.attendanceFor(poll.meetingId) : null;
   const remote = new Set(att ? att.list.filter((a) => a.mode === "remote").map((a) => a.slug) : []);
   const sorted = [...votes].sort((a, b) => a.name.localeCompare(b.name));
+  // Submissions only when someone is flagged; the weight is what the category says.
+  const anyFlag = sorted.some((v) => v.flagged || sharedDevice.has(v.slug));
   const rows = sorted.map((v) => {
-    const ew = weightForVote(v, poll);
     const g = v.isWriteIn ? "Write-in" : groupLabel(groupForVote(v, poll));
     const shared = sharedDevice.has(v.slug);
+    // The receipt code a phone showed: on the vote's hover text (and read out), not a column.
+    const receipt = ballotReceipt(poll.id, v);
     return `<tr class="${v.flagged || shared ? "flagged" : ""}">
       <td class="who">${escapeHtml(v.name)}${v.flagged ? ' <span class="ed-pill ed-pill-warn">Needs review</span>' : ""}${shared ? ' <span class="ed-pill ed-pill-warn">Shared device</span>' : ""}${v.isWriteIn ? ' <span class="ed-pill ed-pill-info">New</span>' : ""}${remote.has(v.slug) ? ' <span class="ed-pill ed-pill-quiet">Remote</span>' : ""}</td>
       <td class="cat">${g}</td>
-      <td class="num">${fmt(ew)}</td>
-      <td class="choice">${escapeHtml(voteWords(v, poll))}</td>
-      <td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>
-      <td class="receipt"><code>${escapeHtml(ballotReceipt(poll.id, v))}</code></td>
-      ${frozen ? "" : `<td class="act"><button type="button" class="ed-btn btn-quiet btn-sm" data-del="${escapeHtml(v.id)}" aria-label="Remove ${escapeHtml(v.name)}'s vote">Remove</button></td>`}
+      <td class="choice" title="Receipt code: ${escapeHtml(receipt)}">${escapeHtml(voteWords(v, poll))}<span class="sr">. Receipt code: ${escapeHtml(receipt)}</span></td>
+      ${anyFlag ? `<td class="num subs">${(v.flagged || shared) ? escapeHtml(v.submissionCount || 1) : ""}</td>` : ""}
+      ${frozen ? "" : `<td class="act">${iconBtn("x", `Remove ${v.name}'s vote`, `data-del="${escapeHtml(v.id)}"`, "btn-quiet", "Remove this vote")}</td>`}
     </tr>`;
   }).join("");
+  const cols = 3 + (anyFlag ? 1 : 0) + (frozen ? 0 : 1);
   $("voters-table").innerHTML =
-    `<thead><tr><th>Name</th><th>Category</th><th class="num">Weight${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th><th class="num">Submissions</th><th>Receipt</th>${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${frozen ? 6 : 7}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
+    `<thead><tr><th>Name</th><th>Category${frozen ? `${icon("lock", 14)}<span class="sr">, frozen</span>` : ""}</th><th>Vote</th>${anyFlag ? `<th class="num">Submissions</th>` : ""}${frozen ? "" : `<th><span class="sr">Remove</span></th>`}</tr></thead><tbody>${rows || `<tr><td colspan="${cols}" class="ed-muted">No votes yet.</td></tr>`}</tbody>`;
   $("voters-table").querySelectorAll("button[data-del]").forEach((b) =>
     b.addEventListener("click", () => {
       if (!confirm("Remove this vote? This changes the result for this motion.")) return;
