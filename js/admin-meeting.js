@@ -1,14 +1,14 @@
-// Leadership console: the Meeting tab. Pick or add a meeting, its details
+// Admin console: the Meeting tab. Pick or add a meeting, its details
 // (title, date, chair, notes), Start and End, the link and QR code for voters,
 // this meeting's records, and meetings in the Trash.
 import {
   onScreen, setScreen, onAttendance, addAttendance, removeAttendance, rosterPerson, createMeeting, updateMeeting, startMeeting, endMeeting, setMeetingDeleted, purgeMeeting, currentMeetings,
   resolvedRoster, todayLocal, clockTime, serverTimestamp,
-} from "./db.js?v=voting-10";
-import { escapeHtml, toast, icon } from "./util.js?v=voting-10";
-import { slugify } from "./roster.js?v=voting-10";
-import { $, S, R, niceDate, meetingLabel } from "./admin-state.js?v=voting-10";
-import { exportMeeting, printMeeting } from "./records.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { escapeHtml, toast, icon } from "./util.js?v=voting-11";
+import { slugify } from "./roster.js?v=voting-11";
+import { $, S, R, niceDate, meetingLabel } from "./admin-state.js?v=voting-11";
+import { exportMeeting, printMeeting } from "./records.js?v=voting-11";
 
 const STATUS = { planned: "Planned", open: "Open", closed: "Ended" };
 const live = () => currentMeetings().filter((m) => !m.deleted);
@@ -156,7 +156,7 @@ function renderAttendance() {
   el.innerHTML = `<h2>Attendance</h2>
     <p>${a.loaded ? `Checked in: <strong>${list.length}</strong> (in the room ${room}, remote ${remote})` : "Loading attendance..."}</p>
     <p class="ed-hint">A check-in is what someone said on a phone (one tap; never needed to vote). Anyone who votes is listed as present in the meeting's Excel file even without one.</p>
-    ${list.length ? `<ul class="removed-list">${list.map((x) => `<li><span>${escapeHtml(x.name)} <span class="ed-muted">${x.mode === "remote" ? "remote" : "in the room"}${x.by === "leadership" ? ", added by leadership" : ""}${x.note ? `: ${escapeHtml(x.note)}` : ""}</span></span>
+    ${list.length ? `<ul class="removed-list">${list.map((x) => `<li><span>${escapeHtml(x.name)} <span class="ed-muted">${x.mode === "remote" ? "remote" : "in the room"}${x.by === "leadership" ? ", added in the Admin console" : ""}${x.note ? `: ${escapeHtml(x.note)}` : ""}</span></span>
       <button type="button" class="ed-btn btn-quiet btn-sm" data-att-remove="${escapeHtml(x.slug)}" data-name="${escapeHtml(x.name)}" aria-label="Remove ${escapeHtml(x.name)} from attendance">Remove</button></li>`).join("")}</ul>` : ""}
     ${addOpen ? `<form id="att-form" class="card-inset stack-sm">
       <label class="ed-label" for="att-name">Name<input class="ed-field" id="att-name" type="text" list="roster-names" autocomplete="off" /></label>

@@ -17,7 +17,7 @@ export const firebaseConfig = {
 // ---- 2. Sign-in (the ED tools' shared passwords) ---------------------------
 // Two shared Firebase accounts, one per password. The PASSWORDS are the shared
 // secrets and live only in Firebase Authentication, never in this public file.
-//   • Leadership password: the settings console.
+//   • Admin password (account leadership@): the Admin console.
 //   • ED password: voting (each phone remembers it).
 // Each account is RECOGNISED by its uid (the account's fixed id, public, never
 // changes), here and in firestore.rules: keep the two uids identical in both

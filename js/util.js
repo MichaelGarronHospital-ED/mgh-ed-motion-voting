@@ -1,5 +1,5 @@
 // ============================================================================
-//  Shared UI helpers, used by both the voter (vote.js) and leadership (admin.js)
+//  Shared UI helpers, used by both the voter (vote.js) and the Admin console (admin.js)
 //  pages. Each page loads this as its own module instance.
 // ============================================================================
 

@@ -596,6 +596,8 @@ class TestSignIn(Base):
         self.page.wait_for_selector("#ederr:not(.hide)")
         self.assertEqual(self.page.evaluate("window.__lastPassword"), "secret1")
         h.load_admin(self.page, self.base)
+        # The Admin password keeps the hidden name "Leadership password" (step 11): it is
+        # the name phones saved it under, so changing it would stop them matching.
         self.assertEqual(self.page.input_value("#gate-form input[autocomplete=username]"), "Leadership password")
         self.page.fill("#pass", " secret2  ")
         self.page.click("#enter")

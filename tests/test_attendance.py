@@ -1,8 +1,8 @@
 """Check-in, remote and vote receipts (voting upgrade step 7, V11; no proxies).
 
 A check-in is one optional tap ("In the room" or "Remote") while the meeting is
-open; it never blocks voting. Leadership sees attendance, can add or remove
-someone, and sees "Remote" and each ballot's receipt code. The phone keeps its
+open; it never blocks voting. The Admin console shows attendance, can add or remove
+someone, and shows "Remote" and each ballot's receipt code. The phone keeps its
 receipt and can check what is recorded under its name.
 """
 import unittest
@@ -180,7 +180,9 @@ class TestLeadershipAttendance(Base):
         pg.click("#att-form button[type=submit]")
         pg.wait_for_function("() => window.__store.get('meetings/m1/attendance/kyle-vojdani')")
         a = h.get(pg, "meetings/m1/attendance/kyle-vojdani")
-        self.assertEqual((a["by"], a["note"], a["mode"]), ("leadership", "Present, did not use a phone", "room"))
+        self.assertEqual((a["by"], a["note"], a["mode"]), ("leadership", "Present, did not use a phone", "room"))   # stored value stays "leadership"
+        pg.wait_for_selector("#attendance-card :text('Kyle Vojdani')")
+        self.assertIn("in the room, added in the Admin console: Present, did not use a phone", pg.inner_text("#attendance-card"))
         pg.evaluate("window.confirm = () => true")
         pg.click('#attendance-card [data-att-remove="david-ng"]')
         pg.wait_for_function("() => window.__store.get('meetings/m1/attendance/david-ng') === null")

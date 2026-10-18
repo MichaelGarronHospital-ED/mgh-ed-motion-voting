@@ -37,6 +37,7 @@ class Screen(Base):
         pg.wait_for_selector("#edpw")
         self.assertIn("Enter the ED password to show the meeting screen.", pg.inner_text("#screen"))
         self.assertNotIn("Leadership", pg.inner_text("#screen"))
+        self.assertNotIn("Admin", pg.inner_text("#screen"))
         pg.fill("#edpw", "the-ed-password")
         pg.click("#edgo")
         pg.wait_for_selector(".screen-head")

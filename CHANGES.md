@@ -4,6 +4,33 @@ Running log of what changed and why, newest first.
 
 ---
 
+## "Leadership" is now "Admin" (voting step 11, Oct 2026)
+
+Alvin's decision (2026-10-18): the shared password and access level called "Leadership"
+is now called "Admin" in every word people see. Nothing else changes.
+
+- The console says **Admin console** and asks for the **Admin password** (heading, label,
+  help text, browser tab title). The voters' wait message says "Voting starts once the
+  Admin console has been opened." Someone added to attendance in the console shows as
+  "added in the Admin console" (on the Meeting tab and in the Excel file).
+- Words that mean the department's leaders as people stay, for example "Please tell
+  leadership" and "Time is up. Leadership will close the vote."
+- Not changed: the account email (`leadership@mgh-ed-voting.invalid`), the uids, the rules,
+  everything stored (attendance still saves `by: "leadership"`), code names (`LEADER_UID`,
+  `isLeader`), file names and addresses. The page's hidden name for password managers
+  stays "Leadership password", so passwords phones already saved keep matching. Nobody is
+  signed out and nobody types anything new: the password itself is the same.
+- README, CLAUDE.md and the tests' notes say "Admin" too. Earlier entries below keep the
+  old word, as history.
+
+No rules change. After the update: check in a private window, or wait 10 minutes.
+
+Tests: 235 browser tests (1 new: the console says "Admin" and never "Leadership" in any
+word people see; the attendance card and the meeting's Excel file checked for the new
+words), 131 rules tests (unchanged).
+
+---
+
 ## Sign in with the new account emails only (voting step 10)
 
 Cleanup after the account email move. Merge this **a few weeks after the emails were

@@ -10,13 +10,13 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-10";
-import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-10";
+import { firebaseConfig, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-11";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-11";
 import {
   tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
-} from "./count.js?v=voting-10";
-import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-10";
-import { agendaOrder, agendaNumbers } from "./count.js?v=voting-10";
+} from "./count.js?v=voting-11";
+import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-11";
+import { agendaOrder, agendaNumbers } from "./count.js?v=voting-11";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -24,20 +24,20 @@ const auth = getAuth(app);
 
 // ---- auth ------------------------------------------------------------------
 // Two shared accounts, one per password (config.js): ED for voters (the ED
-// password) and LEADER for leadership (the Leadership password). Who is signed
+// password) and LEADER for the Admin console (the Admin password). Who is signed
 // in is decided by the account's uid, never its email (an email can change, so a
 // page and the server could disagree; a uid cannot). The rules accept only these
 // two, so the password is enforced by the server, not just by the screen. Firebase keeps the sign-in on the device, so a phone that has
 // entered the ED password once goes straight to the ballot afterwards.
 //
 // Firebase keeps ONE sign-in per browser for the whole site, shared by every tab.
-// A leadership session therefore also counts as a member on the voter page (a
+// An Admin session therefore also counts as a member on the voter page (a
 // chair voting on the console laptop must not be signed out of the console).
 export function watchAuth(cb) { return onAuthStateChanged(auth, cb); }
 export const isLeader = (u) => !!u && !u.isAnonymous && u.uid === LEADER_UID;
 export const isMember = (u) => !!u && !u.isAnonymous && (u.uid === ED_UID || u.uid === LEADER_UID);
 // Calls cb(user) whenever the member state changes: the user when signed in as
-// ED or leadership, null otherwise (signed out, or an old anonymous session).
+// ED or Admin, null otherwise (signed out, or an old anonymous session).
 // "Not a member" is passed on once, not again for each non-member change (a
 // sign-in that reaches some other account and is signed out again must not
 // redraw the password screen and lose its message).
@@ -185,7 +185,7 @@ export function onSettings(cb, opts = {}) {
 }
 
 // ---- roster changes made by leadership --------------------------------------
-// Editable from the leadership console and saved in Firestore (config/roster)
+// Editable from the Admin console and saved in Firestore (config/roster)
 // so changes persist and sync to everyone. roster.js holds the defaults.
 //   groups:  slug -> category ("1" | "2" | "courtesy"), overriding roster.js
 //   added:   slug -> { name }   physicians added in the console
@@ -600,7 +600,7 @@ export function resolvedPerson(slug) {
   const g = effectiveGroup(slug);
   return { group: g, weight: WEIGHTS[g] !== undefined ? WEIGHTS[g] : 0 };
 }
-// Full roster with categories applied (for the leadership Physicians tab).
+// Full roster with categories applied (for the Admin console's Physicians tab).
 export function resolvedRoster() { return currentRoster(); }
 
 // Eligible to vote today under a rule (points above 0): the list plus write-ins
@@ -1294,6 +1294,6 @@ export function weightForVote(v, poll) {
 export function tally(votes, poll) {
   return tallyVotes(votes, (v) => weightForVote(v, poll));
 }
-export * from "./count.js?v=voting-10";
+export * from "./count.js?v=voting-11";
 
 export { serverTimestamp, copyRule };

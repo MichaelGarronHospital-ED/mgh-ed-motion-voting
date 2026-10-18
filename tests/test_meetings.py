@@ -193,6 +193,7 @@ class TestMeetings(Console):
         def seed(pg):
             seed_meeting(pg, chair="Kyle Vojdani")
             seed_closed_saved(pg, "c1", NOW - 60000, meetingId="m1", ballots=3, text="Approve the schedule", mover="Kyle Vojdani")
+            h.seed(pg, "meetings/m1/attendance/alvin-yang", {"name": "Alvin Yang", "slug": "alvin-yang", "mode": "room", "by": "leadership", "at": h.ts(NOW)})
         pg = self.console(seed)
         h.tab(pg, "meeting")
         with pg.expect_download() as dl:
@@ -207,6 +208,8 @@ class TestMeetings(Console):
         self.assertIn("Passed", everything)                      # the saved result's words
         self.assertIn("Kyle Vojdani", everything)
         self.assertIn("Voted, did not check in", everything)
+        self.assertIn("In the room (added in the Admin console)", everything)   # stored as by: "leadership"
+        self.assertNotIn("leadership", everything.lower())
 
     def test_opening_a_motion_starts_its_planned_meeting(self):
         """Planned meeting -> open -> close -> save: the board has the meeting and the entry."""

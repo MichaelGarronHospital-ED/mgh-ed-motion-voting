@@ -1,27 +1,27 @@
 // ============================================================================
-//  Leadership console: the shell (sign-in, tabs), the live listeners, the load
+//  Admin console: the shell (sign-in, tabs), the live listeners, the load
 //  gate, the banners, and the close / save / open / re-open flows.
 //  Each tab lives in its own module; they share state through admin-state.js.
 // ============================================================================
-import { ORG_NAME } from "./config.js?v=voting-10";
+import { ORG_NAME } from "./config.js?v=voting-11";
 import {
   onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, isLeader,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
   historyIsCurrent, revoteMotion, runoffMotion, setLogName, currentLive, onMeetings, currentMeetings,
-} from "./db.js?v=voting-10";
-import { toast, icon, escapeHtml } from "./util.js?v=voting-10";
-import { $, S, R } from "./admin-state.js?v=voting-10";
-import { watchVersion } from "./version.js?v=voting-10";
-import { wireMotions } from "./admin-motions.js?v=voting-10";
-import { wireResults } from "./admin-results.js?v=voting-10";
-import { wireRoster } from "./admin-roster.js?v=voting-10";
-import { wireRecords } from "./records.js?v=voting-10";
-import { wireSettings } from "./admin-settings.js?v=voting-10";
-import { wireMeeting } from "./admin-meeting.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { toast, icon, escapeHtml } from "./util.js?v=voting-11";
+import { $, S, R } from "./admin-state.js?v=voting-11";
+import { watchVersion } from "./version.js?v=voting-11";
+import { wireMotions } from "./admin-motions.js?v=voting-11";
+import { wireResults } from "./admin-results.js?v=voting-11";
+import { wireRoster } from "./admin-roster.js?v=voting-11";
+import { wireRecords } from "./records.js?v=voting-11";
+import { wireSettings } from "./admin-settings.js?v=voting-11";
+import { wireMeeting } from "./admin-meeting.js?v=voting-11";
 
-document.title = ORG_NAME + " · Leadership";
+document.title = ORG_NAME + " · Admin";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
 // and new files after an update) goes.
 $("boot-note")?.remove();   // a page from before this version has none
@@ -38,8 +38,8 @@ function unlock() {
 $("gate-form").addEventListener("submit", (e) => { e.preventDefault(); tryEnter(); });
 // Only now can the form be used (see the comment in admin-9f4k2x7q.html).
 $("gate-fields").disabled = false;
-// The Leadership password is checked by Firebase itself (it is the password of
-// the Leadership account); nothing about it is stored in this public code, and
+// The Admin password is checked by Firebase itself (it is the password of
+// the Admin account, leadership@); nothing about it is stored in this public code, and
 // the console opens only on a real sign-in, so writes are always authorised.
 async function tryEnter() {
   const typed = $("pass").value.trim(), err = $("gate-err");   // passwords never start or end with a space
@@ -62,7 +62,7 @@ try {
     err.classList.remove("hide");
   }
 } catch (e) { /* private mode */ }
-// Auto-unlock on reload if a leadership session is already persisted.
+// Auto-unlock on reload if an Admin session is already persisted.
 watchAuth((user) => { if (isLeader(user)) unlock(); });
 $("lock").addEventListener("click", async (e) => {
   e.preventDefault();

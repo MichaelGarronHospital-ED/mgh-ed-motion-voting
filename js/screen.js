@@ -1,21 +1,21 @@
 // ============================================================================
 //  MEETING SCREEN (projector). It only displays; every control is in the
 //  console's Meeting tab. It reuses whatever sign-in this browser already has
-//  (leadership or ED) and never signs in over it: Firebase keeps one sign-in
+//  (Admin or ED) and never signs in over it: Firebase keeps one sign-in
 //  per browser for every tab, so signing in as ED here would sign the console
 //  out. Only when signed out does it ask for the ED password (never the
-//  Leadership one, so a shared room PC never holds it).
+//  Admin one, so a shared room PC never holds it).
 //
 //  Listens to config/live (the board), config/screen (the console's controls),
 //  config/roster (who is eligible) and the open motion's ballots (turnout).
 // ============================================================================
-import { ORG_NAME } from "./config.js?v=voting-10";
+import { ORG_NAME } from "./config.js?v=voting-11";
 import {
   watchMember, voterSignIn, isWrongPassword, onLive, onScreen, onRosterOverrides, onVotesFor, classify, onAttendance,
   resultOf, outcomeWords, outcomeKind, liveEligible, quorumNeededFor, clockTime, countOnce, withTimeout, LEGACY_RULE,
-} from "./db.js?v=voting-10";
-import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-10";
-import { watchVersion } from "./version.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-11";
+import { watchVersion } from "./version.js?v=voting-11";
 
 document.title = ORG_NAME + " · Meeting screen";
 const root = document.getElementById("screen");

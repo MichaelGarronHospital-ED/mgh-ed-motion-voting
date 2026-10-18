@@ -1,13 +1,13 @@
-// Leadership console: the Motions tab. The selected meeting's agenda first
+// Admin console: the Motions tab. The selected meeting's agenda first
 // (numbered 1, 2, 2a, 2a.1; move up and down; amendments; mover, seconder,
 // notes; paste an agenda), then other meetings and earlier motions (folded),
 // then Archived and Trash.
 import {
   addPoll, addPolls, updatePoll, trashPoll, restorePoll, purgePoll, setArchived, currentSettings, currentMeetings,
   movePoll, moveToMeeting, agendaOrder, parseAgenda, clockTime, localDate, tsMillis,
-} from "./db.js?v=voting-10";
-import { escapeHtml, toast, icon } from "./util.js?v=voting-10";
-import { $, S, R, collapsibleCard, statusPill, meetingLabel, niceDate } from "./admin-state.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { escapeHtml, toast, icon } from "./util.js?v=voting-11";
+import { $, S, R, collapsibleCard, statusPill, meetingLabel, niceDate } from "./admin-state.js?v=voting-11";
 
 let editingId = null;          // motion currently being edited (only allowed before first vote)
 let amendingId = null;         // motion getting a new amendment

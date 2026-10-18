@@ -123,7 +123,7 @@ class TestVoterBoard(Base):
         pg = self.voter()
         seed_open(pg, ballots=[])
         h.pick_voter(pg, h.GROUP1[1])
-        pg.wait_for_selector("text=Voting starts once leadership's console has been opened.")
+        pg.wait_for_selector("text=Voting starts once the Admin console has been opened.")
         self.assertNotIn("polls", pg.evaluate("window.__store.listenerPaths()"))
         build_board(pg)
         pg.wait_for_selector('button[data-c="favour"]')

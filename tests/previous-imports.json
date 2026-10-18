@@ -1,5 +1,5 @@
 {
- "from": "voting-9",
+ "from": "voting-10",
  "imports": {
   "admin-meeting.js": [
    "wireMeeting"
@@ -38,10 +38,8 @@
    "sameBoard"
   ],
   "config.js": [
-   "ED_EMAIL",
    "ED_EMAIL_NEW",
    "ED_UID",
-   "LEADER_EMAIL",
    "LEADER_EMAIL_NEW",
    "LEADER_UID",
    "ORG_NAME",

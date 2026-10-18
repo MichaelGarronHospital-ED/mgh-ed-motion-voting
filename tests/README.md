@@ -5,7 +5,7 @@ a headless browser, with the Firebase CDN modules swapped for in-memory stubs.
 No Firebase project, no credentials, no network, nothing to clean up.
 
 **The tool itself still has no build step and no dependencies.** Everything here
-is dev-only and never shipped — GitHub Pages serves the static files regardless
+is dev-only and never shipped: GitHub Pages serves the static files regardless
 of what lives in this folder.
 
 ## Run it
@@ -33,16 +33,17 @@ Each group maps to a promise the tool makes to someone in a meeting room.
 |---|---|
 | `TestRosterAndQuorum` | Weights are 1 / ½ / 0, quorum is half the eligible roster, and the pass rule really is *weighted favour > weighted against*. A courtesy member's ballot never moves the result. |
 | `TestCastingAVote` | A ballot lands under the right name with the right weight; changing your mind replaces your ballot instead of adding one; re-tapping the same choice is not a new submission; a write-in lands at zero weight for review; a device is bound to one person after voting. |
-| `TestResultsAreNeverWrong` | No verdict is ever shown — to a voter, to leadership, or into a CSV — before that motion's ballots have arrived. |
-| `TestLeadershipActions` | Only one motion is open at a time; opening one makes it visible to voters; removing a ballot brings the voter count down; closing freezes the weights so a later category change cannot rewrite a past result. |
+| `TestResultsAreNeverWrong` | No verdict is ever shown (to a voter, in the Admin console, or in a CSV) before that motion's ballots have arrived. |
+| `TestLeadershipActions` (the Admin console) | Only one motion is open at a time; opening one makes it visible to voters; removing a ballot brings the voter count down; closing freezes the weights so a later category change cannot rewrite a past result. |
 | `TestVoterReview` | Duplicate signals surface for review: the same name from two devices, and one device used for two names. |
 | `test_voter_board.py` | Phones never read ballots of closed motions and listen to two documents only; a late result is counted once after 30 s of the phone's own time; the console patches the board in each action, never rewrites it by itself, offers "Fix it" when it is out of date, and keeps a closed time on the board; re-vote keeps the original and links both; every phone wait (offline, refused) has a plain message. |
 | `test_settings_roster.py` | Settings change only motions opened afterwards (closed results, the open motion and old motions keep their rules); two-thirds and tie rules; invalid values refused on screen; paste preview (new, changed, unchanged, missing, problems), nobody removed unless ticked; write-ins survive a reload, can be added (counting for quorum) or dismissed (0 points). |
 | `test_meetings.py` | A motion added with no meeting makes today's; start and end record times and End closes the open motion with its result; mover, seconder and notes stay editable; old motions sit under "Earlier motions"; the meeting export has five sheets from saved results; a trashed meeting is deleted permanently with a record; agenda paste, amendments (two levels), Up and Down with keyboard focus kept; the voter sees "Motion 2a" and the motion it amends. |
 | `test_screen.py` | The projector screen reuses an existing sign-in and never signs in over it, asks for the ED password only when signed out, hides the for and against split by default, shows turnout and quorum progress, the saved result after close and never a verdict before it, a timer that says "Time is up" but never closes the vote, and "May be out of date" when offline. |
 | `test_choice.py` | Questions and elections: weighted points per pick, two seats, level options inside the winners are not a tie, a tie for the last seat is reported, 0 points never wins, fewer scoring options than seats, more-than-half and run-off, options locked after the first vote, the same picks in another order are not a new submission. |
-| `test_attendance.py` | Check-in is offered once per meeting on a phone and never needed to vote; skip and off work; refused and offline check-ins say so; leadership adds and removes (logged); "Remote" shows on the Voters tab; the projector counts check-ins; the phone's receipt equals the console's code from the stored ballot, and "Check my recorded vote" spots a changed ballot. |
+| `test_attendance.py` | Check-in is offered once per meeting on a phone and never needed to vote; skip and off work; refused and offline check-ins say so; the Admin console adds and removes (logged); "Remote" shows on the Voters tab; the projector counts check-ins; the phone's receipt equals the console's code from the stored ballot, and "Check my recorded vote" spots a changed ballot. |
 | `test_accounts.py` | The two accounts are known by uid, never by email: the uids in `js/config.js` equal the rules' (and every test copy); no page code compares an email; a voter, the projector and the console signed in stay in when the account's email changes and after a reload, with the old or the new email; the right email with another uid gets nothing; the pages sign in with the new `.invalid` emails only (one try, whatever step 9 remembered), say a wrong password once, and never accept another account under that email. |
+| `test_gate_safety.py` | The Admin password form cannot be sent before its code runs; both password screens say what to do on iPhone; the console says "Admin" (title, heading, label, help) and never "Leadership" in any word people see. |
 | `test_versions.py` | Every module import and each page's script and stylesheet carry `?v=` the version in `js/version.js` (same as `version.txt`), and a page loads nothing unversioned; every name the live release's modules import (`previous-imports.json`, from `set_version.py --snapshot`) is still exported. |
 | `test_saved_results.py` | Closing saves the result once and it matches the live count; old motions are saved on sign-in exactly as they show (and only after the roster arrives); the write-in quorum check flags only motions whose outcome could differ; re-open needs a reason and keeps the earlier count; closed ballots are locked; every wait (offline, refused, slow) shows a plain message. |
 
@@ -84,8 +85,8 @@ connection. `where`, `orderBy`, `limit`, `startAfter`, `writeBatch`,
 
 `test_stub.py` pins these behaviours. `base.py` holds the shared test base.
 
-Each browser page owns its own store, so leadership and voter state cannot be
-driven from two pages at once — tests seed the store directly instead (see the
+Each browser page owns its own store, so Admin console and voter state cannot be
+driven from two pages at once: tests seed the store directly instead (see the
 `seed_*` helpers in `harness.py`).
 
 ## Running against the live site
@@ -100,14 +101,14 @@ MV_BASE_URL=https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting \
   ~/.venvs/mgh-ed-tools/bin/python -m unittest discover -s tests -p "test_smoke.py" -v
 ```
 
-## Scope — what these do NOT cover
+## Scope: what these do NOT cover
 
 - **`../firestore.rules`.** These tests stub Firestore, so they say nothing
   about the server-side rules. The rules have their own tests in `rules/`, run
   against the Firestore emulator (needs Java): `cd rules && npm install && npm test`.
   The limits the rules deliberately do *not* enforce are written down at the
   bottom of `../firestore.rules`.
-- **The real password check.** `harness.open_admin` gets past the Leadership
+- **The real password check.** `harness.open_admin` gets past the Admin
   password screen through the auth watcher, and the stub accepts any ED password.
   The passwords are not in the repo at all: each is the password of a Firebase
   Auth account, checked by Firebase.
@@ -122,5 +123,5 @@ The roster, quorum and slug helpers in `harness.py` are read out of
 app ships.
 
 If you change a fix these pin, the matching test should fail. That was checked
-by reverting each fix and confirming exactly its own test broke — worth redoing
+by reverting each fix and confirming exactly its own test broke; worth redoing
 if you refactor `paintResults`, `clearVote`, or `openPoll`.

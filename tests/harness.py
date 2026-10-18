@@ -138,7 +138,7 @@ def unlock_admin(page, read=None, then=None):
     """Unlock the console and, in the SAME tick, read a selector's text (or run
     `then`), i.e. observe the very first paint, before any snapshot arrives.
 
-    The Leadership password screen is bypassed via the auth watcher rather than
+    The Admin password screen is bypassed via the auth watcher rather than
     by typing a password: the password is not in the repo (it lives only in
     Firebase Auth), and these tests are about behaviour, not the gate.
     """
@@ -150,7 +150,7 @@ def unlock_admin(page, read=None, then=None):
 
 
 def open_admin(page, base):
-    """Load and unlock the leadership console, settled and ready to drive."""
+    """Load and unlock the Admin console, settled and ready to drive."""
     load_admin(page, base)
     unlock_admin(page)
     page.wait_for_selector("#console:not(.hide)")

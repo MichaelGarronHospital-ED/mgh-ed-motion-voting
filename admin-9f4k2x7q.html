@@ -7,19 +7,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://ed-motion-voting-99b96.firebaseapp.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
-  <title>Motion Voting · Leadership</title>
+  <title>Motion Voting · Admin</title>
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/ed-ui.css?v=voting-10" />
-  <link rel="stylesheet" href="css/styles.css?v=voting-10" />
+  <link rel="stylesheet" href="css/ed-ui.css?v=voting-11" />
+  <link rel="stylesheet" href="css/styles.css?v=voting-11" />
 </head>
 <body>
   <main>
-  <!-- Leadership password: the same sign-in card as every ED tool -->
+  <!-- Admin password: the same sign-in card as every ED tool -->
   <div id="gate" class="gate-screen">
     <div class="card gate">
       <span class="ed-badge" aria-hidden="true">ED</span>
-      <h1>Leadership console</h1>
-      <p class="ed-muted">Enter the Leadership password to manage motions and see results.</p>
+      <h1>Admin console</h1>
+      <p class="ed-muted">Enter the Admin password to manage motions and see results.</p>
       <!-- method="post" and a disabled fieldset: until js/admin.js has taken over
            the form (slow network, or old and new cached files after an update), it
            cannot be sent by the browser itself, so the password never ends up in
@@ -27,7 +27,7 @@
       <form id="gate-form" class="gate-form" method="post" action="#">
         <fieldset id="gate-fields" class="gate-fields" disabled>
           <input class="pw-user" type="text" name="username" autocomplete="username" value="Leadership password" tabindex="-1" aria-hidden="true" />
-          <label class="ed-label" for="pass">Leadership password
+          <label class="ed-label" for="pass">Admin password
             <input class="ed-field" id="pass" name="password" type="password" autocomplete="current-password" aria-describedby="pass-help" />
           </label>
           <p class="ed-hint" id="pass-help">Not working on iPhone? Clear the box, type the password by hand, then tap Save when your phone offers.</p>
@@ -54,7 +54,7 @@
       <button type="button" id="open-settings" class="ed-btn ed-btn-plain btn-sm" aria-pressed="false">Settings</button>
       <button type="button" id="lock" class="ed-btn ed-btn-plain btn-sm">Lock</button>
     </header>
-    <h1 class="ed-title page-title">Leadership console</h1>
+    <h1 class="ed-title page-title">Admin console</h1>
     <div id="banners" class="banners" role="status" aria-live="polite"></div>
     <section id="name-card" class="card stack hide">
       <h2>Your name for the change history</h2>
@@ -338,6 +338,6 @@
   </div>
 
   <div id="toast" class="toast ed-toast hide" role="status" aria-live="polite"></div>
-  <script type="module" src="js/admin.js?v=voting-10"></script>
+  <script type="module" src="js/admin.js?v=voting-11"></script>
 </body>
 </html>
