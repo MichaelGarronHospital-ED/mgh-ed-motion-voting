@@ -5,15 +5,15 @@
 //  A phone never listens to ballots: "You voted ..." comes from this phone's
 //  own record of what it sent.
 // ============================================================================
-import { slugify } from "./roster.js?v=voting-10";
-import { ORG_NAME } from "./config.js?v=voting-10";
+import { slugify } from "./roster.js?v=voting-11";
+import { ORG_NAME } from "./config.js?v=voting-11";
 import {
   onLive, castVote, getSessionId, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson,
   watchMember, voterSignIn, leaderSignOut, isWrongPassword, classify, withTimeout, getHistoryOnce,
   countOnce, outcomeWords, outcomeKind, localDate, tsMillis, checkIn, getOwnBallot,
   receiptCode, ballotReceipt, clockTime,
-} from "./db.js?v=voting-10";
-import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-11";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -276,7 +276,7 @@ function voteBody() {
   }
   return head + ci + `<div class="ed-empty">${icon("clock", 40)}
     <strong>No motion open right now</strong>
-    <span>${board === null ? "Voting starts once leadership's console has been opened." : "Closed motions appear under Results."}</span></div>`;
+    <span>${board === null ? "Voting starts once the Admin console has been opened." : "Closed motions appear under Results."}</span></div>`;
 }
 
 // "Recorded: In favour. Receipt 7F3KQ. 12:04."

@@ -1,4 +1,4 @@
-"""The Leadership password can never be sent by the browser itself.
+"""The Admin password can never be sent by the browser itself.
 
 Before js/admin.js has taken over the sign-in form (slow network, or a mix of
 old and new cached files after an update), the form's fields are disabled and
@@ -49,6 +49,24 @@ class TestGateSafety(Base):
         h.load_admin(pg, self.base)
         self.assertIn(help_text, pg.inner_text("#gate-form"))
         self.assertEqual(pg.get_attribute("#pass", "aria-describedby"), "pass-help")
+
+    def test_console_says_admin_never_leadership(self):
+        # Step 11: the password, its sign-in and the console are called "Admin" in
+        # every word people see (the account email and the stored values stay).
+        pg = self.page
+        h.load_admin(pg, self.base)
+        gate = pg.inner_text("#gate")
+        self.assertIn("Admin console", gate)
+        self.assertIn("Enter the Admin password to manage motions and see results.", gate)
+        self.assertEqual(pg.inner_text("label[for=pass]").strip(), "Admin password")
+        self.assertNotIn("leadership", gate.lower())
+        self.assertTrue(pg.title().endswith("· Admin"), pg.title())
+        pg.fill("#pass", "a-password")
+        pg.click("#enter")
+        pg.wait_for_selector("#console:not(.hide)")
+        self.assertEqual(pg.inner_text(".page-title"), "Admin console")
+        self.assertTrue(pg.title().endswith("· Admin"), pg.title())
+        self.assertNotIn("leadership", pg.inner_text("body").lower())
 
     def test_voter_password_form_is_built_by_its_code(self):
         html = (h.REPO / "index.html").read_text()

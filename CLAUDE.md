@@ -64,13 +64,19 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   existing sign-in and never signs in over it (one sign-in per browser for every tab);
   signed out, it asks for the ED password only. Controls are in the console's Meeting
   tab and live in `config/screen`.
-- `admin-9f4k2x7q.html` → leadership view (loads `js/admin.js`). Leadership-password-gated (Firebase sign-in) +
+- `admin-9f4k2x7q.html` → the Admin console (loads `js/admin.js`). Admin-password-gated (Firebase sign-in) +
   unguessable filename; keep the filename obscure if it's ever rotated.
+- **"Admin" is the word people see** (since step 11, Oct 2026; it was "Leadership"): the
+  Admin password, the Admin console, Admin only. Code and data keep the old names: the
+  account `leadership@mgh-ed-voting.invalid`, `LEADER_UID`, `isLeader`, `by: "leadership"`
+  on attendance, and the hidden password-manager name "Leadership password" (phones saved
+  the password under it). Keep "ED leadership" where it means the people. Don't rename
+  the code names: a stored value or a cached page may still use them.
 - `js/config.js` → Firebase config, `LEADER_UID` + `ED_UID` (the two shared accounts, by
-  uid, the same as `firestore.rules`), `LEADER_EMAIL` + `ED_EMAIL` (used only to sign in;
+  uid, the same as `firestore.rules`), `LEADER_EMAIL_NEW` + `ED_EMAIL_NEW` (used only to sign in;
   the passwords live only in Firebase Auth), `ORG_NAME`.
 - `js/roster.js` → the starting roster and GROUP1 / GROUP2 / COURTESY weight assignments.
-  Leadership's changes live in Firestore `config/roster` (`groups`, `added`, `removed`);
+  Changes made in the Admin console live in Firestore `config/roster` (`groups`, `added`, `removed`);
   `currentRoster()` in db.js is the list in use (roster.js + added − removed).
 - `js/db.js` → Firestore + Auth wiring and who is in which category. `js/count.js` → the
   counting itself (pure, no Firebase; re-exported by db.js). `js/board.js` → builds the
@@ -98,12 +104,12 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   `signInWithEmailAndPassword`. `tests/test_accounts.py` keeps config and rules equal and
   refuses any `.email ===` check in page code. `signInAs` signs in with the `.invalid`
   emails (`*_EMAIL_NEW`; step 9's old/new fallback is gone since step 10) and accepts only
-  the pinned uid. The old `.app` emails stay in `js/config.js` for one release, unused. **Never delete a role account** (a new one
-  has a new uid).
+  the pinned uid. The old emails are gone from the code since step 11. **Never delete a role
+  account** (a new one has a new uid).
 - **Weights:** GROUP1 = 1 pt, GROUP2 = ½ pt, COURTESY = 0. A motion passes when
   weighted *In favour* > weighted *Against*; abstentions count toward quorum only.
   Quorum = 50% of eligible voters, computed automatically. These are `LEGACY_RULE` in
-  `count.js` and the defaults. Leadership can change them in **Settings** (points per
+  `count.js` and the defaults. The Admin console can change them in **Settings** (points per
   vote 0 to 1, quorum %, default pass rule "more in favour" or "two-thirds of points cast",
   tie wording, how long the change history is kept: at least 7 years); saved in
   `config/settings`, checked by the rules (R3). Each motion keeps a copy of the rules it
@@ -124,7 +130,7 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   `priorResults`, the frozen categories go into the change log. Ballots of a closed
   motion are locked (no Remove), and a motion is deleted only from the Trash.
 - **Change log (`log/`)**: open, close, catch-up, re-open and permanent delete write an
-  entry in the same batch or transaction. Leadership only; never edited.
+  entry in the same batch or transaction. Admin only; never edited.
 - **Phones read two small documents, never ballots.** `config/live` (the board: what
   is open and this meeting's results) and `config/roster`; past results are one read of
   `config/history` on a tap. "You voted" comes from the phone's own record
@@ -155,13 +161,13 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   top two (`runoffMotion`, logged as "runoff"). Options lock once voting starts.
 - **Attendance, remote and receipts are claims, not proof** (everyone shares the ED
   password). A check-in (`meetings/{m}/attendance/{slug}`: in the room or remote) is one
-  optional tap while the meeting is open (R7) and never needed to vote; leadership can
+  optional tap while the meeting is open (R7) and never needed to vote; the Admin console can
   add or remove someone. A vote receipt (`count.js receiptCode`: the motion, the name,
   what was recorded and how many times it changed) shows what was recorded under a
-  name, not who tapped; leadership sees the same code from the stored ballot, so nothing
+  name, not who tapped; the Admin console shows the same code from the stored ballot, so nothing
   extra is stored. There are no proxy votes. Say these limits plainly; HONEST LIMITS in
   `firestore.rules` lists them.
-- **The projector never shows the for and against split** unless leadership ticks "Show
+- **The projector never shows the for and against split** unless the Admin console ticks "Show
   the live count", and never a verdict before the result is saved (or counted once after
   30 s). Its timer never closes a vote.
 - **The console waits for its data (the load gate).** Nothing that saves a result, and no
@@ -170,7 +176,7 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   "Loading"). A page newer than the published rules says it "needs a database update".
 - **Rules first, then the page.** Each upgrade step's rules are published before its page
   is merged, and are written so the previous page still works with them.
-- **All asset paths are relative** — never hardcode `/mgh-ed-motion-voting/`, so
+- **All asset paths are relative**: never hardcode `/mgh-ed-motion-voting/`, so
   the app keeps working wherever it's served.
 - **Firestore rules are the source of truth for access.** If you change data
   shape in `db.js`, change `firestore.rules` and its tests with it: the rules
@@ -182,7 +188,7 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   also carry a Content-Security-Policy `<meta>`: a new script host or Firebase
   service has to be added there, and inline scripts and `onclick=` handlers are blocked.
 - Duplicate votes are **flagged, not blocked** (a genuine vote change must still
-  work); write-ins land at 0 weight with a *NEW* tag until leadership assigns one.
+  work); write-ins land at 0 weight with a *NEW* tag until the Admin console assigns one.
   The rules *cannot* enforce one-ballot-per-person: every voter signs in as the
   same ED account, so anyone with the ED password can write any name's ballot.
   That is the accepted trade-off; the limits are spelled out under **HONEST
@@ -192,10 +198,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   tally scores as "NO QUORUM", so painting it early announces a wrong outcome on
   a shared screen. Both results views and the CSV export gate on a `loaded` flag
   fed by the first snapshot; `tests/` pins this.
-- **Leadership and voters must agree on what is open.** Voters only see motions
-  that are neither archived nor deleted, so leadership's live-motion filter uses
+- **The Admin console and voters must agree on what is open.** Voters only see motions
+  that are neither archived nor deleted, so the console's live-motion filter uses
   the *same* predicate and `openPoll` unarchives what it opens. A motion that is
-  `open` but `archived` is invisible to voters — don't reintroduce that state.
+  `open` but `archived` is invisible to voters; don't reintroduce that state.
 - **`voteCount` is the distinct-voter counter**, not a ballot log: it drives the
   edit lock and the purge confirmation, so anything that removes a ballot must
   bring it down too (`clearVote` does this transactionally, floored at 0).

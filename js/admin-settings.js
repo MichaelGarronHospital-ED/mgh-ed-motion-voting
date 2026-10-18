@@ -1,13 +1,13 @@
-// Leadership console: the Settings view. The voting rules (points per vote,
+// Admin console: the Settings view. The voting rules (points per vote,
 // quorum, pass rule, tie wording, how long the change history is kept), your
 // name for the change history, and the change history itself.
 import {
   getLogPage, setLogName, classify, rulesNeedUpdate, DB_UPDATE_MSG, currentSettings, saveSettings, DEFAULT_RULE,
   keepYears, purgeOldHistory,
-} from "./db.js?v=voting-10";
-import { escapeHtml, toast } from "./util.js?v=voting-10";
-import { $, R } from "./admin-state.js?v=voting-10";
-import { logLine } from "./admin-results.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { escapeHtml, toast } from "./util.js?v=voting-11";
+import { $, R } from "./admin-state.js?v=voting-11";
+import { logLine } from "./admin-results.js?v=voting-11";
 
 const NAME_KEY = "mv_log_name", ASKED_KEY = "mv_log_name_asked";
 const store = {

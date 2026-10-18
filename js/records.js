@@ -1,17 +1,17 @@
-// Leadership console: records (Excel download and printed results).
+// Admin console: records (Excel download and printed results).
 // A meeting's votes live only in Firestore, so leadership needs a copy it keeps:
 // every motion with its result, every named ballot, and the roster, in one Excel
 // file; or the results on paper / as a PDF. Ballots are read fresh for every
 // motion (not just the one on screen), so the file is complete.
-import { ORG_NAME } from "./config.js?v=voting-10";
+import { ORG_NAME } from "./config.js?v=voting-11";
 import {
   weightForVote, groupForVote, getVotesFor, resolvedRoster, eligibleCount, quorumThreshold,
   resultOf, outcomeWords, sortMotions, currentRule, liveEligible, quorumNeededFor, weightIn,
   currentMeetings, agendaOrder, getLogForMeeting, tsMillis, getAttendanceOnce, ballotReceipt,
-} from "./db.js?v=voting-10";
-import { escapeHtml, labelOf, fmt, toast, voteWords } from "./util.js?v=voting-10";
-import { buildXlsx, XLSX_MIME } from "./xlsx.js?v=voting-10";
-import { $, S, R, catLabel, groupLabel, download, meetingLabel, niceDate } from "./admin-state.js?v=voting-10";
+} from "./db.js?v=voting-11";
+import { escapeHtml, labelOf, fmt, toast, voteWords } from "./util.js?v=voting-11";
+import { buildXlsx, XLSX_MIME } from "./xlsx.js?v=voting-11";
+import { $, S, R, catLabel, groupLabel, download, meetingLabel, niceDate } from "./admin-state.js?v=voting-11";
 
 export function wireRecords() {
   $("export-all").addEventListener("click", () => { closeMenu(); exportAll(); });
@@ -188,7 +188,7 @@ function meetingTables({ m, recs, log, attendance = [] }) {
   [...slugs].map((s) => {
     const a = att[s], e = people.get(s);
     const name = (a && a.name) || (e && e.name) || s;
-    const how = a ? `${a.mode === "remote" ? "Remote" : "In the room"}${a.by === "leadership" ? " (added by leadership)" : ""}` : "Voted, did not check in";
+    const how = a ? `${a.mode === "remote" ? "Remote" : "In the room"}${a.by === "leadership" ? " (added in the Admin console)" : ""}` : "Voted, did not check in";
     return [name, e ? (e.group === "writein" ? "Write-in" : catLabel(e.group)) : "", how, a ? when(a.at) : "", e ? e.motions.join(", ") : "", (a && a.note) || ""];
   }).sort((x, y) => x[0].localeCompare(y[0])).forEach((row) => sheet.push(row));
   const changes = [["Time", "Change", "By", "Details", "Reason"]];

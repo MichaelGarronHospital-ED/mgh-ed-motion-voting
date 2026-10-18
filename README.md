@@ -4,13 +4,13 @@ A free, mobile-friendly weighted-voting site for live meeting motions.
 Static frontend on **GitHub Pages** + **Firebase Firestore** for real-time vote storage.
 
 - **Voters:** `index.html`: pick your name, tap *In favour / Against / Abstain*.
-- **Leadership:** `admin-9f4k2x7q.html`: manage motions, see live weighted tally,
-  quorum meter, per-person table + CSV export. Leadership-password-protected + unguessable URL.
+- **Admin console:** `admin-9f4k2x7q.html`: manage motions, see live weighted tally,
+  quorum meter, per-person table + CSV export. Admin-password-protected + unguessable URL.
 
 The starting rules: **Group 1 = 1 pt**, **Group 2 = ½ pt**, **Courtesy = 0**; a motion
 passes when weighted *In favour* > weighted *Against*; abstentions count toward quorum
-only; quorum is **50% of eligible voters**, rounded up. Leadership can change these in
-the console's **Settings** (they apply to motions opened afterwards; closed motions keep
+only; quorum is **50% of eligible voters**, rounded up. They can be changed in the Admin
+console's **Settings** (they apply to motions opened afterwards; closed motions keep
 their saved results).
 
 ## Where it lives
@@ -18,7 +18,7 @@ their saved results).
 | | |
 |---|---|
 | Voters | https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/ |
-| Leadership | https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/admin-9f4k2x7q.html |
+| Admin console | https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/admin-9f4k2x7q.html |
 | Repo | https://github.com/MichaelGarronHospital-ED/mgh-ed-motion-voting |
 | Owner | Alvin Yang |
 | Firebase project | `ed-motion-voting-99b96` (config in [`js/config.js`](js/config.js), public by design) |
@@ -26,12 +26,12 @@ their saved results).
 - **Deploys:** GitHub Pages, from `main`, root folder, no build step. A push to
   `main` is live about a minute later.
 - **Passwords (since Oct 14 2026):** the ED tools' shared **ED password** (voters, once per
-  device) and **Leadership password** (the settings console). Nothing about either is in
+  device) and **Admin password** (the Admin console). Nothing about either is in
   the repo: each is the password of one Firebase Auth account, checked by Firebase, and
   the rules and pages accept only those two accounts, by uid (see Sign-in below).
   To change them, use the ED tools passwords page,
   https://michaelgarronhospital-ed.github.io/mgh-ed-hiring/passwords.html (sign in with the
-  Leadership password). `set-passwords.py` in the `MGH-ED-Tools` folder is the break-glass way.
+  Admin password). `set-passwords.py` in the `MGH-ED-Tools` folder is the break-glass way.
 - **Old address:** this tool used to live at
   `https://dralvinyang.github.io/ED-motion-voting/tools/motion-voting/`. That
   old repo is archived and only redirects: old `/tools/motion-voting/…` links
@@ -57,7 +57,7 @@ Edit [`js/config.js`](js/config.js):
 - Quorum and points per vote are set in the console's Settings (50% of eligible voters and 1 / 0.5 / 0 to start); nothing to configure here.
 
 The starting list of physicians is in [`js/roster.js`](js/roster.js) (**GROUP1 / GROUP2 / COURTESY**).
-Day to day, leadership changes the list in the console instead, with no code change:
+Day to day, change the list in the Admin console instead, with no code change:
 **Physicians** tab → **Add a physician** (name and category), **Remove** on a row, or
 **Restore** under Removed. A category button changes someone's category. These changes
 are saved in Firebase and reach every phone straight away. Removing never deletes
@@ -67,7 +67,7 @@ anything, and closed motions always keep their results.
 Pages is already enabled (`main` / root), so a `git push` to `main` deploys it.
 About a minute later:
    - Voters: https://michaelgarronhospital-ed.github.io/mgh-ed-motion-voting/
-   - Leadership: `.../mgh-ed-motion-voting/admin-9f4k2x7q.html`
+   - Admin console: `.../mgh-ed-motion-voting/admin-9f4k2x7q.html`
 
 [`voter-qr.png`](voter-qr.png) encodes that voter URL. QR codes printed before
 the move point at the old address, which redirects here. Renaming this repo
@@ -78,7 +78,7 @@ changes the URL and breaks the QR code, so don't, unless you leave a redirect.
 local tests instead (`tests/README.md`): they need no Firebase at all. To try the
 real site, never during a meeting:
 
-Open `admin-9f4k2x7q.html`, enter the Leadership password → **Motions** → add a motion
+Open `admin-9f4k2x7q.html`, enter the Admin password → **Motions** → add a motion
 named clearly, e.g. "TEST, please ignore" → **Open**. Open `index.html` in another
 tab/phone, enter the ED password, pick a name, vote. Confirm the tally and quorum
 meter update live in the admin **Live results** tab. Then **Close** the test motion,
@@ -148,25 +148,30 @@ the record.
 
 ## Notes
 - **Duplicate detection:** one row per name. If the same name votes from two
-  different devices it's **flagged for review** (highlighted in the Voters tab) —
+  different devices it's **flagged for review** (highlighted in the Voters tab):
   votes are not silently blocked, so a genuine vote change still works.
 - **Write-ins:** new/unlisted members can add their name; they're recorded with
-  **0 weight** and a *NEW* tag until leadership assigns a weight in the Voters tab.
+  **0 weight** and a *NEW* tag until a weight is assigned in the Admin console's Voters tab.
 - Identity is trust-based (anyone with the link can pick a name). Appropriate for
   a known group; the structure supports adding per-person PINs later if wanted.
 - **Device lock:** once someone votes on a device, it's locked to that name (can't
   switch names and vote again). Voters **can still change their own choice** until
   the motion closes.
 
-## Sign-in (Firebase Auth): the ED and Leadership passwords
+## Sign-in (Firebase Auth): the ED and Admin passwords
 
 Firestore only answers two shared accounts (see `firestore.rules`):
 
 | Account | uid (`js/config.js`) | Signs in with (`js/config.js`) | Password |
 |---|---|---|---|
-| ED | `ED_UID` = `CXyo7yciWpc78J1TQYRzrPpu77C3` | `ED_EMAIL` | the **ED password**. Voters enter it once on the voting page; Firebase remembers the sign-in on that device. |
-| Leadership | `LEADER_UID` = `3eigCLaK0RQ5PmVhxfDgI0qoYzQ2` | `LEADER_EMAIL` | the **Leadership password**. Opens the settings console (`admin-9f4k2x7q.html`). |
+| ED | `ED_UID` = `CXyo7yciWpc78J1TQYRzrPpu77C3` | `ED_EMAIL_NEW` | the **ED password**. Voters enter it once on the voting page; Firebase remembers the sign-in on that device. |
+| Admin | `LEADER_UID` = `3eigCLaK0RQ5PmVhxfDgI0qoYzQ2` | `LEADER_EMAIL_NEW` | the **Admin password**. Opens the Admin console (`admin-9f4k2x7q.html`). |
 
+- **"Admin" was called "Leadership" until voting step 11 (Oct 2026).** Only the words
+  people see changed. The account email (`leadership@mgh-ed-voting.invalid`), the uid,
+  the code names (`LEADER_UID`, `isLeader`), the stored values (`by: "leadership"`) and the
+  page's hidden password-manager name ("Leadership password", so saved passwords keep
+  matching) stay as they were.
 - **An account is recognised by its uid, never by its email** (since voting step 9). The
   rules (`isAccount`) and the pages (`isMember`, `isLeader` in `js/db.js`) compare the uid,
   which never changes, so the rules and pages stay right when an account's email is changed
@@ -177,12 +182,9 @@ Firestore only answers two shared accounts (see `firestore.rules`):
   refuse it until both are updated with the new uid (rules first, then the page).
 - Both accounts live in Firebase → Authentication (Email/Password provider), and only a
   password sign-in counts. Anonymous sign-in is not accepted by the rules.
-- The emails are moving from `*.ed-motion-voting.app` (a domain nobody owns, so anyone
-  could buy it and reset a password) to `*.mgh-ed-voting.invalid` (reserved, can never be
-  registered). Since step 9 each password screen signs in with the email that last worked
-  on the device and, only if that is refused, tries the other one once, so the right
-  password works before, during and after the change with no page update in the window.
-  Since step 10 (a few weeks after the change) the pages sign in with the new emails only.
+- The emails are `*.mgh-ed-voting.invalid` (reserved, can never be registered), since
+  Oct 2026. The earlier ones were on a domain nobody owned, so anyone could have bought it
+  and reset a password; since step 11 they are gone from the code (see `CHANGES.md`).
 
 **Rollback:** if newly published rules misbehave, put the previous version back:
 Firebase console → Firestore Database → **Rules** lists every published version, so
@@ -212,7 +214,7 @@ the new rules, so nothing breaks in between.
 - Close and reopen every console and projector tab after an update reaches the site.
   An open console also says "A newer version is available. Reload."
 - After the account email change, every phone and the console ask for the password
-  once: the ED password for voters, the Leadership password for the console. Then it is
+  once: the ED password for voters, the Admin password for the console. Then it is
   back to normal.
 - Browsers keep the site's files for up to 10 minutes, so for a short time a page can
   mix old and new files and stay on "Starting...": reload it. To check a new

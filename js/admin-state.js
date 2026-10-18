@@ -1,10 +1,10 @@
 // ============================================================================
-//  Leadership console: state and helpers shared by its modules.
+//  Admin console: state and helpers shared by its modules.
 //  admin.js (shell, sign-in, tabs) loads admin-motions.js, admin-results.js,
 //  admin-roster.js and records.js; they share state through S and redraw each
 //  other through R, so no module imports another (no import cycles).
 // ============================================================================
-import { escapeHtml, icon } from "./util.js?v=voting-10";
+import { escapeHtml, icon } from "./util.js?v=voting-11";
 
 export const $ = (id) => document.getElementById(id);
 
