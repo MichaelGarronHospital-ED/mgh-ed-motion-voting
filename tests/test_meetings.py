@@ -171,6 +171,7 @@ class TestMeetings(Console):
         pg = self.console(seed)
         h.tab(pg, "meeting")
         pg.evaluate("window.confirm = () => true")
+        h.edit_meeting(pg)
         pg.click("#meeting-trash-btn")
         pg.wait_for_selector("text=Close the open motion first.")
         self.assertFalse(h.get(pg, "meetings/m1")["deleted"])
@@ -195,7 +196,7 @@ class TestMeetings(Console):
             seed_closed_saved(pg, "c1", NOW - 60000, meetingId="m1", ballots=3, text="Approve the schedule", mover="Kyle Vojdani")
             h.seed(pg, "meetings/m1/attendance/alvin-yang", {"name": "Alvin Yang", "slug": "alvin-yang", "mode": "room", "by": "leadership", "at": h.ts(NOW)})
         pg = self.console(seed)
-        h.tab(pg, "meeting")
+        h.tab(pg, "results")                                   # "Records of this meeting" is on Results
         with pg.expect_download() as dl:
             pg.click("#meeting-export")
         self.assertEqual(dl.value.suggested_filename, "motion-voting-2026-11-20-ed-department-meeting.xlsx")
@@ -285,6 +286,7 @@ class TestMeetings(Console):
         pg.click('#motion-list button[data-act="down"][data-id="c1"]')
         pg.wait_for_function("() => window.__store.get('config/live').results.c1.number === '2'")
         h.tab(pg, "meeting")
+        h.edit_meeting(pg)
         pg.fill("#meeting-title", "ED meeting (renamed)")
         pg.click("#meeting-form button[type=submit]")
         pg.wait_for_function("() => window.__store.get('config/live').meeting.title === 'ED meeting (renamed)'")
@@ -385,7 +387,7 @@ class TestAgenda(Console):
         self.assertEqual(self.agenda_numbers(pg), ["1", "1a", "1a.1"])
         self.assertEqual(pg.locator('#motion-list button[data-act="amend"][data-id="aa"]').count(), 0)
         self.assertEqual(pg.locator('#motion-list button[data-act="amend"][data-id="a"]').count(), 1)
-        pg.click('#motion-list button[data-act="amend"][data-id="m"]')
+        h.motion_act(pg, "amend", "m")
         pg.fill("#amend-m", "Amendment B: change the date")
         pg.click('#motion-list form[data-amend="m"] button[type=submit]')
         pg.wait_for_function("() => Object.values(window.__store.dump()).some(v => v.text === 'Amendment B: change the date' && v.amends === 'm')")

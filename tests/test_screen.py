@@ -159,7 +159,8 @@ class TestConsoleControls(Base):
         seed_open(pg, ballots=h.GROUP1[:5])
         pg.wait_for_timeout(300)
         h.tab(pg, "results")
-        pg.check("#hide-live")
+        pg.click("#hide-live")                                       # the eye on the result card
+        self.assertEqual(pg.get_attribute("#hide-live", "aria-pressed"), "true")
         body = pg.inner_text("#results-body")
         self.assertNotIn("pts", body)
         self.assertIn("The live count is hidden on this screen.", body)

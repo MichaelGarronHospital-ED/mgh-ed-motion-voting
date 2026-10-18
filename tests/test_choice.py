@@ -152,7 +152,7 @@ class TestChoiceConsole(Base):
         pick_ballots(pg, "q1", h.GROUP1[:1], ["o1", "o3"])
         seed_choice(pg, seats=2, style="election", voteCount=1)
         pg.wait_for_timeout(300)
-        h.tab(pg, "voters")
+        h.tab(pg, "results")   # Who voted is on the Results tab
         self.assertIn("Dr A, Dr C", pg.inner_text("#voters-table"))
 
 

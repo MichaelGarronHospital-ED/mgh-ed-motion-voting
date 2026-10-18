@@ -136,7 +136,7 @@ class TestSettings(Base):
         self.assertIn("Saved. Applies to motions opened from now on.", pg.inner_text("#toast"))
         h.tab(pg, "roster")
         self.assertIn("Group 2, 1 point", pg.inner_text("#keylist"))
-        self.assertIn(f"Eligible {h.ELIGIBLE}", pg.inner_text("#roster-counts"))
+        self.assertIn(f"{h.ELIGIBLE} currently eligible", pg.text_content("#roster-summary"))
         h.tab(pg, "motions")
         pg.click('#motion-list button[data-act="open"][data-id="pd"]')
         pg.wait_for_function("() => window.__store.get('polls/pd').status === 'open'")
@@ -191,8 +191,8 @@ class TestSettings(Base):
 class TestRosterPaste(Base):
     def preview(self, pg, text):
         h.tab(pg, "roster")
-        if not pg.evaluate("document.querySelector('#paste-fold').open"):
-            pg.click("#paste-fold summary")
+        if pg.is_hidden("#paste-box"):
+            pg.click("#paste-toggle")
         pg.fill("#paste-text", text)
         pg.click("#paste-preview")
         pg.wait_for_selector("#paste-apply")
