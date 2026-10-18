@@ -4,6 +4,40 @@ Running log of what changed and why, newest first.
 
 ---
 
+## A simpler Admin console (voting-12, UX pass, Oct 2026)
+
+Alvin asked for the console to be "as minimal and simple as possible, anyone can pick it
+up". Only how it looks changed: every gate, confirm, saved result, change-log entry and
+rule works exactly as before, and nothing stored changed.
+
+- **Tabs in the order of the work:** Meeting, Physicians, Motions, Results. The old Voters
+  tab is now **Who voted**, at the bottom of Results, using the same motion picker.
+  **Records of this meeting** (Excel, Print) moved from Meeting to the bottom of Results.
+- **Header:** a name chip ("Add your name" until you save one) replaces the big "Your name
+  for the change history" card and the second name field in Settings. Same storage, same
+  change-log name. Export has a download icon; Settings and Lock are icons with hover text.
+- **Explanations behind (i) buttons:** long grey sentences moved behind small (i) buttons
+  next to what they explain (hover, keyboard or tap; Escape or a tap elsewhere closes).
+- **Meeting:** one Start or End button; title, date, chair, notes, check-in and "Move
+  meeting to Trash" sit behind **Edit details**. A smaller QR code with the link beside it.
+  Attendance hides when check-in is off and nobody checked in.
+- **Physicians:** one line of counts (meanings and totals behind (i)), a filter box,
+  **Add physician** and **Paste a list** open inline. The table is Name, Category, and a
+  remove icon (the Category text and Points columns are gone). A long Removed list folds.
+- **Motions:** **Add a motion** opens the form (open by default only on an empty agenda),
+  with Paste an agenda inside it. Each row shows only what is needed now (Open and Edit,
+  Close and Live results, or Results); Re-open, Re-vote, Add amendment, Archive and Delete
+  are under the row's More (three dots) menu. Up and Down are arrow icons; the lock line
+  is a lock icon with hover text.
+- **Results:** an eye button on the result card hides the live count (for the projector).
+  The footer shows write-ins and flagged only when there are some, and the pass rule is
+  behind (i). The "nothing could have changed" catch-up note no longer shows.
+- **Who voted:** Name, Category, Vote, Remove (Submissions only when someone is flagged).
+  The Weight and Receipt columns are gone; the receipt code is the vote's hover text. The
+  CSV and Excel files keep every column, receipts included.
+
+---
+
 ## "Leadership" is now "Admin" (voting step 11, Oct 2026)
 
 Alvin's decision (2026-10-18): the shared password and access level called "Leadership"
