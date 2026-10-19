@@ -4,9 +4,11 @@ rules_version = '2';
 //   • Only two shared Firebase accounts get in at all, recognised by uid (below,
 //     same as js/config.js): ed@ (the ED password, every voter) and leadership@
 //     (the Leadership password, the console). Anyone else reads and writes nothing.
-//   • A voter (the ED account) may read everything, and while a motion is open
-//     may cast or change a ballot of exactly the shape js/db.js castVote writes,
-//     and add exactly one to that motion's voteCount.
+//   • A voter (the ED account) may read everything except the change log and
+//     the ballots of a motion that is not open (closed ballots are Admin only,
+//     since voting-14), and while a motion is open may cast or change a ballot
+//     of exactly the shape js/db.js castVote writes, and add exactly one to
+//     that motion's voteCount.
 //   • Leadership manages motions and settings, with these limits (since the
 //     saved-results update, R1): a saved result is never changed; ballots of
 //     a closed motion are locked; a motion is deleted only from the Trash (its
@@ -209,7 +211,10 @@ service cloud.firestore {
                     || (signedIn() && voterBumpsVoteCount(poll));
 
       match /votes/{vote} {
-        allow read: if signedIn();
+        // Ballots carry names. While a motion is open the ED account reads them
+        // (castVote reads the voter's own ballot; the projector counts turnout
+        // and, if Admin ticks it, the live count). Once it closes, only Admin.
+        allow read: if isLeader() || (signedIn() && pollIsOpen(poll));
         // a voter may only cast/change a ballot while the motion is OPEN, and
         // only in the shape above. Leadership may write ballots until the
         // motion closes; closed ballots are kept with the result.
@@ -334,8 +339,12 @@ service cloud.firestore {
 //    A voter can also bump an open motion's voteCount by one on its own
 //    (it only drives the edit lock and the purge warning, not any result).
 //
-//  • Everyone with the ED password can read every ballot, names and choices
-//    included. Voting is not secret from the group.
+//  • While a motion is open, everyone with the ED password can read its
+//    ballots, names and choices included (no screen shows them, but the
+//    database allows it: castVote reads the voter's own ballot and the
+//    projector counts turnout). Once it closes, only Admin can (since
+//    voting-14). A re-opened motion is readable again while it is open.
+//    Voting is not secret from Admin, and not secret from the group while open.
 //
 //  • The Leadership password is the password of the leadership@ account, so
 //    its strength is the strength of every leadership rule here.

@@ -201,8 +201,14 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   The rules *cannot* enforce one-ballot-per-person: every voter signs in as the
   same ED account, so anyone with the ED password can write any name's ballot.
   That is the accepted trade-off; the limits are spelled out under **HONEST
-  LIMITS** at the bottom of `firestore.rules`. Voting is not secret: everyone with
-  the ED password can read names and choices, so never call it anonymous.
+  LIMITS** at the bottom of `firestore.rules`. Voting is not secret: while a motion
+  is open everyone with the ED password can read its names and choices, and Admin
+  always can, so never call it anonymous. **Closed ballots are Admin only**
+  (voting-14): the rules refuse ED reads of a motion that is not open, so phones and an
+  ED projector never count a late result themselves (they wait for the saved one),
+  "Check my recorded vote" is offered only while the motion is open (after close the
+  voter shows the receipt code to Admin), and a refused ballot listener on the
+  projector is not a sign-out (`ballotsFailed` in `screen.js`).
 - **Never show a verdict before that motion's ballots have arrived.** An empty
   tally scores as "NO QUORUM", so painting it early announces a wrong outcome on
   a shared screen. Both results views and the CSV export gate on a `loaded` flag

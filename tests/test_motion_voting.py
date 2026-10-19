@@ -71,6 +71,8 @@ class TestRosterAndQuorum(Base):
     def test_courtesy_ballot_does_not_count_toward_quorum(self):
         pg = self.page
         pg.clock.install()
+        # The phone's own late count needs the Admin sign-in (closed ballots are Admin only).
+        pg.add_init_script(h.auth_init(h.LEADER_EMAIL))
         h.open_voter(pg, self.base)
         h.seed_ballots(pg, "p1", h.COURTESY, group="courtesy", weight=0)
         h.seed_poll(pg, status="closed", vote_count=len(h.COURTESY))
@@ -232,6 +234,8 @@ class TestResultsAreNeverWrong(Base):
     def test_voter_sees_counting_not_a_verdict_before_ballots_load(self):
         pg = self.page
         pg.clock.install()
+        # The phone's own late count needs the Admin sign-in (closed ballots are Admin only).
+        pg.add_init_script(h.auth_init(h.LEADER_EMAIL))
         h.open_voter(pg, self.base)
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")
         h.seed_poll(pg, status="closed", vote_count=26)
@@ -270,6 +274,8 @@ class TestResultsAreNeverWrong(Base):
     def test_voter_results_show_counting_while_ballots_are_in_flight(self):
         pg = self.page
         pg.clock.install()
+        # The phone's own late count needs the Admin sign-in (closed ballots are Admin only).
+        pg.add_init_script(h.auth_init(h.LEADER_EMAIL))
         h.open_voter(pg, self.base)
         pg.evaluate("window.__store.stall('polls/p1/votes')")
         h.seed_ballots(pg, "p1", h.GROUP1[:26], choice="favour")

@@ -95,6 +95,8 @@ class TestVoterBoard(Base):
         whatever its clock says, with the motion's frozen categories and rule."""
         pg = self.page
         pg.clock.install(time=NOW + 600000)          # the phone's clock is 10 minutes off
+        # The phone's own late count needs the Admin sign-in (closed ballots are Admin only).
+        pg.add_init_script(h.auth_init(h.LEADER_EMAIL))
         h.open_voter(pg, self.base)
         h.seed_ballots(pg, "c1", h.GROUP2[:4], group="2", weight=0.5)
         locked = roster_locked()
@@ -116,6 +118,26 @@ class TestVoterBoard(Base):
         self.assertEqual(pg.evaluate("window.__store.reads('polls/c1')"), 5)
         pg.clock.run_for(60000)
         self.assertEqual(h.reads(pg, "polls/c1/votes"), 4)            # once only
+
+    def test_ed_phone_waits_for_the_saved_result_without_reading_ballots(self):
+        """Closed ballots are Admin only (voting-14): with the ED password, a late
+        result is never counted on the phone; it says the result will come."""
+        pg = self.page
+        pg.clock.install(time=NOW)
+        h.open_voter(pg, self.base)
+        h.seed_ballots(pg, "c1", h.GROUP1[:4])
+        h.seed(pg, "polls/c1", {"text": "Late result", "order": 0, "status": "closed", "voteCount": 4, "archived": False,
+                                "deleted": False, "closedAt": h.ts(NOW - 5000), "openedAt": h.ts(NOW - 60000),
+                                "lockedGroups": roster_locked(), "rule": RULE})
+        build_board(pg)
+        h.pick_voter(pg, h.GROUP1[0])
+        pg.click('[data-vtab="results"]')
+        pg.wait_for_selector("text=Counting votes")
+        pg.clock.run_for(31000)
+        pg.wait_for_selector("text=The result will appear when leadership's laptop saves it.")
+        self.assertEqual(h.outcomes(pg.inner_text("#app")), [])
+        pg.clock.run_for(60000)
+        self.assertEqual(h.reads(pg, "polls/c1/votes"), 0)
 
     def test_voter_waits_for_the_board_without_reading_motions(self):
         """No fallback any more: before the board exists, nothing is open for

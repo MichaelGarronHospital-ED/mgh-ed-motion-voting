@@ -9,13 +9,14 @@
 //  Listens to config/live (the board), config/screen (the console's controls),
 //  config/roster (who is eligible) and the open motion's ballots (turnout).
 // ============================================================================
-import { ORG_NAME } from "./config.js?v=voting-13";
+import { ORG_NAME } from "./config.js?v=voting-14";
 import {
   watchMember, voterSignIn, isWrongPassword, onLive, onScreen, onRosterOverrides, onVotesFor, classify, onAttendance,
   resultOf, outcomeWords, outcomeKind, liveEligible, quorumNeededFor, clockTime, countOnce, withTimeout, LEGACY_RULE,
-} from "./db.js?v=voting-13";
-import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-13";
-import { watchVersion } from "./version.js?v=voting-13";
+  isLeader,
+} from "./db.js?v=voting-14";
+import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-14";
+import { watchVersion } from "./version.js?v=voting-14";
 
 document.title = ORG_NAME + " · Meeting screen";
 const root = document.getElementById("screen");
@@ -82,7 +83,15 @@ function followOpen() {
   if (id === votesFor) return;
   if (votesUnsub) { votesUnsub(); votesUnsub = null; }
   votesFor = id; votes = []; votesLoaded = false;
-  if (id) votesUnsub = onVotesFor(id, (vs) => { votes = vs; votesLoaded = true; render(); }, failed);
+  if (id) votesUnsub = onVotesFor(id, (vs) => { votes = vs; votesLoaded = true; render(); }, ballotsFailed);
+}
+// The ballots are refused once the motion closes (closed ballots are Admin only),
+// which can reach this screen before the board says so. That is not a sign-out:
+// stop listening and keep the screen. A real sign-out also refuses the board.
+function ballotsFailed(e) {
+  if (classify(e) !== "refused") { failed(e); return; }
+  console.warn("ballots refused", e && e.code);
+  if (votesUnsub) { votesUnsub(); votesUnsub = null; }
 }
 function failed(e) {
   console.warn("listener failed", e && e.code);
@@ -168,10 +177,11 @@ function barsHTML(r) {
 }
 
 // Just closed: the saved result. If the save is late, the once-only count
-// after 30 seconds (as on phones); never a verdict before either exists.
+// after 30 seconds (as on phones; Admin sign-in only, since a closed motion's
+// ballots are Admin only); never a verdict before either exists.
 function closedHTML(id, e) {
   let r = e.result, note = "";
-  if (!r) {
+  if (!r && isLeader(member)) {
     let st = lateCount.get(id);
     if (!st) {
       st = { state: "waiting", result: null };

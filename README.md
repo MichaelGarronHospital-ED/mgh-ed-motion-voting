@@ -119,9 +119,11 @@ the record.
    optional, never needed to vote; turn it off in Settings or for one meeting). The
    Meeting tab's **Attendance** card lists who checked in; **Add someone** for a person
    without a phone, **Remove** for a mistake. After each vote a phone shows a short
-   **receipt** code; the Voters tab shows the same code next to that ballot, and a voter
-   can tap **Check my recorded vote** after the motion closes. A receipt shows what was
-   recorded under a name, not who tapped.
+   **receipt** code; Results → **Who voted** shows the same code (hover over the vote), and
+   a voter can tap **Check my recorded vote** while the motion is open. Once it closes,
+   only Admin can read the ballots (names and choices; everyone sees the saved result), so
+   a voter who wants a check then shows Admin the code. A receipt shows what was recorded
+   under a name, not who tapped.
 7. **At the end:** Meeting tab → **End meeting** (it closes any open motion first), then
    **Download this meeting (Excel)** for the record, or **Print this meeting** (minutes,
    without names).
