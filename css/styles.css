@@ -387,6 +387,8 @@ td.receipt code, .receipt-code { font:600 var(--ed-text-sm)/1.2 ui-monospace, SF
 @media (pointer: coarse) { .icon-btn { width:var(--ed-tap); min-width:var(--ed-tap); min-height:var(--ed-tap); } }
 .ed-btn-plain.icon-btn { color:var(--ed-ink-2); }
 .ed-btn-plain.icon-btn:hover { background:var(--ed-fill); color:var(--ed-ink); }
+/* Log out: words, never an icon alone; always on one line, last in the header. */
+.logout-btn { white-space:nowrap; flex-shrink:0; }
 #open-settings[aria-pressed="true"] { background:var(--ed-accent-tint); color:var(--ed-accent-ink); }
 details.menu > summary.no-caret::after { display:none; }
 details.menu > summary { cursor:pointer; }
@@ -402,6 +404,17 @@ details.menu > summary { cursor:pointer; }
 .chip-dot { position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:var(--ed-accent); }
 @media (pointer: coarse) { .chip { min-height:var(--ed-tap); } }
 @media (max-width:430px) { .chip { max-width:164px; padding:0 10px; } }
+/* On a phone the chip gives way first, so Log out stays on screen: it shrinks
+   (the name ends in "..."), and below 360px only its person icon shows (the
+   name is still read out, and the form it opens shows it). Below 360px the ED
+   badge (decoration) goes too, so "Logging out…" fits next to that icon. */
+@media (max-width:430px) { #name-menu { min-width:0; max-width:164px; } #name-menu > .chip { max-width:100%; box-sizing:border-box; } }
+@media (max-width:360px) {
+  #console .topbar > .ed-badge { display:none; }
+  #name-menu { flex-shrink:0; }
+  #name-menu > .chip { width:var(--ed-tap); padding:0; justify-content:center; }
+  #name-chip-text { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+}
 .name-pop { min-width:280px; padding:14px; max-width:calc(100vw - 32px); }
 @media (max-width:430px) { .namechip .menu-pop { right:auto; left:-48px; } }
 

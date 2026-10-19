@@ -9,8 +9,8 @@
   <meta name="color-scheme" content="light dark" />
   <title>Motion Voting · Admin</title>
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/ed-ui.css?v=voting-14" />
-  <link rel="stylesheet" href="css/styles.css?v=voting-14" />
+  <link rel="stylesheet" href="css/ed-ui.css?v=voting-15" />
+  <link rel="stylesheet" href="css/styles.css?v=voting-15" />
 </head>
 <body>
   <main>
@@ -19,6 +19,7 @@
     <div class="card gate">
       <span class="ed-badge" aria-hidden="true">ED</span>
       <h1>Admin console</h1>
+      <p id="gate-note" class="ed-muted gate-note hide" role="status">You are logged out.</p>
       <p class="ed-muted">Enter the Admin password to manage motions and see results.</p>
       <!-- method="post" and a disabled fieldset: until js/admin.js has taken over
            the form (slow network, or old and new cached files after an update), it
@@ -64,7 +65,7 @@
           </div>
         </details>
         <button type="button" id="open-settings" class="ed-btn ed-btn-plain icon-btn" aria-pressed="false" aria-label="Settings" title="Settings" data-icon="gear"></button>
-        <button type="button" id="lock" class="ed-btn ed-btn-plain icon-btn" aria-label="Lock" title="Lock" data-icon="lock"></button>
+        <button type="button" id="logout" class="ed-btn ed-btn-plain logout-btn">Log out</button>
       </div>
     </header>
     <h1 class="page-title">Admin console</h1>
@@ -304,6 +305,6 @@
   </div>
 
   <div id="toast" class="toast ed-toast hide" role="status" aria-live="polite"></div>
-  <script type="module" src="js/admin.js?v=voting-14"></script>
+  <script type="module" src="js/admin.js?v=voting-15"></script>
 </body>
 </html>

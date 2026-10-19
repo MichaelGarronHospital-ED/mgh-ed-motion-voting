@@ -131,10 +131,10 @@ class Screen(Base):
         pg.wait_for_selector("text=No connection. May be out of date.")
         self.assertIn("Passed", pg.inner_text("#screen"))
 
-    def test_screen_signed_out_by_the_rules_says_so(self):
+    def test_screen_logged_out_by_the_rules_says_so(self):
         pg = self.screen()
         pg.evaluate("window.__store.fail('config/live', 'permission-denied', 'r')")
-        pg.wait_for_selector("text=This screen is signed out. Ask leadership")
+        pg.wait_for_selector("text=This screen is logged out. Ask ED leadership, or enter the ED password.")
 
     def test_ed_screen_waits_for_the_saved_result_without_reading_ballots(self):
         """Closed ballots are Admin only (voting-14): signed in with the ED password,
@@ -163,6 +163,7 @@ class Screen(Base):
         pg.wait_for_selector(".screen-count")
         pg.evaluate("window.__store.fail('polls/p1/votes', 'permission-denied', 'r')")
         pg.wait_for_timeout(500)
+        self.assertNotIn("logged out", pg.inner_text("#screen"))
         self.assertNotIn("signed out", pg.inner_text("#screen"))
         self.assertIsNone(pg.query_selector("#edpw"))
         self.assertIsNotNone(pg.query_selector(".screen-head"))

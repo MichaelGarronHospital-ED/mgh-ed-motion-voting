@@ -4,6 +4,39 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Log out (voting-15, Oct 2026)
+
+The ED tools' Log out standard (2026-10-19). Page only; the rules do not change.
+
+- **Admin console:** the grey lock icon at the top right is now a "Log out" button in
+  words (blue, `ed-btn ed-btn-plain`), still the last item in the header. On a tap it
+  reads "Logging out…" and is disabled, waits for a result being saved ("Saving the
+  result first..."), and goes back to the Admin password screen, which says "You are
+  logged out." in grey (once; a later reload of that screen does not repeat it).
+- **A meeting is open:** it asks first, in the console's own dialog: "Log out?" / "A
+  meeting is open. Logging out also logs out the projector screen and any voting page
+  open in this browser." with **Log out anyway** and **Stay** (Stay has the focus, so
+  Enter keeps you logged in, and puts the button back). One sign-in per browser is why.
+- **Phones (320 to 430 px):** the name chip gives way first so Log out always fits on one
+  line: it shrinks, and below 360 px shows only its person icon (the name is still read
+  out) and the ED badge is hidden, so "Logging out…" fits too. The brand words and the Export word were already hidden at 430 px and below. The
+  header no longer runs past the edge of a 320 px screen (it did a little with the lock
+  icon, and would have by about 80 px with the words).
+- **Wording:** "logged out" where people read about this: the projector's "This screen is
+  logged out. Ask ED leadership, or enter the ED password." and the console's "You were
+  logged out. Please log in again." (after the database refused a sign-in). The Continue
+  button, the hidden password-manager name ("Leadership password") and every code name
+  (`leaderSignOut`, `isLeader`, `LEADER_UID`) are unchanged.
+- **The lock icon** now means only "saved / frozen" (Results). It stays in `util.js`.
+- **No change, on purpose:** the voter page's "Switch voter" / "Not you?" (changes the
+  person, not the sign-in) and the projector, which has no Log out (it follows the
+  browser's sign-in).
+
+Tests: `test_logout.py` (the words and place, one line at 320/390/430/1280 px, the
+"Logging out…" wait for a save, the meeting-open dialog with Stay and Log out anyway, no
+dialog for a planned meeting, the gate's "You are logged out." once and not on a first
+visit); the projector and refused-sign-in wording updated.
+
 ## Closed ballots are Admin only (voting-14, Oct 2026)
 
 Until now anyone with the ED password could read every ballot, names and choices, of

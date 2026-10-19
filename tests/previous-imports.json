@@ -1,5 +1,5 @@
 {
- "from": "voting-13",
+ "from": "voting-14",
  "imports": {
   "admin-meeting.js": [
    "wireMeeting"

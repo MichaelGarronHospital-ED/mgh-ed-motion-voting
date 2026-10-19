@@ -3,23 +3,23 @@
 //  gate, the banners, and the close / save / open / re-open flows.
 //  Each tab lives in its own module; they share state through admin-state.js.
 // ============================================================================
-import { ORG_NAME } from "./config.js?v=voting-14";
+import { ORG_NAME } from "./config.js?v=voting-15";
 import {
   onPolls, onVotesFor, onRosterOverrides, onSettings, watchAuth, leaderSignIn, leaderSignOut, isLeader,
   isWrongPassword, gateNeed, gateIsOpen, whenReady, classify, withTimeout, rulesNeedUpdate, DB_UPDATE_MSG,
   closeMotion, saveResult, saveMissingResults, openPoll, reopenMotion, whyCloseRefused, finishPurges,
   setKnownPolls, tsMillis, resultSaved, onLive, onHistoryDoc, ensureBoard, healBoard, writeHistory, boardIsCurrent,
   historyIsCurrent, revoteMotion, runoffMotion, setLogName, currentLive, onMeetings, currentMeetings,
-} from "./db.js?v=voting-14";
-import { toast, icon, escapeHtml } from "./util.js?v=voting-14";
-import { $, S, R, infoButton, wireInfo, wireMenus } from "./admin-state.js?v=voting-14";
-import { watchVersion } from "./version.js?v=voting-14";
-import { wireMotions } from "./admin-motions.js?v=voting-14";
-import { wireResults } from "./admin-results.js?v=voting-14";
-import { wireRoster } from "./admin-roster.js?v=voting-14";
-import { wireRecords } from "./records.js?v=voting-14";
-import { wireSettings } from "./admin-settings.js?v=voting-14";
-import { wireMeeting } from "./admin-meeting.js?v=voting-14";
+} from "./db.js?v=voting-15";
+import { toast, icon, escapeHtml } from "./util.js?v=voting-15";
+import { $, S, R, infoButton, wireInfo, wireMenus } from "./admin-state.js?v=voting-15";
+import { watchVersion } from "./version.js?v=voting-15";
+import { wireMotions } from "./admin-motions.js?v=voting-15";
+import { wireResults } from "./admin-results.js?v=voting-15";
+import { wireRoster } from "./admin-roster.js?v=voting-15";
+import { wireRecords } from "./records.js?v=voting-15";
+import { wireSettings } from "./admin-settings.js?v=voting-15";
+import { wireMeeting } from "./admin-meeting.js?v=voting-15";
 
 document.title = ORG_NAME + " · Admin";
 // The code loaded: the "Starting..." line (there in case a browser mixes old
@@ -59,23 +59,47 @@ async function tryEnter() {
   } finally { $("enter").disabled = false; }
 }
 // After the database refused this sign-in (for example once a password change
-// ended old sessions), the page reloads signed out and says so.
+// ended old sessions), the page reloads logged out and says so. After Log out,
+// it says "You are logged out." in grey.
 try {
   if (sessionStorage.getItem("mv_signin_again")) {
     sessionStorage.removeItem("mv_signin_again");
     const err = $("gate-err");
-    err.innerHTML = icon("alert", 18) + "<span>Please sign in again.</span>";
+    err.innerHTML = icon("alert", 18) + "<span>You were logged out. Please log in again.</span>";
     err.classList.remove("hide");
+  } else if (sessionStorage.getItem("mv_logged_out")) {
+    $("gate-note")?.classList.remove("hide");
   }
+  sessionStorage.removeItem("mv_logged_out");
 } catch (e) { /* private mode */ }
 // Auto-unlock on reload if an Admin session is already persisted.
 watchAuth((user) => { if (isLeader(user)) unlock(); });
-$("lock").addEventListener("click", async (e) => {
+
+// Log out (the ED standard): the button says "Logging out…" and is disabled;
+// with a meeting open it asks first (one sign-in per browser, so the projector
+// and any voting page in this browser are logged out too); a result being
+// saved finishes first; then the page reloads to the Admin password screen.
+const logoutBtn = $("logout");
+function logoutReset() { logoutBtn.disabled = false; logoutBtn.textContent = "Log out"; }
+function askLogout() {
+  return new Promise((resolve) => {
+    sheet.open("Log out?", "A meeting is open. Logging out also logs out the projector screen and any voting page open in this browser.");
+    sheet.actions([["Log out anyway", () => { sheet.close(); resolve(true); }],
+      ["Stay", () => { sheet.close(); resolve(false); }]]);
+    $("sheet-actions").querySelectorAll("button")[1].focus();   // Enter keeps you logged in
+  });
+}
+logoutBtn.addEventListener("click", async (e) => {
   e.preventDefault();
+  if (logoutBtn.disabled) return;
+  logoutBtn.disabled = true; logoutBtn.textContent = "Logging out…";
+  const meetingOpen = (currentMeetings() || []).some((m) => m.status === "open" && !m.deleted);
+  if (meetingOpen && !(await askLogout())) { logoutReset(); logoutBtn.focus(); return; }
   if (S.busy > 0) {
     toast("Saving the result first...");
     while (S.busy > 0) await new Promise((r) => setTimeout(r, 200));
   }
+  try { sessionStorage.setItem("mv_logged_out", "1"); } catch (x) { /* private mode */ }
   leaderSignOut().finally(() => location.reload());
 });
 // A result being saved must not be lost by closing the tab. Desktop browsers

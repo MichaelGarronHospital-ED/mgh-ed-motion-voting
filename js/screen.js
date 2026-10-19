@@ -9,14 +9,14 @@
 //  Listens to config/live (the board), config/screen (the console's controls),
 //  config/roster (who is eligible) and the open motion's ballots (turnout).
 // ============================================================================
-import { ORG_NAME } from "./config.js?v=voting-14";
+import { ORG_NAME } from "./config.js?v=voting-15";
 import {
   watchMember, voterSignIn, isWrongPassword, onLive, onScreen, onRosterOverrides, onVotesFor, classify, onAttendance,
   resultOf, outcomeWords, outcomeKind, liveEligible, quorumNeededFor, clockTime, countOnce, withTimeout, LEGACY_RULE,
   isLeader,
-} from "./db.js?v=voting-14";
-import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-14";
-import { watchVersion } from "./version.js?v=voting-14";
+} from "./db.js?v=voting-15";
+import { escapeHtml, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-15";
+import { watchVersion } from "./version.js?v=voting-15";
 
 document.title = ORG_NAME + " · Meeting screen";
 const root = document.getElementById("screen");
@@ -219,7 +219,7 @@ function gateHTML() {
   return `<div class="gate-screen"><div class="card gate">
     <span class="ed-badge" aria-hidden="true">ED</span>
     <h1>Meeting screen</h1>
-    <p class="ed-muted">${signedOutMsg ? "This screen is signed out. Ask leadership, or enter the ED password." : "Enter the ED password to show the meeting screen."}</p>
+    <p class="ed-muted">${signedOutMsg ? "This screen is logged out. Ask ED leadership, or enter the ED password." : "Enter the ED password to show the meeting screen."}</p>
     <form id="edgate" class="gate-form" autocomplete="on">
       <input class="pw-user" type="text" name="username" autocomplete="username" value="ED password" tabindex="-1" aria-hidden="true" />
       <label class="ed-label" for="edpw">ED password
