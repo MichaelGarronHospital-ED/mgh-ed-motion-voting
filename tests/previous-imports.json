@@ -1,5 +1,5 @@
 {
- "from": "voting-11",
+ "from": "voting-12",
  "imports": {
   "admin-meeting.js": [
    "wireMeeting"
@@ -26,10 +26,15 @@
    "collapsibleCard",
    "download",
    "groupLabel",
+   "iconBtn",
+   "infoButton",
+   "infoButtonHtml",
    "meetingLabel",
    "niceDate",
+   "redrawKeeping",
    "statusPill",
-   "uiCat"
+   "wireInfo",
+   "wireMenus"
   ],
   "board.js": [
    "boardPatch",

@@ -15,7 +15,7 @@ body {
 b, strong { font-weight:600; }
 a { color:var(--ed-accent-ink); }
 p { margin:0; }
-:focus-visible { outline:none; box-shadow:var(--ed-ring); border-radius:var(--ed-r-xs); }
+:focus-visible { outline:2px solid transparent; box-shadow:var(--ed-ring); border-radius:var(--ed-r-xs); }
 .hide { display:none !important; }
 .center { text-align:center; }
 .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }

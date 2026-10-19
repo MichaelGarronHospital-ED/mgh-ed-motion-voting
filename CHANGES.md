@@ -4,6 +4,26 @@ Running log of what changed and why, newest first.
 
 ---
 
+## Upkeep (voting-13, Oct 2026)
+
+Nothing about how voting works changed.
+
+- **Firebase 10.12.2 to 12.19.0** (the newest 12.x; 13.0 came out 2026-10-07 and is too
+  new). Only `js/db.js` imports Firebase, and every function it uses is unchanged between
+  the two. The rules tests run the real `db.js` on the new version; the three pages were
+  loaded with the real files from gstatic.com, without errors.
+- **Keyboard focus shows in Windows high contrast.** The focus ring is a box shadow, which
+  high-contrast mode removes. `outline: none` is now `outline: 2px solid transparent`:
+  invisible normally, drawn in the system colour in high contrast (`css/ed-ui.css`, the
+  same change in every tool's copy, and `css/styles.css`).
+- **Test tools:** the rules tests use firebase 12.19.0, @firebase/rules-unit-testing 5 and
+  firebase-tools 15, with npm overrides for `@grpc/grpc-js` (Firebase pins an old one, which
+  is why GitHub's automatic security fix kept failing) and `uuid`. Two warnings remain, both
+  inside firebase-tools and dev-only: `braces` (no fixed version exists yet) and
+  `@opentelemetry/core` (needs a major version firebase-tools has not adopted).
+- **Monthly Dependabot check** (`.github/dependabot.yml`): the workflow's actions and the
+  two sets of test tools, one grouped pull request each.
+
 ## A simpler Admin console (voting-12, UX pass, Oct 2026)
 
 Alvin asked for the console to be "as minimal and simple as possible, anyone can pick it

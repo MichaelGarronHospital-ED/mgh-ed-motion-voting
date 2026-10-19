@@ -156,7 +156,7 @@
 
 /* Fields */
 .ed-field { font: var(--ed-text)/1.4 var(--ed-font); color: var(--ed-ink); background: var(--ed-surface-2); border: 1px solid transparent; border-radius: var(--ed-r-md); min-height: var(--ed-tap); padding: 10px 14px; width: 100%; box-sizing: border-box; }
-.ed-field:focus { outline: none; border-color: var(--ed-accent); box-shadow: var(--ed-ring); }
+.ed-field:focus { outline: 2px solid transparent; border-color: var(--ed-accent); box-shadow: var(--ed-ring); }
 .ed-label { display: flex; flex-direction: column; gap: 6px; font: 600 var(--ed-text-sm)/1.3 var(--ed-font); }
 .ed-hint { font: 400 var(--ed-text-sm)/1.4 var(--ed-font); color: var(--ed-ink-2); }
 .ed-error { font: 400 var(--ed-text-sm)/1.4 var(--ed-font); color: var(--ed-red); }
@@ -189,6 +189,6 @@
 .ed-empty > svg { width: 40px; height: 40px; margin-bottom: 4px; }
 .ed-empty > strong { color: var(--ed-ink); font-size: var(--ed-text); }
 
-.ed-focus:focus-visible, .ed-btn:focus-visible, .ed-seg > button:focus-visible { outline: none; box-shadow: var(--ed-ring); }
+.ed-focus:focus-visible, .ed-btn:focus-visible, .ed-seg > button:focus-visible { outline: 2px solid transparent; box-shadow: var(--ed-ring); }
 
 @media (prefers-reduced-motion: reduce) { .ed-btn { transition: none; } }

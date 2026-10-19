@@ -2,7 +2,7 @@
 // version on the site; when it is a higher "voting-N" than this page's, the
 // console says "A newer version is available." Change both together, with
 // every update.
-export const VERSION = "voting-12";
+export const VERSION = "voting-13";
 
 const num = (v) => { const m = /^voting-(\d+)$/.exec(String(v || "").trim()); return m ? Number(m[1]) : null; };
 

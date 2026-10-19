@@ -1,0 +1,32 @@
+# Monthly update check, one grouped pull request per kind of dependency.
+# Only the dev-only test tools and the workflow's actions: the site itself has
+# no npm dependencies (Firebase comes from gstatic.com; update the version in
+# js/db.js and tests/base.py by hand, as a release).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: "/tests/rules"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      rules-test-tools:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/tests"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      browser-test-tools:
+        patterns: ["*"]
