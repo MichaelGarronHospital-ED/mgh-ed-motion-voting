@@ -4,7 +4,7 @@
 //  admin-roster.js and records.js; they share state through S and redraw each
 //  other through R, so no module imports another (no import cycles).
 // ============================================================================
-import { escapeHtml, icon } from "./util.js?v=voting-14";
+import { escapeHtml, icon } from "./util.js?v=voting-15";
 
 export const $ = (id) => document.getElementById(id);
 

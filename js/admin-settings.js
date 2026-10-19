@@ -5,10 +5,10 @@
 import {
   getLogPage, setLogName, classify, rulesNeedUpdate, DB_UPDATE_MSG, currentSettings, saveSettings, DEFAULT_RULE,
   keepYears, purgeOldHistory,
-} from "./db.js?v=voting-14";
-import { escapeHtml, toast } from "./util.js?v=voting-14";
-import { $, R } from "./admin-state.js?v=voting-14";
-import { logLine } from "./admin-results.js?v=voting-14";
+} from "./db.js?v=voting-15";
+import { escapeHtml, toast } from "./util.js?v=voting-15";
+import { $, R } from "./admin-state.js?v=voting-15";
+import { logLine } from "./admin-results.js?v=voting-15";
 
 const NAME_KEY = "mv_log_name", ASKED_KEY = "mv_log_name_asked";
 const store = {

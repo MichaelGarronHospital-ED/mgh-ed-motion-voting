@@ -66,6 +66,10 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   tab and live in `config/screen`.
 - `admin-9f4k2x7q.html` → the Admin console (loads `js/admin.js`). Admin-password-gated (Firebase sign-in) +
   unguessable filename; keep the filename obscure if it's ever rotated.
+  Its header ends with **Log out** (words, the ED tools' standard since voting-15; it was
+  a lock icon): "Logging out…", waits for a save, asks first while a meeting is open
+  (one sign-in per browser: the projector and voting pages go too), then the gate says
+  "You are logged out." The `lock` icon now only means saved or frozen.
 - **"Admin" is the word people see** (since step 11, Oct 2026; it was "Leadership"): the
   Admin password, the Admin console, Admin only. Code and data keep the old names: the
   account `leadership@mgh-ed-voting.invalid`, `LEADER_UID`, `isLeader`, `by: "leadership"`

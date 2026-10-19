@@ -5,15 +5,15 @@
 //  A phone never listens to ballots: "You voted ..." comes from this phone's
 //  own record of what it sent.
 // ============================================================================
-import { slugify } from "./roster.js?v=voting-14";
-import { ORG_NAME } from "./config.js?v=voting-14";
+import { slugify } from "./roster.js?v=voting-15";
+import { ORG_NAME } from "./config.js?v=voting-15";
 import {
   onLive, castVote, getSessionId, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson,
   watchMember, voterSignIn, leaderSignOut, isWrongPassword, classify, withTimeout, getHistoryOnce,
   countOnce, outcomeWords, outcomeKind, localDate, tsMillis, checkIn, getOwnBallot,
   receiptCode, ballotReceipt, clockTime, isLeader,
-} from "./db.js?v=voting-14";
-import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-14";
+} from "./db.js?v=voting-15";
+import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-15";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");

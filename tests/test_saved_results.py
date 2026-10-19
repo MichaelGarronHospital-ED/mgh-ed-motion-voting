@@ -451,8 +451,9 @@ class TestFailurePaths(Base):
         h.load_admin(pg, self.base)
         pg.evaluate("window.__store.fail('polls', 'permission-denied', 'r')")
         h.unlock_admin(pg)
-        pg.wait_for_selector("#gate-err:not(.hide)")      # the page reloaded, signed out
-        self.assertIn("Please sign in again.", pg.inner_text("#gate-err"))
+        pg.wait_for_selector("#gate-err:not(.hide)")      # the page reloaded, logged out
+        self.assertIn("You were logged out. Please log in again.", pg.inner_text("#gate-err"))
+        self.assertTrue(pg.is_hidden("#gate-note"))      # the red line only, not the grey one too
         self.assertTrue(pg.is_hidden("#console"))
 
     def test_console_newer_source_refused_says_database_update(self):
