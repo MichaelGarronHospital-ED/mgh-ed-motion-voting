@@ -8,8 +8,8 @@
     "test": "firebase emulators:exec --only firestore --project ed-motion-voting-test \"node --import ./app-loader.mjs --test --test-concurrency=1\""
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^5.0.2",
-    "firebase": "^12.19.0",
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0",
     "firebase-tools": "^15.34.0"
   },
   "overrides": {
