@@ -5,15 +5,15 @@
 //  A phone never listens to ballots: "You voted ..." comes from this phone's
 //  own record of what it sent.
 // ============================================================================
-import { slugify } from "./roster.js?v=voting-13";
-import { ORG_NAME } from "./config.js?v=voting-13";
+import { slugify } from "./roster.js?v=voting-14";
+import { ORG_NAME } from "./config.js?v=voting-14";
 import {
   onLive, castVote, getSessionId, onRosterOverrides, resolvedPerson, currentRoster, rosterPerson,
   watchMember, voterSignIn, leaderSignOut, isWrongPassword, classify, withTimeout, getHistoryOnce,
   countOnce, outcomeWords, outcomeKind, localDate, tsMillis, checkIn, getOwnBallot,
-  receiptCode, ballotReceipt, clockTime,
-} from "./db.js?v=voting-13";
-import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-13";
+  receiptCode, ballotReceipt, clockTime, isLeader,
+} from "./db.js?v=voting-14";
+import { escapeHtml, labelOf, toast, icon, verdictHTML, stackedBar, fmt, choiceBars } from "./util.js?v=voting-14";
 
 document.title = ORG_NAME;
 const app = document.getElementById("app");
@@ -38,6 +38,7 @@ function keepReceipt(pollId, slug, choice, picks, count) {
   const ids = Object.keys(r).sort((a, b) => r[b].at - r[a].at).slice(0, 50);
   const out = {}; ids.forEach((id) => { out[id] = r[id]; });
   try { localStorage.setItem("ed_receipts", JSON.stringify(out)); } catch (e) { /* private mode */ }
+  checks.delete(pollId);   // a new receipt: an earlier check no longer applies
 }
 
 const openMotion = () => (board ? board.open : null);
@@ -279,11 +280,17 @@ function voteBody() {
     <span>${board === null ? "Voting starts once the Admin console has been opened." : "Closed motions appear under Results."}</span></div>`;
 }
 
-// "Recorded: In favour. Receipt 7F3KQ. 12:04."
+// "Recorded: In favour. Receipt 7F3KQ. 12:04." and, while the motion is open,
+// "Check my recorded vote" (once it closes, only Admin can read ballots).
 function receiptLine(open, mine) {
   if (!mine || !mine.code) return "";
   const what = mine.choice === "pick" ? "your picks" : labelOf(mine.choice);
-  return `<p class="ed-hint receipt-line">Recorded: ${escapeHtml(what)}. Receipt <span class="receipt-code">${escapeHtml(mine.code)}</span>. ${escapeHtml(clockTime(mine.at))}.</p>`;
+  return `<p class="ed-hint receipt-line">Recorded: ${escapeHtml(what)}. Receipt <span class="receipt-code">${escapeHtml(mine.code)}</span>. ${escapeHtml(clockTime(mine.at))}.</p>
+    ${checks.has(open.id) ? checkNote(checks.get(open.id))
+      : `<div><button type="button" class="ed-btn ed-btn-tinted btn-sm" data-check="${escapeHtml(open.id)}">Check my recorded vote</button></div>`}`;
+}
+function checkNote(c) {
+  return `<p class="${c.ok ? "ed-hint" : "notice"}" role="status">${c.ok ? "" : icon("alert", 18)}<span>${escapeHtml(c.text)}</span></p>`;
 }
 
 // ---- check-in (only while the meeting is open and check-in is on) -----------
@@ -390,10 +397,11 @@ function resultCard(id, e) {
   const rc = me && receipts()[id];
   if (rc && rc.code && rc.slug === me.slug) {
     const what = rc.choice === "pick" ? "your picks" : labelOf(rc.choice);
+    // Closed: the ballots are Admin only, so the check is Admin's (the console
+    // shows the same code from the stored ballot).
     extra.push(`<div class="stack-sm receipt-box"><p class="ed-hint">Your receipt: <span class="receipt-code">${escapeHtml(rc.code)}</span> (${escapeHtml(what)})</p>
-      ${checks.has(id) ? `<p class="${checks.get(id).ok ? "ed-hint" : "notice"}" role="status">${checks.get(id).ok ? "" : icon("alert", 18)}<span>${escapeHtml(checks.get(id).text)}</span></p>`
-        : `<div><button type="button" class="ed-btn ed-btn-tinted btn-sm" data-check="${escapeHtml(id)}">Check my recorded vote</button></div>`}
-      <p class="ed-hint">This shows what was recorded under your name. It does not prove who tapped.</p></div>`);
+      ${checks.has(id) ? checkNote(checks.get(id)) : ""}
+      <p class="ed-hint">To check what was recorded under your name, show this code to ED leadership (the Admin console shows the same code). It does not prove who tapped.</p></div>`);
   }
   if (e.reopenCount && e.priorOutcome) extra.push(`<p class="ed-hint">Re-opened ${e.reopenCount === 1 ? "once" : e.reopenCount + " times"}. Earlier count: ${escapeHtml(outcomeWords(e.priorOutcome, "voter"))} (${fmt(e.priorOutcome.weight.favour)} to ${fmt(e.priorOutcome.weight.against)} points).</p>`);
   return `<div class="card stack" id="r-${escapeHtml(id)}">${top}${body}${note}${extra.join("")}</div>`;
@@ -419,7 +427,8 @@ async function checkMyVote(id) {
 
 // A board entry still without a result 30 seconds after THIS phone received it
 // (the phone's own timer: phone clocks can be minutes off) is counted once from
-// its ballots, the same way the console saves it.
+// its ballots, the same way the console saves it. Only with the Admin sign-in:
+// a closed motion's ballots are Admin only, so an ED phone waits for the save.
 function staleFor(id, e) {
   let st = stale.get(id);
   if (!st) {
@@ -427,6 +436,7 @@ function staleFor(id, e) {
     stale.set(id, st);
     st.timer = setTimeout(async () => {
       if (!board || !board.results || !board.results[id] || board.results[id].result) return;
+      if (!isLeader(member)) { st.state = "failed"; render(); return; }
       st.state = "counting";
       try { st.result = await withTimeout(countOnce(id), 15000); st.state = "done"; }
       catch (err) { console.warn(err); st.state = "failed"; }
@@ -533,8 +543,11 @@ async function submit(choice, picks) {
     const kind = classify(e);
     // No answer in 15 seconds: the vote may still have landed. Read this
     // name's ballot once; if it says what was sent, it counts as recorded.
-    if (e && e.code === "timeout" && (await recordedAnyway(open, choice, picks))) { render(); return; }
-    if (kind === "refused") {
+    const anyway = e && e.code === "timeout" ? await recordedAnyway(open, choice, picks) : false;
+    if (anyway === true) { render(); return; }
+    if (anyway === "closed") {
+      voteMsg = "Voting closed before this phone heard back. Your vote may have been counted. Ask leadership to check under your name.";
+    } else if (kind === "refused") {
       const still = openMotion();
       voteMsg = !still || still.id !== open.id ? "Voting on this motion has closed." : "Your vote could not be recorded. Please tell leadership.";
     } else voteMsg = "No connection. Your vote was not sent. Try again.";
@@ -542,6 +555,9 @@ async function submit(choice, picks) {
   }
   render();
 }
+// true: recorded. "closed": the read was refused, which for a ballot means the
+// motion closed meanwhile (closed ballots are Admin only), so nobody here can
+// tell whether the vote landed first. false: not recorded, or no answer.
 async function recordedAnyway(open, choice, picks) {
   try {
     const v = await withTimeout(getOwnBallot(open.id, me.slug), 10000);
@@ -553,7 +569,7 @@ async function recordedAnyway(open, choice, picks) {
     if (picks) picking = { pollId: open.id, picks: new Set(picks) };
     toast(choice === "pick" ? "Vote recorded." : "Vote recorded: " + labelOf(choice));
     return true;
-  } catch (err) { console.warn(err); return false; }
+  } catch (err) { console.warn(err); return classify(err) === "refused" ? "closed" : false; }
 }
 
 render();

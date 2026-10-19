@@ -86,7 +86,8 @@ class Screen(Base):
         self.assertIn("Closed at", text)
 
     def test_screen_never_shows_a_verdict_before_the_result(self):
-        pg = self.screen(clock=True)
+        # The screen's own late count needs the Admin sign-in (closed ballots are Admin only).
+        pg = self.screen(h.LEADER_EMAIL, clock=True)
         h.seed_ballots(pg, "c1", h.GROUP1[:30])
         pg.evaluate("window.__store.stall('polls/c1')")
         seed_closed_saved(pg, "c1", NOW - 5000, ballots=0)
@@ -134,6 +135,37 @@ class Screen(Base):
         pg = self.screen()
         pg.evaluate("window.__store.fail('config/live', 'permission-denied', 'r')")
         pg.wait_for_selector("text=This screen is signed out. Ask leadership")
+
+    def test_ed_screen_waits_for_the_saved_result_without_reading_ballots(self):
+        """Closed ballots are Admin only (voting-14): signed in with the ED password,
+        a late result is never counted from the ballots; the screen waits."""
+        pg = self.screen(clock=True)
+        h.seed_ballots(pg, "c1", h.GROUP1[:30])
+        seed_closed_saved(pg, "c1", NOW - 5000, ballots=0)
+        build_board(pg)
+        live = h.get(pg, "config/live")
+        live["results"]["c1"]["result"] = None
+        h.seed(pg, "config/live", live)
+        pg.wait_for_selector("text=Counting votes...")
+        pg.clock.run_for(61000)
+        pg.wait_for_timeout(200)
+        self.assertEqual(h.outcomes(pg.inner_text("#screen")), [])
+        self.assertIn("Counting votes...", pg.inner_text("#screen"))
+        self.assertIn("The result will appear when leadership's laptop saves it.", pg.inner_text("#screen"))
+        self.assertEqual(h.reads(pg, "polls/c1/votes"), 0)
+
+    def test_refused_ballots_do_not_sign_the_screen_out(self):
+        """The open motion's ballots are refused once it closes, which can reach the
+        screen before the board does. That is not a sign-out."""
+        pg = self.screen()
+        seed_open(pg, ballots=h.GROUP1[:3])
+        build_board(pg)
+        pg.wait_for_selector(".screen-count")
+        pg.evaluate("window.__store.fail('polls/p1/votes', 'permission-denied', 'r')")
+        pg.wait_for_timeout(500)
+        self.assertNotIn("signed out", pg.inner_text("#screen"))
+        self.assertIsNone(pg.query_selector("#edpw"))
+        self.assertIsNotNone(pg.query_selector(".screen-head"))
 
 
 class TestConsoleControls(Base):

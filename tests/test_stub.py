@@ -88,6 +88,7 @@ class TestStub(Base):
         self.assertEqual(r, [["q3"], ["q4", "q3"], 3])
 
     def test_stall_holds_one_time_reads_too(self):
+        h.seed(self.page, "polls/s1", {"status": "open"})     # ballots are readable as ED only while open
         h.seed(self.page, "polls/s1/votes/a", {"slug": "a"})
         self.page.evaluate("window.__store.stall('polls/s1/votes')")
         self.page.evaluate("""() => { window.__got = null; import('%s').then((fs) =>
@@ -96,6 +97,19 @@ class TestStub(Base):
         self.assertIsNone(self.page.evaluate("window.__got"))
         self.page.evaluate("window.__store.release('polls/s1/votes')")
         self.page.wait_for_function("() => window.__got === 1")
+
+    def test_closed_ballots_are_refused_to_ed_like_the_rules(self):
+        """firestore.rules (voting-14): ED reads a motion's ballots only while it is
+        open; the stub refuses the rest so no ED page can come to depend on them."""
+        h.seed(self.page, "polls/s1", {"status": "closed"})
+        h.seed(self.page, "polls/s1/votes/a", {"slug": "a"})
+        read = """async () => { const fs = await import('%s');
+            try { await fs.getDocs(fs.collection(fs.getFirestore(), 'polls/s1/votes')); return 'ok'; }
+            catch (e) { return e.code; } }""" % FIRESTORE
+        self.page.evaluate("window.__auth.force({ uid: '%s', isAnonymous: false, email: '%s' })" % (h.ED_UID, h.ED_EMAIL))
+        self.assertEqual(self.page.evaluate(read), "permission-denied")
+        self.page.evaluate("window.__auth.force({ uid: '%s', isAnonymous: false, email: '%s' })" % (h.LEADER_UID, h.LEADER_EMAIL))
+        self.assertEqual(self.page.evaluate(read), "ok")
 
 
 if __name__ == "__main__":

@@ -129,7 +129,32 @@ class TestReceipts(Base):
         expected = pg.evaluate("async (v) => (await import('./js/count.js?v=' + window.__V)).ballotReceipt('p1', v)", h.get(pg, f"polls/p1/votes/{slug}"))
         self.assertEqual(pg.inner_text(".receipt-line .receipt-code"), expected)
 
+    def test_vote_that_times_out_as_the_motion_closes_is_not_called_unsent(self):
+        """The vote landed, then Admin closed before the answer came back: the
+        phone's own check is refused (closed ballots are Admin only), so it must
+        not say "not sent", only that it may have counted."""
+        pg = self.page
+        pg.clock.install()
+        h.open_voter(pg, self.base)
+        seed_open(pg, ballots=[])
+        board(pg)
+        slug = h.slugify(h.GROUP1[0])
+        h.pick_voter(pg, h.GROUP1[0])
+        pg.wait_for_selector('button[data-c="favour"]')
+        pg.evaluate(f"window.__store.stall('polls/p1/votes/{slug}')")
+        pg.click('button[data-c="favour"]')
+        sid = pg.evaluate("localStorage.getItem('ed_session_id')")
+        h.seed(pg, f"polls/p1/votes/{slug}", {"name": h.GROUP1[0], "slug": slug, "group": "1", "weight": 1, "isWriteIn": False,
+            "choice": "favour", "sessionIds": [sid], "submissionCount": 1, "flagged": False})
+        pg.clock.run_for(16000)
+        h.seed(pg, "polls/p1", {**h.get(pg, "polls/p1"), "status": "closed", "closedAt": h.ts(NOW)})
+        pg.evaluate(f"window.__store.release('polls/p1/votes/{slug}')")
+        pg.wait_for_selector("text=Voting closed before this phone heard back.")
+        self.assertNotIn("not sent", pg.inner_text("#app"))
+
     def test_check_my_vote_detects_a_change(self):
+        """The check reads this name's ballot while the motion is open (once it
+        closes, only Admin can read ballots)."""
         pg = self.voter()
         seed_open(pg, ballots=[])
         board(pg)
@@ -137,24 +162,41 @@ class TestReceipts(Base):
         h.pick_voter(pg, h.GROUP1[0])
         pg.click('button[data-c="favour"]')
         pg.wait_for_selector(".receipt-line")
-        # closed with a saved result; then someone changes the stored ballot
+        pg.click("button[data-check='p1']")
+        pg.wait_for_selector("text=It matches this phone's receipt.")
+        self.assertIn("Recorded under your name: In favour.", pg.inner_text("#app"))
+        # a new vote replaces the receipt, so the earlier check goes
+        pg.click('button[data-c="against"]')
+        pg.wait_for_selector("button[data-check='p1']")
+        # someone changes the stored ballot under this name
+        b = h.get(pg, f"polls/p1/votes/{slug}")
+        h.seed(pg, f"polls/p1/votes/{slug}", {**b, "choice": "favour", "submissionCount": 3})
+        snapshot = h.store(pg)
+        reload_phone(pg, snapshot)
+        pg.wait_for_selector("button[data-check='p1']")
+        pg.click("button[data-check='p1']")
+        pg.wait_for_selector("text=It does not match this phone's receipt. Please tell leadership.")
+
+    def test_after_close_the_receipt_is_checked_by_admin(self):
+        """Closed: the phone keeps the receipt code, offers no check (the ballots
+        are Admin only) and never reads the ballot."""
+        pg = self.voter()
+        seed_open(pg, ballots=[])
+        board(pg)
+        h.pick_voter(pg, h.GROUP1[0])
+        pg.click('button[data-c="favour"]')
+        pg.wait_for_selector(".receipt-line")
+        pg.evaluate("window.__store.resetCounts()")    # voting read its own ballot while open
         p = h.get(pg, "polls/p1")
         h.seed(pg, "polls/p1", {**p, "status": "closed", "closedAt": h.ts(NOW), "result": {"v": 1, "kind": "motion", "outcome": "noq",
             "weight": {"favour": 1, "against": 0, "abstain": 0}, "count": {"favour": 1, "against": 0, "abstain": 0}, "totalVotes": 1,
             "quorumCount": 1, "quorumNeeded": 24, "eligible": 48, "rule": p["rule"], "savedAt": h.ts(NOW)}})
         board(pg)
         pg.click('[data-vtab="results"]')
-        pg.click("button[data-check='p1']")
-        pg.wait_for_selector("text=It matches this phone's receipt.")
-        self.assertIn("Recorded under your name: In favour.", pg.inner_text("#app"))
-        b = h.get(pg, f"polls/p1/votes/{slug}")
-        h.seed(pg, f"polls/p1/votes/{slug}", {**b, "choice": "against", "submissionCount": 2})
-        snapshot = h.store(pg)
-        reload_phone(pg, snapshot)
-        pg.wait_for_selector('[data-vtab="results"]')
-        pg.click('[data-vtab="results"]')
-        pg.click("button[data-check='p1']")
-        pg.wait_for_selector("text=It does not match this phone's receipt. Please tell leadership.")
+        pg.wait_for_selector(".receipt-box")
+        self.assertIn("show this code to ED leadership", pg.inner_text(".receipt-box"))
+        self.assertIsNone(pg.query_selector("button[data-check]"))
+        self.assertEqual(pg.evaluate("window.__store.readPaths('polls/p1/votes').length"), 0)
 
 
 class TestLeadershipAttendance(Base):

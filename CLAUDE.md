@@ -140,7 +140,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   motion are locked (no Remove), and a motion is deleted only from the Trash.
 - **Change log (`log/`)**: open, close, catch-up, re-open and permanent delete write an
   entry in the same batch or transaction. Admin only; never edited.
-- **Phones read two small documents, never ballots.** `config/live` (the board: what
+- **Phones read two small documents, and no ballot but their own while it is open**
+  (voting, "Check my recorded vote"). `config/live` (the board: what
   is open and this meeting's results) and `config/roster`; past results are one read of
   `config/history` on a tap. "You voted" comes from the phone's own record
   (`ed_receipts`). Both documents are built from the motions alone (`board.js`), patched
@@ -177,14 +178,17 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   extra is stored. There are no proxy votes. Say these limits plainly; HONEST LIMITS in
   `firestore.rules` lists them.
 - **The projector never shows the for and against split** unless the Admin console ticks "Show
-  the live count", and never a verdict before the result is saved (or counted once after
-  30 s). Its timer never closes a vote.
+  the live count", and never a verdict before the result is saved (or, with an Admin
+  sign-in only, counted once after 30 s; with the ED password it waits). Its timer never
+  closes a vote.
 - **The console waits for its data (the load gate).** Nothing that saves a result, and no
   Open or Close, runs until roster, settings and motions have each arrived from the
   server. Every wait has a plain message for refused, offline and timeout (no bare
   "Loading"). A page newer than the published rules says it "needs a database update".
 - **Rules first, then the page.** Each upgrade step's rules are published before its page
-  is merged, and are written so the previous page still works with them.
+  is merged, and are written so the previous page still works with them. One exception,
+  voting-14 (closed ballots Admin only): a rule that takes a read away goes the other way,
+  page first, because an older projector page treated the refusal as a sign-out.
 - **All asset paths are relative**: never hardcode `/mgh-ed-motion-voting/`, so
   the app keeps working wherever it's served.
 - **Firestore rules are the source of truth for access.** If you change data
@@ -201,8 +205,14 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   The rules *cannot* enforce one-ballot-per-person: every voter signs in as the
   same ED account, so anyone with the ED password can write any name's ballot.
   That is the accepted trade-off; the limits are spelled out under **HONEST
-  LIMITS** at the bottom of `firestore.rules`. Voting is not secret: everyone with
-  the ED password can read names and choices, so never call it anonymous.
+  LIMITS** at the bottom of `firestore.rules`. Voting is not secret: while a motion
+  is open everyone with the ED password can read its names and choices, and Admin
+  always can, so never call it anonymous. **Closed ballots are Admin only**
+  (voting-14): the rules refuse ED reads of a motion that is not open, so phones and an
+  ED projector never count a late result themselves (they wait for the saved one),
+  "Check my recorded vote" is offered only while the motion is open (after close the
+  voter shows the receipt code to Admin), and a refused ballot listener on the
+  projector is not a sign-out (`ballotsFailed` in `screen.js`).
 - **Never show a verdict before that motion's ballots have arrived.** An empty
   tally scores as "NO QUORUM", so painting it early announces a wrong outcome on
   a shared screen. Both results views and the CSV export gate on a `loaded` flag

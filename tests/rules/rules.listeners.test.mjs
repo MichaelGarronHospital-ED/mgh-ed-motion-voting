@@ -23,6 +23,10 @@
 //  recorded vote").
 //  Cleanup after step 7: the voter page no longer falls back to reading the
 //  motions when config/live or config/history is missing.
+//  voting-14 (closed ballots Admin only): the voter page reads its own ballot
+//  only while the motion is open (voting, "Check my recorded vote"), and
+//  neither the voter page nor an ED projector counts a late result from the
+//  ballots any more; only an Admin sign-in does (rules.privacy covers closed).
 // ============================================================================
 import { before, after, beforeEach, describe, it } from "node:test";
 import { assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
@@ -59,8 +63,7 @@ const SOURCES = {
     ["config/roster", (db) => getDoc(doc(db, "config/roster"))],
     ["config/history (on a tap)", (db) => getDoc(doc(db, "config/history"))],
     ["one motion (a late result)", (db) => getDoc(doc(db, "polls/p1"))],
-    ["its ballots (a late result)", (db) => getDocs(collection(db, "polls/p1/votes"))],
-    ["its own ballot (Check my recorded vote)", (db) => getDoc(doc(db, "polls/p1/votes/ash"))],
+    ["its own ballot, open motion (voting, Check my recorded vote)", (db) => getDoc(doc(db, "polls/p1/votes/ash"))],
   ],
   projector: [
     ["config/live", (db) => getDoc(doc(db, "config/live"))],

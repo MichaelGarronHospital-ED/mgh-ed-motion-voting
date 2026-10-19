@@ -141,7 +141,19 @@ function checkOps(ops) {
 function under(path, prefix) { return path === prefix || path.startsWith(prefix + "/"); }
 function failFor(path, kind) {
   for (const f of FAILS) if (f.kinds.includes(kind) && under(path, f.prefix)) return f.code;
-  return null;
+  return closedBallots(path, kind);
+}
+// The one read rule the pages must respect (firestore.rules, voting-14): a
+// motion's ballots are readable by the ED account only while it is open; the
+// Admin account (leadership@, by uid) reads them always.
+function closedBallots(path, kind) {
+  if (kind !== "r") return null;
+  const m = /^polls\/([^/]+)\/votes(\/|$)/.exec(path);
+  if (!m) return null;
+  const who = window.__auth && window.__auth.current ? window.__auth.current() : null;
+  if (who && who.uid === "3eigCLaK0RQ5PmVhxfDgI0qoYzQ2") return null;
+  const poll = SERVER.get(`polls/${m[1]}`);
+  return poll && poll.status === "open" ? null : "permission-denied";
 }
 function isStalled(path) {
   for (const p of STALLED) if (path === p || path.startsWith(p)) return true;
