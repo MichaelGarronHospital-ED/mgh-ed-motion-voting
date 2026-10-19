@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 
 import harness as h
 
-FIRESTORE = "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+FIRESTORE = "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js"
 
 
 class Base(unittest.TestCase):

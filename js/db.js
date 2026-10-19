@@ -1,22 +1,22 @@
 // ============================================================================
 //  DATA LAYER: Firebase Firestore (real-time). Counting lives in count.js.
 // ============================================================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, limit, runTransaction, serverTimestamp, getDocs, increment,
   writeBatch, deleteField, getDocFromServer, getDocsFromServer, FieldPath, where, getDoc, startAfter,
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { firebaseConfig, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-12";
-import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-12";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { firebaseConfig, LEADER_EMAIL_NEW, ED_EMAIL_NEW, LEADER_UID, ED_UID } from "./config.js?v=voting-13";
+import { ROSTER, ROSTER_BY_SLUG, WEIGHTS, slugify } from "./roster.js?v=voting-13";
 import {
   tallyVotes, computeResult, ruleFor, ruleFromSettings, copyRule, weightIn, quorumNeededFor, sameTime, tsMillis, localDate,
-} from "./count.js?v=voting-12";
-import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-12";
-import { agendaOrder, agendaNumbers } from "./count.js?v=voting-12";
+} from "./count.js?v=voting-13";
+import { buildBoard, buildHistory, boardPatch, sameBoard } from "./board.js?v=voting-13";
+import { agendaOrder, agendaNumbers } from "./count.js?v=voting-13";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -1278,6 +1278,6 @@ export function weightForVote(v, poll) {
 export function tally(votes, poll) {
   return tallyVotes(votes, (v) => weightForVote(v, poll));
 }
-export * from "./count.js?v=voting-12";
+export * from "./count.js?v=voting-13";
 
 export { serverTimestamp, copyRule };
