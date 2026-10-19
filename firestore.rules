@@ -345,6 +345,8 @@ service cloud.firestore {
 //    projector counts turnout). Once it closes, only Admin can (since
 //    voting-14). A re-opened motion is readable again while it is open.
 //    Voting is not secret from Admin, and not secret from the group while open.
+//    A copy read while the motion was open (a projector, a phone that voted)
+//    is not taken back by the close.
 //
 //  • The Leadership password is the password of the leadership@ account, so
 //    its strength is the strength of every leadership rule here.

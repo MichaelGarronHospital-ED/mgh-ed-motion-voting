@@ -87,11 +87,13 @@ function followOpen() {
 }
 // The ballots are refused once the motion closes (closed ballots are Admin only),
 // which can reach this screen before the board says so. That is not a sign-out:
-// stop listening and keep the screen. A real sign-out also refuses the board.
+// stop listening and keep the screen (the next board update listens again if
+// that motion is still, or again, open). A real sign-out also refuses the board.
 function ballotsFailed(e) {
   if (classify(e) !== "refused") { failed(e); return; }
   console.warn("ballots refused", e && e.code);
   if (votesUnsub) { votesUnsub(); votesUnsub = null; }
+  votesFor = null; votesLoaded = false;
 }
 function failed(e) {
   console.warn("listener failed", e && e.code);
@@ -178,25 +180,28 @@ function barsHTML(r) {
 
 // Just closed: the saved result. If the save is late, the once-only count
 // after 30 seconds (as on phones; Admin sign-in only, since a closed motion's
-// ballots are Admin only); never a verdict before either exists.
+// ballots are Admin only; with the ED password it says the result is coming);
+// never a verdict before either exists.
 function closedHTML(id, e) {
   let r = e.result, note = "";
-  if (!r && isLeader(member)) {
+  if (!r) {
     let st = lateCount.get(id);
     if (!st) {
       st = { state: "waiting", result: null };
       lateCount.set(id, st);
       setTimeout(async () => {
         if (!board || !board.results || !board.results[id] || board.results[id].result) return;
+        if (!isLeader(member)) { st.state = "failed"; render(); return; }
         try { st.result = await withTimeout(countOnce(id), 15000); st.state = "done"; } catch (err) { st.state = "failed"; }
         render();
       }, 30000);
     }
     if (st.result) { r = st.result; note = `<p class="screen-sub">Count from the ballots. The saved result will replace it.</p>`; }
+    else if (st.state === "failed") note = `<p class="screen-sub">The result will appear when leadership's laptop saves it.</p>`;
   }
   if (!r) {
     return `<section class="screen-main"><p class="screen-status"><span class="ed-pill ed-pill-quiet">Closed</span></p>
-      <h1 class="screen-motion">${escapeHtml(e.text)}</h1><p class="screen-big" aria-live="polite">Counting votes...</p></section>`;
+      <h1 class="screen-motion">${escapeHtml(e.text)}</h1><p class="screen-big" aria-live="polite">Counting votes...</p>${note}</section>`;
   }
   const met = r.quorumCount >= r.quorumNeeded;
   return `<section class="screen-main">

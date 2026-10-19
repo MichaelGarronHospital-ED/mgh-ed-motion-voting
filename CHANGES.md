@@ -17,13 +17,20 @@ is counted once at close and never changes (since R1).
   readable again while it is open. Not a secret ballot: Admin sees names (V9 stays declined).
 - **Check my recorded vote** is now on the ballot while the motion is open (where a wrong
   record can still be fixed by voting again), not on the closed result. After close the
-  result card keeps the receipt code and says to show it to Admin, whose Who voted list
-  shows the same code. A new vote clears an earlier check.
+  result card keeps the receipt code and says to show it to ED leadership (the Admin
+  console's Who voted list shows the same code). A new vote clears an earlier check.
+- **A vote that times out just as the motion closes** no longer says "not sent": the
+  phone's own check is refused once closed, so it says "Voting closed before this phone
+  heard back. Your vote may have been counted. Ask leadership to check under your name."
 - **A late result:** phones and an ED projector no longer count a closed motion from its
-  ballots after 30 seconds; they wait for the saved result ("The result will appear when
-  leadership's laptop saves it." / "Counting votes..."). An Admin sign-in still counts it.
+  ballots after 30 seconds; they wait for the saved result and after 30 seconds say "The
+  result will appear when leadership's laptop saves it." An Admin sign-in still counts it.
 - **The projector is not signed out** when its open motion's ballots are refused (the close
   can reach it before the board says so): it stops listening and keeps the screen.
+- **Not taken back:** a copy read while the motion was open (the projector, a phone that
+  voted) stays where it was read. The rule stops new reads after the close.
+- **Tests:** the test stand-in for Firebase now refuses ED reads of a motion's ballots
+  unless it is open, as the rules do, so no ED page can come to depend on them.
 
 Order: this page first, then the rules (an older projector page would show "signed out" on
 the refusal). Reload the meeting-room projector before the next meeting.

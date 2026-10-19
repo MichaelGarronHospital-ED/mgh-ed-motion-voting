@@ -140,7 +140,8 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   motion are locked (no Remove), and a motion is deleted only from the Trash.
 - **Change log (`log/`)**: open, close, catch-up, re-open and permanent delete write an
   entry in the same batch or transaction. Admin only; never edited.
-- **Phones read two small documents, never ballots.** `config/live` (the board: what
+- **Phones read two small documents, and no ballot but their own while it is open**
+  (voting, "Check my recorded vote"). `config/live` (the board: what
   is open and this meeting's results) and `config/roster`; past results are one read of
   `config/history` on a tap. "You voted" comes from the phone's own record
   (`ed_receipts`). Both documents are built from the motions alone (`board.js`), patched
@@ -177,14 +178,17 @@ Firebase Firestore for real-time vote storage. See `README.md` for full setup.
   extra is stored. There are no proxy votes. Say these limits plainly; HONEST LIMITS in
   `firestore.rules` lists them.
 - **The projector never shows the for and against split** unless the Admin console ticks "Show
-  the live count", and never a verdict before the result is saved (or counted once after
-  30 s). Its timer never closes a vote.
+  the live count", and never a verdict before the result is saved (or, with an Admin
+  sign-in only, counted once after 30 s; with the ED password it waits). Its timer never
+  closes a vote.
 - **The console waits for its data (the load gate).** Nothing that saves a result, and no
   Open or Close, runs until roster, settings and motions have each arrived from the
   server. Every wait has a plain message for refused, offline and timeout (no bare
   "Loading"). A page newer than the published rules says it "needs a database update".
 - **Rules first, then the page.** Each upgrade step's rules are published before its page
-  is merged, and are written so the previous page still works with them.
+  is merged, and are written so the previous page still works with them. One exception,
+  voting-14 (closed ballots Admin only): a rule that takes a read away goes the other way,
+  page first, because an older projector page treated the refusal as a sign-out.
 - **All asset paths are relative**: never hardcode `/mgh-ed-motion-voting/`, so
   the app keeps working wherever it's served.
 - **Firestore rules are the source of truth for access.** If you change data

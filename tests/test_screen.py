@@ -151,6 +151,7 @@ class Screen(Base):
         pg.wait_for_timeout(200)
         self.assertEqual(h.outcomes(pg.inner_text("#screen")), [])
         self.assertIn("Counting votes...", pg.inner_text("#screen"))
+        self.assertIn("The result will appear when leadership's laptop saves it.", pg.inner_text("#screen"))
         self.assertEqual(h.reads(pg, "polls/c1/votes"), 0)
 
     def test_refused_ballots_do_not_sign_the_screen_out(self):

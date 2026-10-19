@@ -129,6 +129,29 @@ class TestReceipts(Base):
         expected = pg.evaluate("async (v) => (await import('./js/count.js?v=' + window.__V)).ballotReceipt('p1', v)", h.get(pg, f"polls/p1/votes/{slug}"))
         self.assertEqual(pg.inner_text(".receipt-line .receipt-code"), expected)
 
+    def test_vote_that_times_out_as_the_motion_closes_is_not_called_unsent(self):
+        """The vote landed, then Admin closed before the answer came back: the
+        phone's own check is refused (closed ballots are Admin only), so it must
+        not say "not sent", only that it may have counted."""
+        pg = self.page
+        pg.clock.install()
+        h.open_voter(pg, self.base)
+        seed_open(pg, ballots=[])
+        board(pg)
+        slug = h.slugify(h.GROUP1[0])
+        h.pick_voter(pg, h.GROUP1[0])
+        pg.wait_for_selector('button[data-c="favour"]')
+        pg.evaluate(f"window.__store.stall('polls/p1/votes/{slug}')")
+        pg.click('button[data-c="favour"]')
+        sid = pg.evaluate("localStorage.getItem('ed_session_id')")
+        h.seed(pg, f"polls/p1/votes/{slug}", {"name": h.GROUP1[0], "slug": slug, "group": "1", "weight": 1, "isWriteIn": False,
+            "choice": "favour", "sessionIds": [sid], "submissionCount": 1, "flagged": False})
+        pg.clock.run_for(16000)
+        h.seed(pg, "polls/p1", {**h.get(pg, "polls/p1"), "status": "closed", "closedAt": h.ts(NOW)})
+        pg.evaluate(f"window.__store.release('polls/p1/votes/{slug}')")
+        pg.wait_for_selector("text=Voting closed before this phone heard back.")
+        self.assertNotIn("not sent", pg.inner_text("#app"))
+
     def test_check_my_vote_detects_a_change(self):
         """The check reads this name's ballot while the motion is open (once it
         closes, only Admin can read ballots)."""
@@ -171,7 +194,7 @@ class TestReceipts(Base):
         board(pg)
         pg.click('[data-vtab="results"]')
         pg.wait_for_selector(".receipt-box")
-        self.assertIn("show this code to Admin", pg.inner_text(".receipt-box"))
+        self.assertIn("show this code to ED leadership", pg.inner_text(".receipt-box"))
         self.assertIsNone(pg.query_selector("button[data-check]"))
         self.assertEqual(pg.evaluate("window.__store.readPaths('polls/p1/votes').length"), 0)
 

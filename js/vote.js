@@ -401,7 +401,7 @@ function resultCard(id, e) {
     // shows the same code from the stored ballot).
     extra.push(`<div class="stack-sm receipt-box"><p class="ed-hint">Your receipt: <span class="receipt-code">${escapeHtml(rc.code)}</span> (${escapeHtml(what)})</p>
       ${checks.has(id) ? checkNote(checks.get(id)) : ""}
-      <p class="ed-hint">To check what was recorded under your name, show this code to Admin. It does not prove who tapped.</p></div>`);
+      <p class="ed-hint">To check what was recorded under your name, show this code to ED leadership (the Admin console shows the same code). It does not prove who tapped.</p></div>`);
   }
   if (e.reopenCount && e.priorOutcome) extra.push(`<p class="ed-hint">Re-opened ${e.reopenCount === 1 ? "once" : e.reopenCount + " times"}. Earlier count: ${escapeHtml(outcomeWords(e.priorOutcome, "voter"))} (${fmt(e.priorOutcome.weight.favour)} to ${fmt(e.priorOutcome.weight.against)} points).</p>`);
   return `<div class="card stack" id="r-${escapeHtml(id)}">${top}${body}${note}${extra.join("")}</div>`;
@@ -543,8 +543,11 @@ async function submit(choice, picks) {
     const kind = classify(e);
     // No answer in 15 seconds: the vote may still have landed. Read this
     // name's ballot once; if it says what was sent, it counts as recorded.
-    if (e && e.code === "timeout" && (await recordedAnyway(open, choice, picks))) { render(); return; }
-    if (kind === "refused") {
+    const anyway = e && e.code === "timeout" ? await recordedAnyway(open, choice, picks) : false;
+    if (anyway === true) { render(); return; }
+    if (anyway === "closed") {
+      voteMsg = "Voting closed before this phone heard back. Your vote may have been counted. Ask leadership to check under your name.";
+    } else if (kind === "refused") {
       const still = openMotion();
       voteMsg = !still || still.id !== open.id ? "Voting on this motion has closed." : "Your vote could not be recorded. Please tell leadership.";
     } else voteMsg = "No connection. Your vote was not sent. Try again.";
@@ -552,6 +555,9 @@ async function submit(choice, picks) {
   }
   render();
 }
+// true: recorded. "closed": the read was refused, which for a ballot means the
+// motion closed meanwhile (closed ballots are Admin only), so nobody here can
+// tell whether the vote landed first. false: not recorded, or no answer.
 async function recordedAnyway(open, choice, picks) {
   try {
     const v = await withTimeout(getOwnBallot(open.id, me.slug), 10000);
@@ -563,7 +569,7 @@ async function recordedAnyway(open, choice, picks) {
     if (picks) picking = { pollId: open.id, picks: new Set(picks) };
     toast(choice === "pick" ? "Vote recorded." : "Vote recorded: " + labelOf(choice));
     return true;
-  } catch (err) { console.warn(err); return false; }
+  } catch (err) { console.warn(err); return classify(err) === "refused" ? "closed" : false; }
 }
 
 render();
